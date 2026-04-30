@@ -7,7 +7,7 @@
 const YARZ_API = (() => {
   // ===== CONFIGURATION =====
   // Apps Script Web App URL — hardcoded for auto-connection
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZ9MkaKJtm9JuGMLKvtfXhQVhpuwrMCyGYtuSiqRLSUtyF8LIa-oXl9r7tKWxmRi10/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwUR8SlNIAkKkhM7WtPnxsDSVw_t2ZUTllZWTQU9S8L7XpTWsKZS3PVCOsaj8grEA/exec';
   const GOOGLE_API_KEY = 'AIzaSyC2WUoTmJ_nwxZ0gV8BkE0UGgZoEfwyQ5k';
   const SHEET_ID = '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q';
 
