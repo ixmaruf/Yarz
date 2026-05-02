@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipping Policy — YARZ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="preload" href="./js/api.js" as="script">
+<link rel="preload" href="./js/pages-common.js" as="script">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23634A8E'/><text x='16' y='22' font-family='Arial' font-size='16' font-weight='900' fill='white' text-anchor='middle'>Y</text></svg>">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand-logo"><span class="logo-text">Y A R Z</span></a>
+    <nav class="main-nav">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <div class="header-actions"><a href="index.html" class="btn btn-ghost btn-sm">Back to Shop</a></div>
+  </div>
+</header>
+<main>
+  <div class="container">
+    <div class="page-header">
+      <h1>Shipping Policy</h1>
+      <p>Delivery information for all orders</p>
+    </div>
+    <div class="content-page">
+      <h2>Delivery Areas</h2>
+      <p>We deliver across Bangladesh. Our delivery service covers all 64 districts including metropolitan cities and rural areas.</p>
+      <p>আমরা সারা বাংলাদেশে ডেলিভারি দিয়ে থাকি। ঢাকা সিটির ভিতরে এবং ঢাকার বাইরে সকল জেলায় আমাদের ডেলিভারি সার্ভিস রয়েছে।</p>
+
+      <h2>Delivery Charges</h2>
+      <div id="shipping-charges-table" style="background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;overflow:hidden;margin:16px 0;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:var(--purple-50);">
+              <th style="padding:10px 16px;text-align:left;font-weight:600;border-bottom:1px solid var(--border-light);">Location</th>
+              <th style="padding:10px 16px;text-align:left;font-weight:600;border-bottom:1px solid var(--border-light);">Delivery Time</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600;border-bottom:1px solid var(--border-light);">Charge</th>
+            </tr>
+          </thead>
+          <tbody id="shipping-charges-body">
+            <tr>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">Inside Narayanganj</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">1-2 business days</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:600;border-bottom:1px solid var(--border-light);">৳70</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">Outside Narayanganj</td>
+              <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">2-4 business days</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:600;border-bottom:1px solid var(--border-light);">৳140</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);"><em>Note: Delivery charges may vary for specific products. The exact charge will be displayed at checkout.</em></p>
+
+      <h2>Delivery Timeline</h2>
+      <ul id="shipping-timeline-list">
+        <li><strong>Order Processing:</strong> Orders are processed within 24 hours of placement (excluding weekends and holidays)</li>
+        <li><strong>Inside Narayanganj:</strong> 1-2 business days after processing</li>
+        <li><strong>Outside Narayanganj:</strong> 2-4 business days after processing</li>
+        <li><strong>Remote Areas:</strong> May take an additional 1-2 days</li>
+      </ul>
+      <p>Please note that these are estimated delivery times. During peak seasons (Eid, Puja, New Year), delivery may take slightly longer.</p>
+
+      <h2>Courier Partners</h2>
+      <p>We work with trusted courier services to ensure your order reaches you safely:</p>
+      <ul>
+        <li>Pathao Courier</li>
+        <li>Steadfast</li>
+        <li>RedX</li>
+        <li>Sundorbon Courier</li>
+      </ul>
+      <p>The courier service assigned to your order may vary based on your location and availability.</p>
+
+      <h2>Order Tracking</h2>
+      <p>Once your order is shipped, you can track it using:</p>
+      <ul>
+        <li>Our <a href="index.html" style="color:var(--accent);text-decoration:underline;">Order Tracking page</a> using your phone number</li>
+        <li>The courier tracking ID provided via SMS or WhatsApp</li>
+      </ul>
+
+      <h2>Delivery Attempts</h2>
+      <ul>
+        <li>Our courier will attempt delivery up to 2 times</li>
+        <li>If you are unavailable, the courier will contact you to reschedule</li>
+        <li>After 2 failed attempts, the order will be returned to us</li>
+        <li>You will need to contact us to arrange re-delivery (additional charges may apply)</li>
+      </ul>
+
+      <h2>Important Notes</h2>
+      <ul>
+        <li>Please provide an accurate and complete delivery address to avoid delays</li>
+        <li>Include a working phone number so the courier can reach you</li>
+        <li>Someone must be available at the delivery address to receive the package</li>
+        <li>Please inspect the package upon delivery and report any damage immediately</li>
+      </ul>
+
+      <h2>Cash on Delivery (COD)</h2>
+      <p>We offer Cash on Delivery for all orders across Bangladesh. Please keep the exact amount ready at the time of delivery. The courier may not carry change.</p>
+
+      <h2>Contact</h2>
+      <p>For delivery-related queries:</p>
+      <ul>
+        <li>WhatsApp: <a href="https://wa.me/8801601743670" style="color:var(--accent);">+880 1601 743670</a></li>
+        <li>Email: <a href="mailto:yarzzzbd@gmail.com" style="color:var(--accent);">yarzzzbd@gmail.com</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="footer-bottom">
+    <span>&copy; 2025 YARZ. All rights reserved.</span>
+    <span style="margin:0 8px;">|</span>
+    <a href="privacy.html">Privacy</a><span style="margin:0 4px;">&middot;</span>
+    <a href="terms.html">Terms</a><span style="margin:0 4px;">&middot;</span>
+    <a href="return-policy.html">Returns</a>
+  </div>
+</footer>
+<script src="./js/api.js" defer></script>
+<script src="./js/pages-common.js" defer></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
+<script>
+// v3.6: Dynamic delivery charges injection from API (with default fallback)
+document.addEventListener('DOMContentLoaded', async function(){
+  try {
+    if (typeof YARZ_API === 'undefined' || !YARZ_API.getGlobalControls) return;
+    const ctrl = await YARZ_API.getGlobalControls();
+    const list = (ctrl && Array.isArray(ctrl.deliveryLocations)) ? ctrl.deliveryLocations : [];
+    const active = list.filter(l => l && l.active !== false && Number(l.charge) >= 0);
+    if (active.length === 0) return;
+    const tbody = document.getElementById('shipping-charges-body');
+    if (!tbody) return;
+    tbody.innerHTML = active.map(loc => {
+      const id = String(loc.id || '').toLowerCase();
+      const isInside = id.indexOf('inside') !== -1 || id.indexOf('zone_1') !== -1;
+      const eta = isInside ? '1-2 business days' : '2-4 business days';
+      const name = (loc.name || loc.id || '').replace(/[<>&"']/g, '');
+      const charge = Number(loc.charge) || 0;
+      return `<tr>
+        <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">${name}</td>
+        <td style="padding:10px 16px;border-bottom:1px solid var(--border-light);">${eta}</td>
+        <td style="padding:10px 16px;text-align:right;font-weight:600;border-bottom:1px solid var(--border-light);">৳${charge}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { /* keep defaults */ }
+});
+</script>
+</body>
+</html>
