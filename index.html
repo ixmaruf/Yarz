@@ -35,11 +35,11 @@
     rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/style.css?v=4.1">
 
   <!-- Preload critical scripts (parallel fetch, executed by defer below) -->
-  <link rel="preload" href="./js/api.js" as="script">
-  <link rel="preload" href="./js/app.js" as="script">
+  <link rel="preload" href="./js/api.js?v=4.1" as="script">
+  <link rel="preload" href="./js/app.js?v=4.1" as="script">
 
   <!-- Favicon as SVG data -->
   <link rel="icon"
@@ -75,9 +75,10 @@
   </style>
 
   <!-- Instant hash-route check: hide home content if on a product page -->
+  <style id="hash-route-style"></style>
   <script>
     if (window.location.hash && window.location.hash.indexOf('#product/') === 0) {
-      document.write('<style>#home-content{display:none!important}</style>');
+      document.getElementById('hash-route-style').textContent = '#home-content{display:none}';
     }
   </script>
 </head>
@@ -485,14 +486,15 @@
   </a>
 
   <!-- Scripts -->
-  <script src="./js/api.js" defer></script>
-  <script src="./js/app.js" defer></script>
+  <script src="./js/api.js?v=4.1" defer></script>
+  <script src="./js/app.js?v=4.1" defer></script>
 
-  <!-- v3.9: Service Worker — Super-fast loading via aggressive caching -->
+  <!-- v4.0: Service Worker disabled — was caching old CSS/JS and causing stale UI -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js').catch(function () { /* fail silently */ });
+      // Unregister any old service workers that may serve stale CSS/JS
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var r of registrations) r.unregister();
       });
     }
   </script>
