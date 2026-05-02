@@ -27,21 +27,7 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== v3.9 SUPER-HD IMAGE QUALITY (upgrade from v3.7) =====
-   ❌ Removed: content-visibility:auto on all <img> (caused blur on low-DPI rasterizing)
-   ✅ Added: high-quality scaling hints + GPU acceleration so uploaded
-      product photos (shirts, panjabi, t-shirts) keep their original
-      crystal-clear sharpness on every device — no blur, no pixelation. */
-img {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: high-quality;
-  image-rendering: auto;
-  -ms-interpolation-mode: bicubic;
-  /* GPU layer hint → no rasterization blur during scroll/transform */
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
+
 
 /* Mobile hero banner — v3.7: keep ORIGINAL banner ratio (no crop, no zoom) */
 @media (max-width: 600px) {
@@ -499,7 +485,7 @@ ol {
   display: block;
   max-height: 70vh;
   background-color: var(--cream-200);
-  image-rendering: -webkit-optimize-contrast;
+
   image-rendering: high-quality;
 }
 
@@ -742,35 +728,9 @@ ol {
 }
 
 /* Product Image — v3.7 HIGH-QUALITY (no blur, no aggressive zoom) */
-.product-card .card-image {
-  position: relative;
-  width: 100%;
-  padding-top: 125%;          /* 4:5 frame for grid uniformity */
-  overflow: hidden;
-  background: var(--cream-200);
-}
+.product-card .card-image { position: relative; width: 100%; padding-top: 125%; overflow: hidden; background: var(--cream-200); }
 
-.product-card .card-image img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;        /* v3.7 FIX: was "cover" → caused zoom-in/crop.
-                                 "contain" preserves the original photo. */
-  object-position: center center;
-  transition: transform 0.5s ease;
-  /* ===== v3.9: SUPER-HD image rendering — crystal clear product photos ===== */
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: high-quality;
-  image-rendering: crisp-edges;
-  -ms-interpolation-mode: bicubic;
-  /* GPU acceleration → no blur during transform */
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  will-change: transform;
-}
+.product-card .card-image img { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover !important; transition: transform 0.5s ease; display: block; object-position: center center !important; }
 
 .product-card:hover .card-image img {
   transform: scale(1.02);   /* v3.7: subtle hover, no aggressive zoom */
@@ -1454,25 +1414,21 @@ ol {
 
 .pd-main-image {
   width: 100%;
-  aspect-ratio: 3/4;
+  /* ✅ v4.0 FIX: No fixed aspect-ratio — image shows FULL without any cropping */
   border-radius: 6px;
   overflow: hidden;
   background: var(--cream-200);
   margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .pd-main-image img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;        /* v3.7 FIX: was "cover" → cropped product photo. */
+  height: auto;               /* ✅ v4.0: auto height — shows full image, zero crop */
+  object-fit: contain;
   object-position: center center;
-  /* ===== v3.9: SUPER-HD product detail image ===== */
-  image-rendering: -webkit-optimize-contrast;
+
   image-rendering: high-quality;
-  image-rendering: crisp-edges;
   -ms-interpolation-mode: bicubic;
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -3005,22 +2961,7 @@ textarea.form-input {
     overflow: hidden;
     border-radius: 6px;
   }
-  .product-card .card-image {
-    aspect-ratio: 3 / 4 !important;
-    height: auto !important;
-    width: 100%;
-    overflow: hidden;
-    background: var(--cream-200);
-    position: relative;
-  }
-  .product-card .card-image img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    object-position: center top !important;
-    display: block;
-  }
-}
+  .product-card .card-image { position: relative; width: 100%; padding-top: 125%; overflow: hidden; background: var(--cream-200); }
 
 /* ===== PRODUCT DETAIL PAGE MOBILE FIX (CRITICAL) ===== */
 /* Issue: ছবি সাইজ দিয়ে কাটা পড়ে, 6টা thumbnail scroll হয় না, select হয় না */
@@ -3038,9 +2979,9 @@ textarea.form-input {
     max-width: 100vw;
     overflow: visible;
   }
-  /* Main image: responsive aspect-ratio, না কাটে */
+  /* Main image: full image দেখায়, কোনো crop নেই */
   .pd-main-image {
-    aspect-ratio: 3 / 4 !important;
+    /* ✅ v4.0: No fixed aspect-ratio — image shows FULL */
     width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
@@ -3051,8 +2992,8 @@ textarea.form-input {
   }
   .pd-main-image img {
     width: 100% !important;
-    height: 100% !important;
-    object-fit: contain !important; /* ← ছবি কাটে না, পুরোটা দেখায় */
+    height: auto !important;        /* ✅ auto: full image, no crop */
+    object-fit: contain !important;
     object-position: center center !important;
     background: var(--cream-100);
   }
@@ -3554,3 +3495,5 @@ textarea.form-input {
 .skeleton-empty-hide {
   display: none !important;
 }
+
+
