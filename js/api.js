@@ -8,8 +8,8 @@
 
 const YARZ_API = (() => {
   // ===== CONFIGURATION =====
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJCbvqQRZa9j-u_WOJzF6Iy_YMzhYb2EMXT8Z90LU8GZNs505-a7M5kTafb5OSzXDf/exec';
-  const GOOGLE_API_KEY = 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx8wiB9lwsGLst7QTGFrLbhN8lUcp2IlapQvTelVnsIgGek-gsk_fGI8BJplUtB6O5n/exec';
+  const GOOGLE_API_KEY = 'AIzaSyC2WUoTmJ_nwxZ0gV8BkE0UGgZoEfwyQ5k';
   const SHEET_ID = '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q';
 
   const CONFIG = {
