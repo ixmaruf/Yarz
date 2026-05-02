@@ -8,7 +8,7 @@
 
 const YARZ_API = (() => {
   // ===== CONFIGURATION =====
-  // ✅ v3.8 (2026-05-02): নতুন Apps Script deployment URL
+  // ✅ v3.9 (2026-05-03): নতুন Apps Script deployment URL (updated)
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw0QD3B9FIC_4eI6g6HdBXv1_BQHpXOQKEsF-ykVr0JbJ8jDUkVgrz0Kk6vLF_FvTdC/exec';
   const GOOGLE_API_KEY = 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k';
   const SHEET_ID = '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q';
@@ -16,16 +16,16 @@ const YARZ_API = (() => {
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
     BASE_URL: APPS_SCRIPT_URL,
-    // ✅ v3.9: Smart-tiered cache TTL (different freshness per action)
-    //   - store_info / settings  → 10s fresh, 5min stale (admin-panel target ≤10s sync)
-    //   - products / categories  → 30s fresh, 10min stale (rarely change)
-    //   - default                → 10s fresh, 1min stale
+    // ✅ v4.0: Aggressive caching for instant UX
+    //   - products / categories → 5min fresh, 1hr stale (background refresh)
+    //   - store_info            → 30s fresh, 10min stale
+    //   - default               → 10s fresh, 2min stale
     CACHE_TTL: 10 * 1000,
-    STALE_TTL: 60 * 1000,
-    PRODUCT_CACHE_TTL: 30 * 1000,
-    PRODUCT_STALE_TTL: 10 * 60 * 1000,
-    SETTINGS_CACHE_TTL: 10 * 1000,
-    SETTINGS_STALE_TTL: 5 * 60 * 1000,
+    STALE_TTL: 2 * 60 * 1000,
+    PRODUCT_CACHE_TTL: 5 * 60 * 1000,         // 5 minutes fresh
+    PRODUCT_STALE_TTL: 60 * 60 * 1000,        // 1 hour stale (background refresh)
+    SETTINGS_CACHE_TTL: 30 * 1000,
+    SETTINGS_STALE_TTL: 10 * 60 * 1000,
   };
 
   // ✅ v3.9: Tier resolver — picks the right TTL per action
@@ -54,6 +54,24 @@ const YARZ_API = (() => {
 
   const cache = {};
 
+  // ✅ v3.9: URL version enforcement — যদি localStorage এ পুরানো URL থাকে, reset করো
+  const _KNOWN_OLD_URLS = [
+    'https://script.google.com/macros/s/AKfycby8kuRND7o3PG_DnkP_BkhkG3YVEcOELSA1Unnx6zV4PCvdCslOkX2xFm1OWihStdSq/exec'
+  ];
+  (function _resetStaleUrl() {
+    try {
+      var saved = localStorage.getItem('yarz_api_url');
+      if (saved && _KNOWN_OLD_URLS.indexOf(saved) !== -1) {
+        localStorage.removeItem('yarz_api_url');
+        // Also clear all product/category caches since old URL's data is stale
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.startsWith('yarz_api_cache_')) localStorage.removeItem(k);
+        });
+        console.log('YARZ: Stale API URL detected and cleared. Using new deployment URL.');
+      }
+    } catch(e) {}
+  })();
+
   function getBaseUrl() {
     return localStorage.getItem('yarz_api_url') || APPS_SCRIPT_URL;
   }
@@ -65,6 +83,7 @@ const YARZ_API = (() => {
   function isConfigured() {
     return !!getBaseUrl();
   }
+
 
   function getCached(key, allowStale, action) {
     const ttl = _ttlFor(action || '');
@@ -136,6 +155,51 @@ const YARZ_API = (() => {
           data.storeInfo = data.data.storeInfo;
         }
         if (data.data.timestamp) data.timestamp = data.data.timestamp;
+      }
+
+      // ✅ v3.9 CRITICAL FIX: Normalize each product's field names so app.js renders correctly
+      // Apps Script sends: stockM/stockL/stockXL/stockXXL, regular, sale, discPct, image1-6
+      // app.js expects:    sizes.M/L/XL/XXL, regularPrice, salePrice, discountPercent, image1-6
+      if (Array.isArray(data.products)) {
+        data.products = data.products.map(function(p) {
+          if (!p || typeof p !== 'object') return p;
+
+          // Map price fields
+          if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
+          if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
+          if (p.discountPercent === undefined) {
+            p.discountPercent = p.discPct !== undefined ? p.discPct :
+              (p.regularPrice > 0 && p.salePrice >= 0 ?
+                Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+          }
+
+          // Map sizes → { M: qty, L: qty, XL: qty, XXL: qty }
+          if (!p.sizes || typeof p.sizes !== 'object') {
+            var sM = parseInt(p.stockM) || 0;
+            var sL = parseInt(p.stockL) || 0;
+            var sXL = parseInt(p.stockXL) || 0;
+            var sXXL = parseInt(p.stockXXL) || 0;
+            p.sizes = { M: sM, L: sL, XL: sXL, XXL: sXXL };
+          }
+
+          // inStock = true if ANY size has stock > 0
+          if (p.inStock === undefined) {
+            p.inStock = (p.sizes.M > 0 || p.sizes.L > 0 || p.sizes.XL > 0 || p.sizes.XXL > 0);
+          }
+
+          // Ensure image field aliases (Apps Script uses image1, website also image1 - ensure consistency)
+          if (!p.image1 && p.img1) p.image1 = p.img1;
+          if (!p.image2 && p.img2) p.image2 = p.img2;
+          if (!p.image3 && p.img3) p.image3 = p.img3;
+          if (!p.image4 && p.img4) p.image4 = p.img4;
+          if (!p.image5 && p.img5) p.image5 = p.img5;
+          if (!p.image6 && p.img6) p.image6 = p.img6;
+
+          // description alias
+          if (!p.description && p.desc) p.description = p.desc;
+
+          return p;
+        });
       }
     }
 
