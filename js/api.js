@@ -9,7 +9,7 @@
 const YARZ_API = (() => {
   // ===== CONFIGURATION =====
   // ✅ v3.8 (2026-05-02): নতুন Apps Script deployment URL
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8kuRND7o3PG_DnkP_BkhkG3YVEcOELSA1Unnx6zV4PCvdCslOkX2xFm1OWihStdSq/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw0QD3B9FIC_4eI6g6HdBXv1_BQHpXOQKEsF-ykVr0JbJ8jDUkVgrz0Kk6vLF_FvTdC/exec';
   const GOOGLE_API_KEY = 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k';
   const SHEET_ID = '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q';
 
