@@ -323,26 +323,39 @@ const YARZ_API = (() => {
   }
 
   async function _fetchFromNetwork(action, urlStr, cacheKey, skipCache) {
-    try {
-      const bustUrl = urlStr + (urlStr.includes('?') ? '&' : '?') + '_t=' + Date.now();
-      const response = await fetch(bustUrl, {
-        method: 'GET',
-        redirect: 'follow',
-        cache: 'no-store',
-      });
-      let data = await response.json();
+    const maxRetries = 3;
+    let attempt = 0;
 
-      // ✅ CRITICAL: Normalize response so app.js works regardless of API format
-      data = _normalizeResponse(action, data);
+    while (attempt < maxRetries) {
+      try {
+        const bustUrl = urlStr + (urlStr.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        const response = await fetch(bustUrl, {
+          method: 'GET',
+          redirect: 'follow',
+          cache: 'no-store',
+        });
+        
+        let data = await response.json();
 
-      if (data.success && !skipCache) {
-        setCache(cacheKey, data);
-        _notifyRefresh(cacheKey, data);
+        // ✅ CRITICAL: Normalize response so app.js works regardless of API format
+        data = _normalizeResponse(action, data);
+
+        if (data.success && !skipCache) {
+          setCache(cacheKey, data);
+          _notifyRefresh(cacheKey, data);
+        }
+        return data;
+      } catch (err) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error('YARZ API GET Error after ' + maxRetries + ' attempts:', err);
+          throw err;
+        }
+        // Jittered backoff: 1s, then 2s, plus some random ms to spread out the herd
+        const delay = (attempt * 1000) + Math.floor(Math.random() * 500);
+        console.warn('YARZ API GET failed, retrying in ' + delay + 'ms... (Attempt ' + attempt + ')');
+        await new Promise(r => setTimeout(r, delay));
       }
-      return data;
-    } catch (err) {
-      console.error('YARZ API GET Error:', err);
-      throw err;
     }
   }
 
@@ -363,22 +376,33 @@ const YARZ_API = (() => {
     const base = getBaseUrl();
     if (!base) throw new Error('API URL not configured');
 
-    try {
-      const response = await fetch(base, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          key: CONFIG.API_KEY,
-          action,
-          ...body
-        })
-      });
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.error('YARZ API POST Error:', err);
-      throw err;
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const response = await fetch(base, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            key: CONFIG.API_KEY,
+            action,
+            ...body
+          })
+        });
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error('YARZ API POST Error after ' + maxRetries + ' attempts:', err);
+          throw err;
+        }
+        const delay = (attempt * 1000) + Math.floor(Math.random() * 500);
+        console.warn('YARZ API POST failed, retrying in ' + delay + 'ms... (Attempt ' + attempt + ')');
+        await new Promise(r => setTimeout(r, delay));
+      }
     }
   }
 
