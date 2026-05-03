@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page Not Found — YARZ</title>
+<link rel="stylesheet" href="./css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23634A8E'/><text x='16' y='22' font-family='Arial' font-size='16' font-weight='900' fill='white' text-anchor='middle'>Y</text></svg>">
+<script>
+  // GitHub Pages SPA redirect: if user landed here via deep link with a hash route,
+  // redirect to root index with the hash preserved
+  (function () {
+    var hash = window.location.hash || '';
+    var path = window.location.pathname || '';
+    // If we are inside a subfolder deployment, find the repo root
+    var segments = path.split('/').filter(Boolean);
+    // If path is /repo-name/something, redirect to /repo-name/ + hash
+    if (segments.length > 0) {
+      // Try to redirect to the closest index.html
+      var redirect = '/' + segments[0] + '/' + (hash || '');
+      // If we're on a custom domain (no subfolder), just go to root
+      if (window.location.hostname.indexOf('github.io') === -1) {
+        redirect = '/' + (hash || '');
+      }
+      window.location.replace(redirect);
+    } else {
+      window.location.replace('/' + (hash || ''));
+    }
+  })();
+</script>
+</head>
+<body style="background:#FBF8F1;font-family:'Inter',sans-serif;">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+  <div>
+    <div style="font-size:72px;font-weight:800;color:#634A8E;letter-spacing:0.05em;">404</div>
+    <div style="font-size:20px;font-weight:600;color:#1A1A2E;margin:12px 0;">Page Not Found</div>
+    <p style="font-size:14px;color:#6B6B7A;max-width:400px;margin:0 auto 24px;">The page you are looking for doesn't exist or has been moved. Redirecting you to homepage...</p>
+    <a href="./index.html" style="display:inline-block;padding:12px 28px;background:#634A8E;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;letter-spacing:0.04em;">Go to Homepage</a>
+  </div>
+</div>
+</body>
+</html>
