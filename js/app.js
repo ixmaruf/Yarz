@@ -944,8 +944,11 @@ const YARZ = (() => {
     html += '<button class="btn btn-outline btn-lg" onclick="YARZ.buyNow()"' + (!product.inStock ? ' disabled' : '') + '>Buy Now</button>';
     html += '</div>';
 
-    var deliveryText = deliveryLocations.map(function (loc) {
-      return escHtml(loc.name) + ': ' + formatPrice(loc.charge);
+    var deliveryText = deliveryLocations.map(function (loc, idx) {
+      var charge = parseFloat(loc.charge) || 0;
+      if (idx === 0 && product.deliveryDhaka !== undefined && product.deliveryDhaka !== '') charge = parseFloat(product.deliveryDhaka);
+      else if (idx === 1 && product.deliveryOutside !== undefined && product.deliveryOutside !== '') charge = parseFloat(product.deliveryOutside);
+      return escHtml(loc.name) + ': ' + formatPrice(charge);
     }).join(' &middot; ');
 
     // Delivery info
@@ -1249,8 +1252,17 @@ const YARZ = (() => {
     if (locationSel) {
       var locations = getDeliveryLocations();
       var currentLoc = locationSel.value;
-      locationSel.innerHTML = locations.map(function (loc) {
-        return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(loc.charge) + '</option>';
+      locationSel.innerHTML = locations.map(function (loc, idx) {
+        var charge = parseFloat(loc.charge) || 0;
+        if (state.cart.length > 0) {
+          charge = state.cart.reduce(function(max, item) {
+            var c = parseFloat(loc.charge) || 0;
+            if (idx === 0 && item.deliveryDhaka !== undefined && item.deliveryDhaka !== '') c = parseFloat(item.deliveryDhaka);
+            else if (idx === 1 && item.deliveryOutside !== undefined && item.deliveryOutside !== '') c = parseFloat(item.deliveryOutside);
+            return Math.max(max, c);
+          }, 0);
+        }
+        return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(charge) + '</option>';
       }).join('');
       if (currentLoc && locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
         locationSel.value = currentLoc;
@@ -1267,8 +1279,17 @@ const YARZ = (() => {
           state.storeInfo.deliveryLocations = res.locations;
           if (locationSel) {
             var currentLoc = locationSel.value;
-            locationSel.innerHTML = res.locations.map(function (loc) {
-              return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(loc.charge) + '</option>';
+            locationSel.innerHTML = res.locations.map(function (loc, idx) {
+              var charge = parseFloat(loc.charge) || 0;
+              if (state.cart.length > 0) {
+                charge = state.cart.reduce(function(max, item) {
+                  var c = parseFloat(loc.charge) || 0;
+                  if (idx === 0 && item.deliveryDhaka !== undefined && item.deliveryDhaka !== '') c = parseFloat(item.deliveryDhaka);
+                  else if (idx === 1 && item.deliveryOutside !== undefined && item.deliveryOutside !== '') c = parseFloat(item.deliveryOutside);
+                  return Math.max(max, c);
+                }, 0);
+              }
+              return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(charge) + '</option>';
             }).join('');
             if (currentLoc && res.locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
               locationSel.value = currentLoc;
@@ -1468,7 +1489,18 @@ const YARZ = (() => {
     el.innerHTML = html;
     
     var location = ($('#co-location') || {}).value || (getDeliveryLocations()[0] || {}).id || 'inside_narayanganj';
-    var deliveryCharge = state.cart.length > 0 ? getDeliveryCharge(location) : 0;
+    var deliveryCharge = 0;
+    if (state.cart.length > 0) {
+      var locs = getDeliveryLocations();
+      var locIndex = locs.findIndex(function(l) { return String(l.id) === String(location); });
+      var defaultCharge = getDeliveryCharge(location);
+      deliveryCharge = state.cart.reduce(function(max, item) {
+        var c = defaultCharge;
+        if (locIndex === 0 && item.deliveryDhaka !== undefined && item.deliveryDhaka !== '') c = parseFloat(item.deliveryDhaka);
+        else if (locIndex === 1 && item.deliveryOutside !== undefined && item.deliveryOutside !== '') c = parseFloat(item.deliveryOutside);
+        return Math.max(max, c);
+      }, 0);
+    }
 
     var deliveryEl = $('#checkout-delivery');
     if (deliveryEl) deliveryEl.textContent = formatPrice(deliveryCharge);
