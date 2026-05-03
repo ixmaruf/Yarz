@@ -865,8 +865,11 @@ const YARZ = (() => {
     // ✅ v4.2: Start silent live-stock polling (every 30s) — no loader shown
     _startStockPoll(product);
 
-    // Update URL hash for refresh safety
-    history.pushState(null, '', '#product/' + encodeURIComponent(product.name));
+    // ✅ v4.8 FIX: Only push state if hash is different (prevents infinite back-button loop)
+    var expectedHash = '#product/' + encodeURIComponent(product.name);
+    if (window.location.hash !== expectedHash) {
+      history.pushState(null, '', expectedHash);
+    }
 
     var images = [product.image1, product.image2, product.image3, product.image4, product.image5, product.image6].filter(Boolean);
     var hasDiscount = parseFloat(product.discountPercent) > 0 && parseFloat(product.regularPrice) > parseFloat(product.salePrice);
@@ -3056,6 +3059,17 @@ const YARZ = (() => {
               } catch(e) {}
             }
             console.log('YARZ: Instant render from cache (' + state.products.length + ' products)');
+            
+            // ✅ v4.8 FIX: Handle hash routing instantly from cache!
+            // Prevents showing the home page for 3-4 seconds before opening the product
+            var hash = window.location.hash || '';
+            if (hash.indexOf('#product/') === 0) {
+              var pName = decodeURIComponent(hash.replace('#product/', ''));
+              if (pName) {
+                setTimeout(function() { openProduct(pName); }, 50);
+              }
+            }
+            
             return; // ← skip skeleton, go straight to API refresh
           }
         }
@@ -3246,7 +3260,9 @@ const YARZ = (() => {
         var hash = window.location.hash || '';
         if (hash.indexOf('#product/') === 0) {
           var productName = decodeURIComponent(hash.replace('#product/', ''));
-          if (productName) {
+          // ✅ v4.8 FIX: Only open if not already viewing this product!
+          // This prevents the page from going blank/flickering after 3-4 seconds
+          if (productName && state.currentView !== 'product') {
             setTimeout(function() { openProduct(productName); }, 100);
           }
         }
