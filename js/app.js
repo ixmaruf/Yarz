@@ -517,7 +517,7 @@ const YARZ = (() => {
   // - Caches the last rendered HTML hash to skip identical re-renders (prevents flicker)
   // - Uses requestAnimationFrame batching for smooth paint
   // - No skeleton flicker — only renders when data is actually different
-  var _lastDynSecHash = '';
+  // - No skeleton flicker — only renders when data is actually different
   function renderDynamicSections(products, storeInfo) {
     var wrapper = $('#dynamic-sections-wrapper');
     var allProductsSec = $('#all-products-section');
@@ -531,10 +531,8 @@ const YARZ = (() => {
     }
 
     if (sections.length === 0) {
-      if (wrapper.innerHTML !== '') wrapper.innerHTML = '';
       wrapper.classList.add('is-empty');
       if (allProductsSec) allProductsSec.style.display = '';
-      _lastDynSecHash = '';
       return;
     }
     wrapper.classList.remove('is-empty');
@@ -542,7 +540,7 @@ const YARZ = (() => {
     var html = '';
     sections.forEach(function (sec, idx) {
       var secProducts = sec.category ? products.filter(function(p) {
-        return (p.category || '').toLowerCase() === sec.category.toLowerCase();
+        return (p.category || '').trim().toLowerCase() === sec.category.trim().toLowerCase();
       }) : products.slice(0, 8);
 
       if (secProducts.length === 0) return;
@@ -559,15 +557,11 @@ const YARZ = (() => {
       html += '</div></div></section>';
     });
 
-    // ✅ Skip re-render if HTML is identical (eliminates flicker on background refresh)
-    var newHash = html.length + '_' + sections.length + '_' + (products.length || 0);
-    if (newHash === _lastDynSecHash && wrapper.innerHTML) {
+    if (wrapper.innerHTML === html) {
       if (allProductsSec) allProductsSec.style.display = html ? 'none' : '';
       return;
     }
-    _lastDynSecHash = newHash;
 
-    // Use requestAnimationFrame for smooth paint (avoids layout thrash)
     if (window.requestAnimationFrame) {
       requestAnimationFrame(function () {
         wrapper.innerHTML = html;
@@ -737,7 +731,7 @@ const YARZ = (() => {
     }
 
     var filtered = cat ? state.products.filter(function (p) {
-      return (p.category || '').toLowerCase() === cat.toLowerCase();
+      return (p.category || '').trim().toLowerCase() === cat.trim().toLowerCase();
     }) : state.products;
     renderProducts(filtered);
   }
@@ -754,13 +748,31 @@ const YARZ = (() => {
 
   function _getEffectiveStock(product, size) {
     if (!product || !size) return 0;
-    var live = _liveStock[product.name];
-    // Prefer live (server-fresh) stock if it was fetched within the last 60 seconds
-    if (live && (Date.now() - live.updatedAt) < 60000) {
-      return parseInt(live['stock_' + size]) || 0;
+    
+    function parseStock(val) {
+      if (val === undefined || val === null || val === '') return null;
+      if (typeof val === 'boolean') return val ? 999 : 0;
+      var num = parseInt(val);
+      return isNaN(num) ? null : Math.max(0, num);
     }
-    // Fallback to cached product data
-    return parseInt(product['stock_' + size]) || 0;
+    
+    var live = _liveStock[product.name];
+    if (live && (Date.now() - live.updatedAt) < 60000) {
+      var l1 = parseStock(live['stock_' + size]);
+      if (l1 !== null) return l1;
+      var l2 = parseStock(live['stock' + size]);
+      if (l2 !== null) return l2;
+    }
+    
+    var p1 = parseStock(product['stock_' + size]);
+    if (p1 !== null) return p1;
+    var p2 = parseStock(product['stock' + size]);
+    if (p2 !== null) return p2;
+    if (product.sizes) {
+      var p3 = parseStock(product.sizes[size]);
+      if (p3 !== null) return p3;
+    }
+    return 0;
   }
 
   // Fetch live stock from Google Sheets in background — no UI blocking
@@ -1246,6 +1258,26 @@ const YARZ = (() => {
     }
 
     renderCheckoutSummary();
+
+    // ✅ FIX: Fetch live delivery locations on checkout open (ignores cache)
+    if (window.YARZ_API && YARZ_API.getDeliveryCharges) {
+      YARZ_API.getDeliveryCharges().then(function(res) {
+        if (res && res.success && res.locations) {
+          state.storeInfo = state.storeInfo || {};
+          state.storeInfo.deliveryLocations = res.locations;
+          if (locationSel) {
+            var currentLoc = locationSel.value;
+            locationSel.innerHTML = res.locations.map(function (loc) {
+              return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(loc.charge) + '</option>';
+            }).join('');
+            if (currentLoc && res.locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
+              locationSel.value = currentLoc;
+            }
+          }
+          renderCheckoutSummary();
+        }
+      }).catch(function() {});
+    }
 
     // ✅ FIX v4.2 (HARDENED): Dynamically render payment options + COD toggle handling
     // When admin disables COD via "Enable COD" toggle in admin panel:
@@ -3282,29 +3314,11 @@ const YARZ = (() => {
     }
   }
 
-  // v4.3: Smart Messenger Deep Link — opens app directly on mobile
+  // v4.3: Smart Messenger Deep Link — REVERTED
+  // Browser's native m.me handling is more reliable than custom intents.
   function _attachMessengerDeepLink(btn, msUrl) {
-    btn.addEventListener('click', function(e) {
-      var ua = navigator.userAgent || '';
-      var isAndroid = /Android/i.test(ua);
-      var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-      if (!isAndroid && !isIOS) { btn.target = '_blank'; return; }
-      e.preventDefault();
-      e.stopPropagation();
-      // Extract page/user ID from m.me URL
-      var pageId = '';
-      try { pageId = msUrl.replace(/^https?:\/\/(www\.)?m\.me\//i, '').split('?')[0].split('/')[0]; } catch(ex) {}
-      if (!pageId) { window.open(msUrl, '_blank'); return; }
-      if (isAndroid) {
-        var timer = setTimeout(function(){ window.location.href = msUrl; }, 1500);
-        window.location.href = 'fb-messenger://user-thread/' + pageId;
-        window.addEventListener('blur', function onB(){ clearTimeout(timer); window.removeEventListener('blur', onB); }, {once:true});
-      } else {
-        var timer2 = setTimeout(function(){ window.location.href = msUrl; }, 1200);
-        window.location.href = 'fb-messenger://user-thread/' + pageId;
-        document.addEventListener('visibilitychange', function onV(){ if(document.hidden){clearTimeout(timer2);} document.removeEventListener('visibilitychange', onV); }, {once:true});
-      }
-    });
+    btn.target = '_blank';
+    btn.rel = 'noopener noreferrer';
   }
 
   function setApiUrl() {
