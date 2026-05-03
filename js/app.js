@@ -1152,7 +1152,17 @@ const YARZ = (() => {
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="m16 8 4 0 3 4v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>' +
           'Recent Orders</div>';
         recentOrders.forEach(function(o) {
-          var statusClass = (o.status || 'pending').toLowerCase().replace(/\s+/g, '');
+          var rawStat = (o.status || 'pending').toLowerCase().replace(/\s+/g, '');
+          var statusClass = rawStat;
+          var displayStatus = o.status || 'Pending';
+          var inlineStyle = 'font-size:9px;padding:2px 6px;border-radius:10px;';
+          
+          if (rawStat === 'pending') {
+            displayStatus = 'অর্ডার কনফার্ম';
+            statusClass = ''; // Remove default pending class
+            inlineStyle += 'color:#059669;background:rgba(5,150,105,0.1);font-weight:600;'; // Green color
+          }
+
           var total = parseFloat(o.total || o.totalAmount) || 0;
           // ✅ v4.7: Format date with time in BD timezone
           var miniDate = (typeof _fmtBdDate === 'function')
@@ -1163,7 +1173,7 @@ const YARZ = (() => {
             '<div style="font-weight:600;color:var(--ink-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(o.product || o.productName || '') + '</div>' +
             '<div style="color:var(--text-muted);font-size:10px;">' + escHtml(miniDate) + '</div></div>' +
             '<div style="text-align:right;margin-left:8px;">' +
-            '<span class="order-status ' + statusClass + '" style="font-size:9px;padding:2px 6px;border-radius:10px;">' + escHtml(o.status || 'Pending') + '</span>' +
+            '<span class="order-status ' + statusClass + '" style="' + inlineStyle + '">' + escHtml(displayStatus) + '</span>' +
             (total > 0 ? '<div style="font-weight:600;font-size:11px;margin-top:2px;">' + formatPrice(total) + '</div>' : '') +
             '</div></div>';
         });
@@ -2284,8 +2294,8 @@ const YARZ = (() => {
       var statusBadge = '';
       switch(rawStatus.toLowerCase()) {
         case 'pending': 
-          statusText = 'আপনার অর্ডারটি গ্রহণ করা হয়েছে, কনফার্মেশনের জন্য অপেক্ষা করুন।';
-          statusBadge = '<span style="color:#d97706;background:rgba(245,158,11,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;">⏳ Pending</span>';
+          statusText = 'আপনার অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে।';
+          statusBadge = '<span style="color:#059669;background:rgba(5,150,105,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;">✅ অর্ডার কনফার্ম</span>';
           break;
         case 'confirmed':
           statusText = 'আপনার অর্ডারটি কনফার্ম করা হয়েছে। শীঘ্রই প্রসেসিং শুরু হবে।';
