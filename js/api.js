@@ -418,6 +418,10 @@ const YARZ_API = (() => {
     return apiGet('store_info');
   }
 
+  async function getDeliveryCharges() {
+    return apiGet('delivery_charges', { _t: Date.now() }, { skipCache: true });
+  }
+
   async function healthCheck() {
     return apiGet('health');
   }
@@ -654,6 +658,7 @@ const YARZ_API = (() => {
     getProduct,
     getCategories,
     getStoreInfo,
+    getDeliveryCharges,
     getGlobalControls,
     healthCheck,
     placeOrder,
