@@ -6,7 +6,7 @@
    ✅ Network-first for HTML (always get latest content)
    ============================================================ */
 
-const CACHE_VERSION = 'yarz-v3.9.0';
+const CACHE_VERSION = 'yarz-v4.5.0';
 const STATIC_CACHE  = CACHE_VERSION + '-static';
 const IMAGE_CACHE   = CACHE_VERSION + '-images';
 const API_CACHE     = CACHE_VERSION + '-api';
