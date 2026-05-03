@@ -1,11 +1,11 @@
 /* ============================================================
-   YARZ — API Layer v4.3 (SUPER-FAST + ORDER-SYNC FIXES)
+   YARZ — API Layer v4.5 (SUPER-FAST + CACHE-BUST FIX)
    ✅ Instant render from localStorage (< 50ms first paint)
    ✅ Stale-while-revalidate for instant page loads
    ✅ Order tracking — NO cache (always fresh status)
-   ✅ Order delete blocked once status moves past Pending
-   ✅ Order status update support
-   ✅ v4.3: Fixed _KNOWN_OLD_URLS bug, extended cache window
+   ✅ v4.5: Deployment version tracking — auto-clears ALL
+            caches when a new deployment is detected.
+            Fixes: "incognito works but normal browser doesn't"
    ============================================================ */
 
 const YARZ_API = (() => {
@@ -15,20 +15,23 @@ const YARZ_API = (() => {
   const GOOGLE_API_KEY = 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k';
   const SHEET_ID = '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q';
 
+  // ✅ v4.5: Deployment version — when this changes, ALL caches are force-cleared
+  const DEPLOY_VERSION = '2026-05-03-v4.5';
+
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
     BASE_URL: APPS_SCRIPT_URL,
-    // ✅ v4.1: Even more aggressive caching for instant UX
-    //   - products / categories → 10min fresh, 24hr stale (background refresh)
-    //   - store_info            → 1min fresh, 30min stale
+    // ✅ v4.5: Reduced stale times so admin changes reflect quickly
+    //   - products / categories → 2min fresh, 3min stale
+    //   - store_info            → 30s fresh, 2min stale
     //   - orders_by_phone       → NO CACHE (always real-time status)
-    //   - default               → 10s fresh, 2min stale
+    //   - default               → 10s fresh, 1min stale
     CACHE_TTL: 10 * 1000,
-    STALE_TTL: 2 * 60 * 1000,
-    PRODUCT_CACHE_TTL: 10 * 60 * 1000,        // 10 minutes fresh
-    PRODUCT_STALE_TTL: 24 * 60 * 60 * 1000,   // 24 hours stale (background refresh)
-    SETTINGS_CACHE_TTL: 60 * 1000,            // 1 minute fresh
-    SETTINGS_STALE_TTL: 30 * 60 * 1000,       // 30 minutes stale
+    STALE_TTL: 60 * 1000,
+    PRODUCT_CACHE_TTL: 2 * 60 * 1000,         // 2 minutes fresh
+    PRODUCT_STALE_TTL: 3 * 60 * 1000,         // 3 minutes stale (then force-refresh)
+    SETTINGS_CACHE_TTL: 30 * 1000,            // 30 seconds fresh
+    SETTINGS_STALE_TTL: 2 * 60 * 1000,        // 2 minutes stale
   };
 
   // ✅ v4.1: Action types that should NEVER be cached (real-time required)
@@ -66,16 +69,39 @@ const YARZ_API = (() => {
     'https://script.google.com/macros/s/AKfycbyjckgxRInw4IppCtjeVaV6w_fZn3qj87Xe1TyJ_Hgr8515Wf5_3DVCfyO066kdLAx7/exec',
     'https://script.google.com/macros/s/AKfycbwdJZdAdH7COFBrUMjGLbfYq7t8FAw5A2oFo1u4NYRiblEbs5Vu1Y_oHVKenywy1HCX/exec'
   ];
-  (function _resetStaleUrl() {
+  // ✅ v4.5: DEPLOYMENT VERSION CHECK — force-clears ALL caches when new version detected
+  // This is the MAIN fix for "incognito works but normal browser doesn't"
+  (function _deployVersionCheck() {
     try {
+      var lastDeploy = localStorage.getItem('yarz_deploy_version');
+      if (lastDeploy !== DEPLOY_VERSION) {
+        console.log('YARZ: New deployment detected (' + DEPLOY_VERSION + '). Clearing ALL caches...');
+        // 1. Clear localStorage caches
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.startsWith('yarz_api_cache_') || k === 'yarz_api_url' ||
+              k === 'yarz_storeinfo_cache') {
+            localStorage.removeItem(k);
+          }
+        });
+        // 2. Force Service Worker to clear old caches
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            keys.forEach(function(k) { caches.delete(k); });
+          });
+        }
+        // 3. Unregister old service worker so new one installs fresh
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+          });
+        }
+        // 4. Save new version
+        localStorage.setItem('yarz_deploy_version', DEPLOY_VERSION);
+      }
+      // Also check for known old URLs
       var saved = localStorage.getItem('yarz_api_url');
       if (saved && _KNOWN_OLD_URLS.indexOf(saved) !== -1) {
         localStorage.removeItem('yarz_api_url');
-        // Also clear all product/category caches since old URL's data is stale
-        Object.keys(localStorage).forEach(function(k) {
-          if (k.startsWith('yarz_api_cache_')) localStorage.removeItem(k);
-        });
-        console.log('YARZ: Stale API URL detected and cleared. Using new deployment URL.');
       }
     } catch(e) {}
   })();
