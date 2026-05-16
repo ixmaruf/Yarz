@@ -169,7 +169,9 @@ const YARZ_API = (() => {
     if (action === 'products') {
       // Promote nested data.data.products → data.products
       if (data.data && typeof data.data === 'object') {
-        if (Array.isArray(data.data.products)) {
+        if (Array.isArray(data.data)) {
+          data.products = data.data;
+        } else if (Array.isArray(data.data.products)) {
           data.products = data.data.products;
         }
         if (Array.isArray(data.data.categories) && !data.categories) {
