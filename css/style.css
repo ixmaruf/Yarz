@@ -4555,8 +4555,17 @@ select:focus-visible {
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
 
+  /* v5.4: Prevent sticky buy bar from blocking WhatsApp button and footer */
+  body.has-sticky-bar {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   .floating-whatsapp-btn {
     bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.has-sticky-bar .floating-whatsapp-btn {
+    transform: translateY(-64px);
   }
 }
 
@@ -4574,7 +4583,7 @@ select:focus-visible {
     bottom: env(safe-area-inset-bottom, 0px);
     left: 0;
     right: 0;
-    z-index: 9985;
+    z-index: 290; /* Safe below cart overlay (300) and modal overlay (400) */
     padding: 10px 16px;
     background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(16px) saturate(180%);
@@ -4586,6 +4595,12 @@ select:focus-visible {
     transform: translateY(calc(100% + 80px));
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
+  }
+
+  /* Hide sticky bar when modals or drawers are open */
+  body.checkout-open .sticky-buy-bar,
+  body.cart-open .sticky-buy-bar {
+    transform: translateY(calc(100% + 80px)) !important;
   }
 
   .sticky-buy-bar.visible {
