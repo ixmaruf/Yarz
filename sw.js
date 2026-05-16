@@ -6,7 +6,7 @@
    ✅ Network-first for HTML (always get latest content)
    ============================================================ */
 
-const CACHE_VERSION = 'yarz-v4.7.0';
+const CACHE_VERSION = 'yarz-v5.0.0';
 const STATIC_CACHE  = CACHE_VERSION + '-static';
 const IMAGE_CACHE   = CACHE_VERSION + '-images';
 const API_CACHE     = CACHE_VERSION + '-api';
@@ -49,10 +49,12 @@ self.addEventListener('fetch', function (event) {
 
   const url = new URL(req.url);
 
-  // Skip Apps Script API calls (they have their own cache layer)
-  if (url.hostname.indexOf('script.google.com') !== -1) {
-    event.respondWith(networkFirst(req, API_CACHE, 5000));
-    return;
+  // ✅ v5.0: COMPLETELY skip Apps Script API calls — let api.js handle its own caching.
+  // Previously used networkFirst with 5s timeout, but Apps Script cold starts
+  // can take 5-10s, causing SW to serve old/broken cached responses.
+  if (url.hostname.indexOf('script.google.com') !== -1 ||
+      url.hostname.indexOf('googleapis.com') !== -1) {
+    return; // Let the browser handle it directly
   }
 
   // Images → cache-first (never re-download once cached, full quality preserved)
