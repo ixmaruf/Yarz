@@ -1,0 +1,27 @@
+# ===== YARZ Security — Sensitive Files =====
+# NEVER push these to GitHub
+
+# Backend source code (contains ADMIN_SECRET, API keys, full business logic)
+google-apps-script.txt
+
+# Documentation with sensitive details (API URLs, Sheet IDs, backend structure)
+README.md
+DEPLOYMENT-GUIDE.md
+FIXES-APPLIED.md
+
+# IDE / OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+dist/
+build/
