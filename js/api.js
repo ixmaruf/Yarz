@@ -4,7 +4,7 @@ const YARZ_API = (() => {
   // ===== CONFIGURATION (Secured) =====
   // Runtime decode — not readable as plain text in source
   var _0x = function(s) { try { return atob(s); } catch(e) { return ''; } };
-  const APPS_SCRIPT_URL = _0x('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4MU1MOEhNUnRlZTU2cGlCRUdPYlhzOFRadjBoaFBzd3RtMmIwZVZ6X1VIQ0pScHRIM3ZhZkZ4Z0F6UWtzSDY1TngvZXhlYw==');
+  const APPS_SCRIPT_URL = _0x('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3OTNCMWk4SklsRXEySUlLS082TmJQU05YdUNlRExfX2NndFpFQW1YUFA5ZTVadHVyZ0ZXWXc0d1ExbGttNnUyT3ovZXhlYw==');
   const GOOGLE_API_KEY = _0x('QUl6YVN5QXBNdGpqMmJhTzZ1MTlBdnBwakx0SjFHVDFHNjFxbzlr');
   const SHEET_ID = _0x('MXdRejVPUVpBdElTVEQxRmRTRXNfajktcDBlLUJId1lqbWpON1BSOWhBLVE=');
 
@@ -90,7 +90,7 @@ const YARZ_API = (() => {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-05-19-v10.3-turbo-load';
+  const DEPLOY_VERSION = '2026-05-20-v10.4-force-new-api';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
@@ -949,4 +949,5 @@ const YARZ_API = (() => {
     prefetchAll,
   };
 })();
+
 
