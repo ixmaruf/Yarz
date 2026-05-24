@@ -1,0 +1,1243 @@
+/* YARZ API v12.0 — Cloudflare Worker Edge Cache integration */
+
+const YARZ_API = (() => {
+  // ===== CONFIGURATION =====
+  // ℹ️ Honest note about "client-side credentials":
+  //   In ANY pure-frontend app (no server you control), these values WILL be
+  //   visible to anyone who opens DevTools → Network tab. This is normal —
+  //   Daraz, Pickaboo, Shopify storefronts all expose their API keys the same way.
+  //
+  //   Real security comes from THREE layers, NOT from hiding the key:
+  //     1. Google Cloud Console: restrict API key to your domain (HTTP referrer).
+  //        Without this, anyone can use your key from anywhere — WITH this,
+  //        the key is useless outside yarzclothing.xyz / yourusername.github.io
+  //     2. Cloudflare Worker: rate-limit per IP (already deployed) — stops abuse.
+  //     3. Apps Script ADMIN_SECRET: ONLY needed for write operations (place_order,
+  //        admin actions). It's stored ONLY in Apps Script + admin browser session,
+  //        NEVER in this file. That's why google-apps-script.txt is gitignored.
+  //
+  // localStorage override lets you rotate the public key per-environment
+  // (e.g., staging vs production) without code changes.
+  
+  // Cloudflare Worker reverse-proxy URL — public by design, required for
+  // client-side fetches. Worker validates the API key and rate-limits requests.
+  const CLOUDFLARE_WORKER_URL = 'https://yarz.marufhasan80009.workers.dev/';
+
+  // Helper: read override from localStorage, fall back to default
+  function _getStoredCredential(key, fallback) {
+    try {
+      return localStorage.getItem(key) || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  // Public API credentials (intentionally readable — see note above)
+  const APPS_SCRIPT_URL = _getStoredCredential('yarz_gas_url', 'https://script.google.com/macros/s/AKfycbzLs9KDameNALSxN4ntZXHKs-st2V-4gN5ITFL38UnqKFw_s2yXFPcmLFB4KXzIVs7K/exec');
+  const GOOGLE_API_KEY = _getStoredCredential('yarz_api_key', 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k');
+  const SHEET_ID = _getStoredCredential('yarz_sheet_id', '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q');
+
+  // ════════════════════════════════════════════════════════════════
+  // ✅ v10.3 TURBO LOAD — Google Sheets API v4 Direct Read
+  // Fires IMMEDIATELY on script load (before DOM ready).
+  // Bypasses Apps Script cold start (3-10s) → loads in ~300-500ms.
+  // Falls back to Apps Script if direct read fails.
+  // ════════════════════════════════════════════════════════════════
+  var _turboStart = Date.now();
+  var _turboData = null;
+  var _turboPromise = (function _turboPreload() {
+    try {
+      // ⚡ Edge SSR 0ms Load: Check if HTML was injected with state
+      if (window.__YARZ_INITIAL_STATE) {
+        fetchPromise = Promise.resolve(window.__YARZ_INITIAL_STATE);
+      } else {
+        // Fallback: fire fetch now
+        var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&cb=1&_t=' + Date.now();
+        fetchPromise = fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
+      }
+      return fetchPromise
+        .then(function(json) {
+          if (!json || !json.success) return null;
+          var data = json.data || json;
+          var products = data.products || json.products || [];
+          var storeInfo = data.storeInfo || json.storeInfo || {};
+          var categories = data.categories || json.categories || [];
+          if (!products.length) return null;
+
+          // ⚡ v10.6 FIX: Normalize products so app.js can render them correctly.
+          // GAS sends: regular, sale, stockM, image1 / app.js expects: regularPrice, salePrice, sizes.M, image1
+          products = products.map(function(p) {
+            if (!p || typeof p !== 'object') return p;
+            // Price aliases
+            if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
+            if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
+            if (p.discountPercent === undefined) {
+              p.discountPercent = p.discPct !== undefined ? p.discPct :
+                (p.regularPrice > 0 && p.salePrice >= 0 ?
+                  Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+            }
+            // Build sizes object from individual stock fields
+            if (!p.sizes || typeof p.sizes !== 'object') {
+              var sS = parseInt(p.stockS) || 0;
+              var sM = parseInt(p.stockM) || 0;
+              var sL = parseInt(p.stockL) || 0;
+              var sXL = parseInt(p.stockXL) || 0;
+              var sXXL = parseInt(p.stockXXL) || 0;
+              var s3XL = parseInt(p.stock3XL) || 0;
+              p.sizes = { S: sS, M: sM, L: sL, XL: sXL, XXL: sXXL, '3XL': s3XL };
+            }
+            if (p.inStock === undefined) {
+              p.inStock = (p.sizes.S > 0 || p.sizes.M > 0 || p.sizes.L > 0 || p.sizes.XL > 0 || p.sizes.XXL > 0 || p.sizes['3XL'] > 0);
+            }
+            // Image aliases
+            if (!p.image1 && p.img1) p.image1 = p.img1;
+            if (!p.image2 && p.img2) p.image2 = p.img2;
+            if (!p.image3 && p.img3) p.image3 = p.img3;
+            if (!p.image4 && p.img4) p.image4 = p.img4;
+            if (!p.image5 && p.img5) p.image5 = p.img5;
+            if (!p.image6 && p.img6) p.image6 = p.img6;
+            if (!p.description && p.desc) p.description = p.desc;
+            return p;
+          });
+
+          // ⚡ v10.6 FIX: Compute category counts from actual products instead of using GAS list with 0 counts
+          var counts = {};
+          products.forEach(function(p) {
+            var c = (p.category || '').trim();
+            if (c) counts[c] = (counts[c] || 0) + 1;
+          });
+          // Build final category list — keep all GAS categories but fill in real counts
+          var rawCatList = [];
+          if (Array.isArray(categories) && categories.length) {
+            categories.forEach(function(c) {
+              var name = typeof c === 'string' ? c : (c && c.name ? c.name : '');
+              if (name) rawCatList.push({ name: name, count: counts[name] || 0 });
+            });
+          } else {
+            rawCatList = Object.keys(counts).map(function(n) { return { name: n, count: counts[n] }; });
+          }
+          // Filter to only categories that actually have active products
+          categories = rawCatList.filter(function(c) { return c.count > 0; });
+
+          _turboData = { products:products, storeInfo:storeInfo, categories:categories };
+          console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (CF Worker)');
+          return _turboData;
+        })
+        .catch(function(e) {
+          // Fallback: try Google Sheets API direct if Worker fails
+          console.warn('TURBO CF fallback, trying Sheets API:', e);
+          var sheetUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' +
+            SHEET_ID + '/values:batchGet?ranges=' +
+            encodeURIComponent('INVENTORY!A1:AW') + '&ranges=' +
+            encodeURIComponent('SETTINGS!A:B') +
+            '&key=' + GOOGLE_API_KEY +
+            '&valueRenderOption=UNFORMATTED_VALUE';
+          return fetch(sheetUrl, { cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(json) {
+              if (!json || !json.valueRanges || json.valueRanges.length < 2) return null;
+              var invRows = json.valueRanges[0].values || [];
+              var setRows = json.valueRanges[1].values || [];
+              if (invRows.length < 2) return null;
+              var products = [], cats = {};
+              for (var i = 1; i < invRows.length; i++) {
+                var r = invRows[i];
+                if (!r || !r[0]) continue;
+                var st = String(r[38] || '').trim();
+                if (st !== 'Active') continue;
+                var nm = String(r[0] || '').trim();
+                if (!nm) continue;
+                var reg = parseFloat(r[12]) || 0, sal = parseFloat(r[13]) || 0;
+                var cat = String(r[6] || '').trim();
+                if (cat) cats[cat] = (cats[cat] || 0) + 1;
+                var sS=parseInt(r[45])||0, dS=parseInt(r[47])||0;
+                var sM=parseInt(r[18])||0, dM=parseInt(r[22])||0;
+                var sL=parseInt(r[19])||0, dL=parseInt(r[23])||0;
+                var sXL=parseInt(r[20])||0, dXL=parseInt(r[24])||0;
+                var sXXL=parseInt(r[21])||0, dXXL=parseInt(r[25])||0;
+                var s3=parseInt(r[46])||0, d3=parseInt(r[48])||0;
+                var lS=Math.max(0,sS-dS), lM=Math.max(0,sM-dM), lL=Math.max(0,sL-dL);
+                var lXL=Math.max(0,sXL-dXL), lXXL=Math.max(0,sXXL-dXXL), l3=Math.max(0,s3-d3);
+                products.push({
+                  name:nm, image1:String(r[1]||''), image2:String(r[2]||''),
+                  image3:String(r[3]||''), image4:String(r[39]||''),
+                  image5:String(r[40]||''), image6:String(r[41]||''),
+                  video:String(r[4]||''), description:String(r[5]||''),
+                  category:cat, fabric:String(r[7]||''), badge:String(r[8]||''),
+                  sizeChart:String(r[9]||''), deliveryDays:String(r[10]||''),
+                  regularPrice:reg, salePrice:sal||reg,
+                  discountPercent:parseFloat(r[14])||(reg>sal&&sal>0?Math.round(((reg-sal)/reg)*100):0),
+                  discountType:String(r[15]||''),
+                  deliveryDhaka:parseFloat(r[16])||70, deliveryOutside:parseFloat(r[17])||140,
+                  stockS:lS, stockM:lM, stockL:lL, stockXL:lXL, stockXXL:lXXL, stock3XL:l3,
+                  sizes:{S:lS,M:lM,L:lL,XL:lXL,XXL:lXXL,'3XL':l3},
+                  inStock:(lS>0||lM>0||lL>0||lXL>0||lXXL>0||l3>0),
+                  status:st, couponActive:String(r[42]||''),
+                  couponCode:String(r[43]||''), couponDisc:parseFloat(r[44])||0
+                });
+              }
+              var storeInfo = {};
+              for (var j = 0; j < setRows.length; j++) {
+                var row = setRows[j];
+                if (row && row[0]) storeInfo[String(row[0]).trim()] = row[1] !== undefined ? row[1] : '';
+              }
+              var catList = Object.keys(cats).map(function(n) { return {name:n, count:cats[n]}; });
+              _turboData = { products:products, storeInfo:storeInfo, categories:catList };
+              console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (Sheets fallback)');
+              return _turboData;
+            })
+            .catch(function(e2) { console.warn('TURBO all failed:', e2); return null; });
+        });
+    } catch(e) { return Promise.resolve(null); }
+  })();
+
+  // Deployment version — when this changes, ALL caches are force-cleared
+  const DEPLOY_VERSION = '2026-05-24-v15.0-zero-local-cache';
+
+  const CONFIG = {
+    API_KEY: GOOGLE_API_KEY,
+    BASE_URL: APPS_SCRIPT_URL,
+    // ✅ ZERO LOCAL CACHING: Rely 100% on Cloudflare Edge SSR and Edge Cache.
+    // This guarantees customers NEVER see stale data that requires a refresh.
+    // Cloudflare Edge handles all the speed (returning data in <50ms).
+    CACHE_TTL: 0,
+    STALE_TTL: 0,
+    PRODUCT_CACHE_TTL: 0,             // 0s — always fetch live from Cloudflare
+    PRODUCT_STALE_TTL: 0,             // 0s — never show stale data
+    SETTINGS_CACHE_TTL: 0,            // 0s — always fetch live from Cloudflare
+    SETTINGS_STALE_TTL: 0,            // 0s — never show stale data
+  };
+
+  // ✅ v4.1: Action types that should NEVER be cached (real-time required)
+  const NO_CACHE_ACTIONS = ['orders_by_phone', 'place_order', 'updatewebsiteorderstatus', 'deletewebsiteorder', 'health'];
+
+  // ✅ v3.9: Tier resolver — picks the right TTL per action
+  function _ttlFor(action) {
+    if (action === 'products' || action === 'product' || action === 'categories') {
+      return { fresh: CONFIG.PRODUCT_CACHE_TTL, stale: CONFIG.PRODUCT_STALE_TTL };
+    }
+    if (action === 'store_info') {
+      return { fresh: CONFIG.SETTINGS_CACHE_TTL, stale: CONFIG.SETTINGS_STALE_TTL };
+    }
+    return { fresh: CONFIG.CACHE_TTL, stale: CONFIG.STALE_TTL };
+  }
+
+  // ✅ v3.9: In-memory cache (faster than localStorage — no JSON parse on every hit)
+  const memCache = {};
+
+  const DEFAULT_SOCIAL_LINKS = {
+    facebook: 'https://www.facebook.com/Yarzbd',
+    instagram: 'https://www.instagram.com/yarzclothing',
+    whatsapp: 'https://wa.me/8801601743670',
+    tiktok: 'https://tiktok.com/@yarzbd',
+    messenger: 'https://m.me/Yarzbd',
+    youtube: '',
+    twitter: ''
+  };
+
+  const cache = {};
+
+  // ✅ v11.9: URL version enforcement removed — no hardcoded URLs
+  // All URLs now loaded from localStorage (configured via setup.html)
+  const API_ENDPOINTS = [];
+  // ✅ v4.5: DEPLOYMENT VERSION CHECK — force-clears ALL caches when new version detected
+  // This is the MAIN fix for "incognito works but normal browser doesn't"
+  (function _deployVersionCheck() {
+    try {
+      var lastDeploy = localStorage.getItem('yarz_deploy_version');
+      if (lastDeploy !== DEPLOY_VERSION) {
+        // 1. Clear localStorage caches
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.startsWith('yarz_api_cache_') || k === 'yarz_api_url' ||
+              k === 'yarz_storeinfo_cache' || k === 'yarz_prefetch_snapshot') {
+            localStorage.removeItem(k);
+          }
+        });
+        // 2. Force Service Worker to clear old caches
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            keys.forEach(function(k) { caches.delete(k); });
+          });
+        }
+        // 3. Unregister old service worker so new one installs fresh
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+          });
+        }
+        // 4. Save new version
+        localStorage.setItem('yarz_deploy_version', DEPLOY_VERSION);
+      }
+      // Ensure API URL points to the latest deployment
+      var saved = localStorage.getItem('yarz_api_url');
+      if (saved && saved !== APPS_SCRIPT_URL) {
+        localStorage.removeItem('yarz_api_url');
+      }
+      // ✅ v9.7: Detect admin dirty flag — admin panel sets this after saving settings.
+      // Clears prefetch snapshot so storefront fetches fresh data on next load.
+      var dirty = localStorage.getItem('yarz_settings_dirty');
+      if (dirty) {
+        localStorage.removeItem('yarz_settings_dirty');
+        localStorage.removeItem('yarz_prefetch_snapshot');
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.startsWith('yarz_api_cache_') || k === 'yarz_storeinfo_cache') {
+            localStorage.removeItem(k);
+          }
+        });
+      }
+    } catch(e) {}
+  })();
+
+  // ✅ v10.8: Safe localStorage wrappers — never throw in Safari private mode,
+  // Telegram in-app, or any restricted environment
+  function _lsGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function _lsSet(key, value) {
+    try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+  }
+  function _lsRemove(key) {
+    try { localStorage.removeItem(key); } catch (e) {}
+  }
+
+  function getBaseUrl() {
+    return _lsGet('yarz_api_url') || APPS_SCRIPT_URL;
+  }
+
+  // ⚡ v6.0: Customer-facing READS go through Cloudflare Worker (cached at edge).
+  // WRITES (POST) keep going to GAS directly — Worker also forwards them but
+  // we want minimum hops on the order-placement path.
+  function getReadUrl() {
+    // Allow override from localStorage (e.g. for staging/debug)
+    return _lsGet('yarz_worker_url') || CLOUDFLARE_WORKER_URL;
+  }
+  function getWriteUrl() {
+    // POSTs (place_order, admin actions) — direct to GAS, no caching layer needed
+    return getBaseUrl();
+  }
+
+  function setBaseUrl(url) {
+    _lsSet('yarz_api_url', url);
+  }
+
+  function isConfigured() {
+    return !!getBaseUrl();
+  }
+
+
+  function getCached(key, allowStale, action) {
+    const ttl = _ttlFor(action || '');
+    // ✅ v3.9: Try in-memory first (instant — no JSON parse, no disk I/O)
+    const memItem = memCache[key];
+    if (memItem) {
+      const age = Date.now() - memItem.time;
+      if (age <= ttl.fresh) return { data: memItem.data, fresh: true };
+      if (allowStale && age <= ttl.stale) return { data: memItem.data, fresh: false };
+    }
+    try {
+      const lsKey = 'yarz_api_cache_' + key.split('action=')[1];
+      const itemStr = localStorage.getItem(lsKey);
+      if (itemStr) {
+        const item = JSON.parse(itemStr);
+        const age = Date.now() - item.time;
+        if (age <= ttl.fresh) {
+          memCache[key] = item; // promote to memory
+          return { data: item.data, fresh: true };
+        } else if (allowStale && age <= ttl.stale) {
+          memCache[key] = item;
+          return { data: item.data, fresh: false };
+        } else {
+          localStorage.removeItem(lsKey);
+        }
+      }
+    } catch (e) { }
+    return null;
+  }
+
+  function setCache(key, data) {
+    const item = { data, time: Date.now() };
+    memCache[key] = item; // ✅ v3.9: in-memory first for instant subsequent reads
+    try {
+      const lsKey = 'yarz_api_cache_' + key.split('action=')[1];
+      localStorage.setItem(lsKey, JSON.stringify(item));
+    } catch (e) { /* quota exceeded — memory cache still works */ }
+  }
+
+  function clearCache() {
+    Object.keys(memCache).forEach(k => delete memCache[k]);
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('yarz_api_cache_')) localStorage.removeItem(k);
+      });
+    } catch (e) { }
+  }
+
+  // ✅ v9.7: Targeted invalidation for store_info — used after admin saves settings.
+  // Clears only settings-related caches so next getStoreInfo() / getGlobalControls()
+  // fetch fresh data from server instead of serving stale cached values.
+  function invalidateStoreInfo() {
+    Object.keys(memCache).forEach(k => {
+      if (k.indexOf('store_info') !== -1 || k.indexOf('delivery_charges') !== -1) {
+        delete memCache[k];
+      }
+    });
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.indexOf('store_info') !== -1 || k.indexOf('delivery_charges') !== -1 || k === 'yarz_storeinfo_cache') {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (e) { }
+  }
+
+  const _revalidating = {};
+
+  // ===== RESPONSE NORMALIZER (CRITICAL FIX) =====
+  // Apps Script returns: { success, ok, data: { products, categories, storeInfo } }
+  // Old apps may return: { success, products, categories, store }
+  // This unifies both formats so app.js can safely use data.products / data.categories
+  function _normalizeResponse(action, data) {
+    if (!data || typeof data !== 'object') return data;
+
+    // Pass-through if already in expected format
+    if (action === 'products') {
+      // Promote nested data.data.products → data.products
+      if (data.data && typeof data.data === 'object') {
+        if (Array.isArray(data.data)) {
+          data.products = data.data;
+        } else if (Array.isArray(data.data.products)) {
+          data.products = data.data.products;
+        }
+        if (Array.isArray(data.data.categories) && !data.categories) {
+          data.categories = data.data.categories;
+        }
+        if (data.data.storeInfo && !data.storeInfo) {
+          data.storeInfo = data.data.storeInfo;
+        }
+        if (data.data.timestamp) data.timestamp = data.data.timestamp;
+      }
+
+      // ✅ v3.9 CRITICAL FIX: Normalize each product's field names so app.js renders correctly
+      // Apps Script sends: stockM/stockL/stockXL/stockXXL, regular, sale, discPct, image1-6
+      // app.js expects:    sizes.M/L/XL/XXL, regularPrice, salePrice, discountPercent, image1-6
+      if (Array.isArray(data.products)) {
+        data.products = data.products.map(function(p) {
+          if (!p || typeof p !== 'object') return p;
+
+          // Map price fields
+          if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
+          if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
+          if (p.discountPercent === undefined) {
+            p.discountPercent = p.discPct !== undefined ? p.discPct :
+              (p.regularPrice > 0 && p.salePrice >= 0 ?
+                Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+          }
+
+          // Map sizes → { M: qty, L: qty, XL: qty, XXL: qty }
+          if (!p.sizes || typeof p.sizes !== 'object') {
+            var sS = parseInt(p.stockS) || 0;
+            var sM = parseInt(p.stockM) || 0;
+            var sL = parseInt(p.stockL) || 0;
+            var sXL = parseInt(p.stockXL) || 0;
+            var sXXL = parseInt(p.stockXXL) || 0;
+            var s3XL = parseInt(p.stock3XL) || 0;
+            p.sizes = { S: sS, M: sM, L: sL, XL: sXL, XXL: sXXL, '3XL': s3XL };
+          }
+
+          // inStock = true if ANY size has stock > 0
+          if (p.inStock === undefined) {
+            p.inStock = (p.sizes.S > 0 || p.sizes.M > 0 || p.sizes.L > 0 || p.sizes.XL > 0 || p.sizes.XXL > 0 || p.sizes['3XL'] > 0);
+          }
+
+          // Ensure image field aliases (Apps Script uses image1, website also image1 - ensure consistency)
+          if (!p.image1 && p.img1) p.image1 = p.img1;
+          if (!p.image2 && p.img2) p.image2 = p.img2;
+          if (!p.image3 && p.img3) p.image3 = p.img3;
+          if (!p.image4 && p.img4) p.image4 = p.img4;
+          if (!p.image5 && p.img5) p.image5 = p.img5;
+          if (!p.image6 && p.img6) p.image6 = p.img6;
+
+          // description alias
+          if (!p.description && p.desc) p.description = p.desc;
+
+          return p;
+        });
+      }
+    }
+
+    if (action === 'categories') {
+      // Apps Script: { success, data: [...] } or { success, data: { products, categories } }
+      if (Array.isArray(data.data)) {
+        data.categories = data.data.map(function (c) {
+          // If just a string array, convert to object form
+          if (typeof c === 'string') return { name: c, count: 0 };
+          return c;
+        });
+      } else if (data.data && Array.isArray(data.data.categories)) {
+        data.categories = data.data.categories;
+      }
+      // Compute counts if missing — needs products list
+      if (Array.isArray(data.categories)) {
+        data.categories = data.categories.map(function (c) {
+          if (typeof c === 'string') return { name: c, count: 0 };
+          return c;
+        });
+      }
+    }
+
+    if (action === 'store_info') {
+      if (data.data && typeof data.data === 'object' && !data.store) {
+        data.store = data.data;
+      }
+    }
+
+    if (action === 'orders_by_phone') {
+      if (Array.isArray(data.data) && !data.orders) {
+        data.orders = data.data;
+      }
+    }
+
+    return data;
+  }
+
+  // ===== GET REQUEST (with stale-while-revalidate) =====
+  async function apiGet(action, params = {}, opts = {}) {
+    // ⚡ v6.0: Reads now go through Cloudflare Worker for sub-100ms edge cache.
+    const base = getReadUrl();
+    if (!base) throw new Error('API URL not configured');
+
+    const url = new URL(base);
+    url.searchParams.set('key', CONFIG.API_KEY);
+    url.searchParams.set('action', action);
+    Object.keys(params).forEach(k => {
+      if (params[k] !== undefined && params[k] !== '') {
+        url.searchParams.set(k, params[k]);
+      }
+    });
+
+    const cacheKey = url.toString();
+
+    // ✅ v4.2: explicit skipCache option (used by stock checks)
+    if (opts && opts.skipCache) {
+      return _fetchFromNetwork(action, url.toString(), cacheKey, true);
+    }
+
+    // ✅ v4.1: Real-time actions (order tracking) bypass cache entirely
+    if (NO_CACHE_ACTIONS.indexOf(action) !== -1) {
+      return _fetchFromNetwork(action, url.toString(), cacheKey, true);
+    }
+    const cached = getCached(cacheKey, true, action);
+
+    if (cached && cached.fresh) return cached.data;
+
+    if (cached && !cached.fresh) {
+      if (!_revalidating[cacheKey]) {
+        _revalidating[cacheKey] = true;
+        _fetchFromNetwork(action, url.toString(), cacheKey).finally(() => {
+          delete _revalidating[cacheKey];
+        });
+      }
+      return cached.data;
+    }
+
+    return _fetchFromNetwork(action, url.toString(), cacheKey);
+  }
+
+  async function _fetchFromNetwork(action, urlStr, cacheKey, skipCache) {
+    const maxRetries = 4; // Increased for high concurrency
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const bustUrl = urlStr + (urlStr.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        const response = await fetch(bustUrl, {
+          method: 'GET',
+          redirect: 'follow',
+          cache: 'no-store',
+        });
+        
+        // If Google hits a rate limit, it might return 429 or 500
+        if (!response.ok) {
+           throw new Error(`HTTP Error: ${response.status}`);
+        }
+        
+        let data = await response.json();
+
+        // ✅ CRITICAL: Normalize response so app.js works regardless of API format
+        data = _normalizeResponse(action, data);
+
+        if (data.success && !skipCache) {
+          setCache(cacheKey, data);
+          _notifyRefresh(cacheKey, data);
+        }
+        return data;
+      } catch (err) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          throw err;
+        }
+        // Exponential backoff: 1.5s, 3s, 4.5s
+        const delay = (attempt * 1500) + Math.floor(Math.random() * 1000);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+
+  const _refreshListeners = [];
+
+  function onDataRefresh(callback) {
+    _refreshListeners.push(callback);
+  }
+
+  function _notifyRefresh(cacheKey, data) {
+    _refreshListeners.forEach(fn => {
+      try { fn(cacheKey, data); } catch (e) { }
+    });
+  }
+
+  // ===== POST REQUEST =====
+  // Actions that benefit from going through the Cloudflare Worker so it can
+  // inject `client_ip_address` + `client_user_agent` from real browser headers.
+  // CAPI and TikTok server-side mirrors NEED this for high EMQ scores; place_order
+  // benefits because the server-side Purchase event fired by GAS gets the IP too.
+  const POST_VIA_WORKER = new Set(['place_order', 'capi', 'fbcapi', 'ttapi', 'ttevents']);
+
+  async function apiPost(action, body = {}) {
+    // ⚡ v11.7: CAPI / Lead / Purchase POSTs route through Cloudflare Worker so it
+    // can inject the real client IP + UA into the request body. Other writes
+    // (admin actions, status updates) keep going direct to GAS to save a hop.
+    const lo = String(action || '').toLowerCase();
+    let base;
+    if (POST_VIA_WORKER.has(lo)) {
+      base = localStorage.getItem('yarz_post_url') || getReadUrl(); // Worker URL
+    } else {
+      base = localStorage.getItem('yarz_post_url') || getWriteUrl(); // Direct GAS
+    }
+    if (!base) throw new Error('API URL not configured');
+
+    const maxRetries = 4; // Increased for high concurrency
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const response = await fetch(base, {
+          method: 'POST',
+          redirect: 'follow',
+          keepalive: true, // v10.6: Guarantees delivery even if user closes tab instantly
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            key: CONFIG.API_KEY,
+            action,
+            ...body
+          })
+        });
+        
+        // If Google hits a rate limit, it might return 429 or 500
+        if (!response.ok) {
+           throw new Error(`HTTP Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          throw err;
+        }
+        // Exponential backoff: 1.5s, 3s, 4.5s
+        const delay = (attempt * 1500) + Math.floor(Math.random() * 1000);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+
+  // ===== PUBLIC API METHODS =====
+  async function getProducts(category, search) {
+    // ✅ v10.3 TURBO: Try direct Sheets API data first (~300ms vs 3-10s)
+    if (_turboPromise) {
+      try {
+        var turbo = await _turboPromise;
+        _turboPromise = null; // consume once
+        if (turbo && turbo.products && turbo.products.length > 0) {
+          var result = {
+            success: true, ok: true,
+            products: turbo.products,
+            categories: turbo.categories,
+            storeInfo: turbo.storeInfo
+          };
+          result = _normalizeResponse('products', result);
+          // Populate memory cache so subsequent calls are instant
+          var ck = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=products';
+          setCache(ck, result);
+          return result;
+        }
+      } catch(e) { _turboPromise = null; }
+    }
+    return apiGet('products', { category, search });
+  }
+
+  async function getProduct(name) {
+    return apiGet('product', { name });
+  }
+
+  // ✅ v4.2: Real-time stock check — fresh server data, never cached
+  // Used silently in background while customer is on product page
+  async function getProductStock(name) {
+    try {
+      const params = { name, _t: Date.now() };
+      const res = await apiGet('product', params, { skipCache: true });
+      if (res && (res.success || res.ok)) {
+        const p = res.product || res.data || res;
+        if (p && typeof p === 'object') {
+          return {
+            success: true,
+            name: p.name || name,
+            stock_S:   parseInt(p.stock_S   || p.stockS   || (p.sizes && p.sizes.S)   || 0) || 0,
+            stock_M:   parseInt(p.stock_M   || p.stockM   || (p.sizes && p.sizes.M)   || 0) || 0,
+            stock_L:   parseInt(p.stock_L   || p.stockL   || (p.sizes && p.sizes.L)   || 0) || 0,
+            stock_XL:  parseInt(p.stock_XL  || p.stockXL  || (p.sizes && p.sizes.XL)  || 0) || 0,
+            stock_XXL: parseInt(p.stock_XXL || p.stockXXL || (p.sizes && p.sizes.XXL) || 0) || 0,
+            stock_3XL: parseInt(p.stock_3XL || p.stock3XL || (p.sizes && p.sizes['3XL']) || 0) || 0,
+            inStock: !!(p.inStock !== false),
+            updatedAt: Date.now()
+          };
+        }
+      }
+      return { success: false };
+    } catch (err) {
+      // Silent fail
+      return { success: false, error: err.message };
+    }
+  }
+
+  async function getCategories() {
+    // ✅ Categories from products endpoint to get accurate counts
+    // Falls back to the categories action if needed
+    try {
+      const productsRes = await apiGet('products');
+      if (productsRes && productsRes.success && Array.isArray(productsRes.products)) {
+        const counts = {};
+        productsRes.products.forEach(function (p) {
+          const c = p.category || '';
+          if (!c) return;
+          counts[c] = (counts[c] || 0) + 1;
+        });
+        // Use storeInfo categories if available, else from product list
+        const cats = (productsRes.storeInfo && Array.isArray(productsRes.storeInfo.categories))
+          ? productsRes.storeInfo.categories : Object.keys(counts);
+        const finalList = cats.map(function (name) {
+          if (typeof name === 'object' && name.name) {
+            return { name: name.name, count: counts[name.name] || name.count || 0 };
+          }
+          return { name: name, count: counts[name] || 0 };
+        }).filter(function (c) { return c.count > 0; });
+        return { success: true, categories: finalList };
+      }
+    } catch (e) {
+      // Fallback to categories endpoint
+    }
+    return apiGet('categories');
+  }
+
+  async function getStoreInfo() {
+    // ✅ v10.3 TURBO: Use direct Sheets API data if available
+    if (_turboData && _turboData.storeInfo && Object.keys(_turboData.storeInfo).length > 0) {
+      return { success: true, ok: true, data: _turboData.storeInfo, store: _turboData.storeInfo };
+    }
+    return apiGet('store_info');
+  }
+
+  async function getDeliveryCharges() {
+    return apiGet('delivery_charges', { _t: Date.now() }, { skipCache: true });
+  }
+
+  async function healthCheck() {
+    return apiGet('health');
+  }
+
+  async function placeOrder(orderData) {
+    clearCache();
+    return apiPost('place_order', { order: orderData });
+  }
+
+  async function getOrdersByPhone(phone, forceFresh) {
+    try {
+      // ✅ v4.1 FIX: bypass cache for real-time status sync (admin -> customer)
+      if (forceFresh) {
+        clearCache();
+        const params = { phone, _t: Date.now() };
+        return await apiGet('orders_by_phone', params, { skipCache: true });
+      }
+      return await apiGet('orders_by_phone', { phone });
+    } catch (err) {
+      return {
+        success: false,
+        message: 'Order tracking is temporarily unavailable. Please contact customer support.',
+        fallback: true,
+        orders: []
+      };
+    }
+  }
+
+  // ✅ Delete order — uses POST primary, GET fallback (for CORS issues)
+  async function deleteOrder(orderId) {
+    clearCache();
+    try {
+      const res = await apiPost('deletewebsiteorder', { orderId });
+      if (res && (res.success || res.ok)) return res;
+      // Fallback: try GET
+      return await apiGet('deletewebsiteorder', { orderId });
+    } catch (err) {
+      try {
+        return await apiGet('deletewebsiteorder', { orderId });
+      } catch (e2) {
+        return { success: false, error: e2.message };
+      }
+    }
+  }
+
+  // ✅ Archive completed orders
+  async function archiveCompletedOrders() {
+    clearCache();
+    try {
+      return await apiPost('archivecompletedorders', {});
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  // ✅ Update order status — for admin panel sync
+  async function updateOrderStatus(orderId, status, courier) {
+    clearCache();
+    return apiPost('updatewebsiteorderstatus', { orderId, status, courier: courier || '' });
+  }
+
+  // ===== GLOBAL CONTROLS =====
+  async function getGlobalControls() {
+    try {
+      const result = await getStoreInfo();
+      if (!result || !result.success) return null;
+
+      const s = result.data || result.store || {};
+      if (!s || typeof s !== 'object') return null;
+
+      const dynamicSections = [];
+
+      const get = (key) => {
+        if (s[key] !== undefined) return s[key];
+        
+        // Prioritize admin panel's Title Case keys
+        var titleCase = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        if (s[titleCase] !== undefined) return s[titleCase];
+        
+        // Fallback for case differences (e.g., 'Announcement Bg' vs 'Announcement BG')
+        const targetTitle = titleCase.toLowerCase();
+        for (let k in s) {
+          if (k.toLowerCase() === targetTitle) return s[k];
+        }
+
+        // Legacy snake_case fallback
+        const normalized = key.toLowerCase().replace(/[\s()]+/g, '_');
+        if (s[normalized] !== undefined) return s[normalized];
+        
+        return '';
+      };
+
+      const parseBool = (val, defaultVal = false) => {
+        if (val === '' || val === undefined || val === null) return defaultVal;
+        if (typeof val === 'boolean') return val;
+        const str = String(val).toLowerCase().trim();
+        if (['true','yes','1','on','enabled','enable','chalu','চালু'].indexOf(str) !== -1) return true;
+        if (['false','no','0','off','disabled','disable','bondho','bondh','বন্ধ'].indexOf(str) !== -1) return false;
+        return defaultVal;
+      };
+
+      const storeStatus = String(get('store_status') || 'open').toLowerCase();
+      const maintenanceMode = parseBool(get('maintenance_mode')) || storeStatus === 'maintenance';
+      const announcementActive = parseBool(get('announcement_active'));
+      const announcementText = String(get('announcement_text') || '');
+      const paymentMethods = String(get('payment_methods') || 'COD, bKash, Nagad');
+      
+      const _codRaw = get('enable_cod') !== '' ? get('enable_cod')
+                    : (s['Enable COD'] !== undefined ? s['Enable COD']
+                    : (s['enable cod'] !== undefined ? s['enable cod'] : ''));
+      let enableCOD = parseBool(_codRaw, true);
+
+      // ✅ v3.8: Default zones → Narayanganj (Inside ৳70 / Outside ৳140)
+      const zone1Name = String(get('zone_1_name') || 'Inside Narayanganj');
+      const zone2Name = String(get('zone_2_name') || 'Outside Narayanganj');
+      const zone1Charge = parseFloat(get('zone_1_charge')) || 70;
+      const zone2Charge = parseFloat(get('zone_2_charge')) || 140;
+
+      // ✅ Delivery locations — dynamic manager backed by the DELIVERY_CHARGES sheet tab.
+      // Supports unlimited owner-defined locations while preserving legacy Zone 1/2 fields.
+      let deliveryLocations = [];
+      const rawDeliveryLocations = get('delivery_locations') || s.delivery_locations || s.deliveryLocations || '';
+      if (Array.isArray(rawDeliveryLocations)) {
+        deliveryLocations = rawDeliveryLocations;
+      } else if (rawDeliveryLocations) {
+        try { deliveryLocations = JSON.parse(String(rawDeliveryLocations)); } catch (e) { deliveryLocations = []; }
+      }
+      deliveryLocations = deliveryLocations
+        .map((loc, idx) => ({
+          id: String(loc.id || loc.key || ('zone_' + (idx + 1))).trim(),
+          name: String(loc.name || loc.location || '').trim(),
+          charge: parseFloat(loc.charge || loc.fee || loc.deliveryCharge || 0) || 0,
+          active: loc.active === undefined ? true : parseBool(loc.active, true)
+        }))
+        .filter(loc => loc.name && loc.active);
+      if (!deliveryLocations.length) {
+        deliveryLocations = [
+          { id: 'zone_1', name: zone1Name, charge: zone1Charge, active: true },
+          { id: 'zone_2', name: zone2Name, charge: zone2Charge, active: true }
+        ];
+      }
+
+      // ✅ Social Links — supports MULTIPLE key formats from sheet
+      const socialLinks = {
+        facebook: String(get('link_facebook') || get('facebook_page') || get('facebook') || s['facebook_url'] || DEFAULT_SOCIAL_LINKS.facebook),
+        instagram: String(get('link_instagram') || get('instagram') || s['instagram_url'] || DEFAULT_SOCIAL_LINKS.instagram),
+        whatsapp: String(get('link_whatsapp') || get('whatsapp') || s['whatsapp_url'] || DEFAULT_SOCIAL_LINKS.whatsapp),
+        tiktok: String(get('link_tiktok') || get('tiktok') || s['tiktok_url'] || DEFAULT_SOCIAL_LINKS.tiktok),
+        messenger: String(get('link_messenger') || get('messenger') || s['messenger_url'] || DEFAULT_SOCIAL_LINKS.messenger),
+        youtube: String(get('link_youtube') || get('youtube') || s['youtube_url'] || DEFAULT_SOCIAL_LINKS.youtube),
+        twitter: String(get('link_twitter') || get('twitter') || s['twitter_url'] || DEFAULT_SOCIAL_LINKS.twitter)
+      };
+
+      // ✅ Live Chat config
+      const liveChat = {
+        whatsappBtn: parseBool(get('whatsapp_chat_active') || get('whatsapp_chat')),
+        whatsappNumber: String(get('whatsapp_chat_number') || get('whatsapp_number') || ''),
+        whatsappMsg: String(get('whatsapp_chat_msg') || get('whatsapp_default_msg') || 'Hi, I am interested in your products.'),
+        messengerBtn: parseBool(get('messenger_chat_active') || get('messenger_chat')),
+        messengerUrl: String(get('messenger_chat_url') || get('messenger_url') || socialLinks.messenger || '')
+      };
+
+      const heroBanners = [];
+      for (let i = 1; i <= 5; i++) {
+        const img = s['hero_banner_' + i] || s['hero_banner ' + i] || '';
+        if (img) {
+          heroBanners.push({
+            image: img,
+            title: s['banner_title_' + i] || s['banner_title ' + i] || '',
+            link: s['banner_link_' + i] || s['banner_link ' + i] || '',
+            subtitle: ''
+          });
+        }
+      }
+
+      for (let i = 1; i <= 50; i++) {
+        const title = String(get(`section_${i}_title`) || get(`section_${i}title`) || get(`Section ${i} Title`) || '');
+        const active = parseBool(get(`section_${i}_active`) || get(`section_${i}active`) || get(`section_${i}_show`) || get(`Section ${i} Show`), true);
+        if (title && active) {
+          const rawLink = String(get(`section_${i}_link`) || get(`section_${i}link`) || get(`Section ${i} Link`) || '');
+          let links = [];
+          try {
+            links = JSON.parse(rawLink);
+            if (!Array.isArray(links)) links = rawLink ? [rawLink] : [];
+          } catch(e) {
+            links = rawLink ? [rawLink] : [];
+          }
+          dynamicSections.push({
+            title: title,
+            category: String(get(`section_${i}_category`) || get(`section_${i}category`) || get(`Section ${i} Category`) || ''),
+            image: String(get(`section_${i}_image`) || get(`section_${i}image`) || get(`Section ${i} Image`) || ''),
+            link: rawLink, // original string for backward compatibility
+            links: links
+          });
+        }
+      }
+
+      const flashDate = String(get('flash_date') || '');
+      const flashTitle = String(get('flash_title') || 'Flash Sale');
+      const currency = String(get('currency') || '৳');
+      const b2bMode = parseBool(get('b2b_mode'));
+      const promoPopupActive = parseBool(get('promo_popup_active'));
+      const promoPopupImage = String(get('promo_popup_image') || '');
+      const promoPopupLink = String(get('promo_popup_link') || '');
+      const freeShipAmt = parseFloat(get('free_ship_amt')) || 0;
+
+      return {
+        maintenanceMode,
+        announcementActive,
+        announcementText,
+        announcementBg: String(get('announcement_bg') || '#634A8E'),
+        announcementColor: String(get('announcement_text_color') || '#FFFFFF'),
+        storeStatus,
+        paymentMethods,
+        enableCOD,
+        zone1Name,
+        zone2Name,
+        zone1Charge,
+        zone2Charge,
+        deliveryLocations,
+        heroBanners,
+        dynamicSections,
+        socialLinks,
+        liveChat,
+        flashDate,
+        flashTitle,
+        currency,
+        b2bMode,
+        promoPopupActive,
+        promoPopupImage,
+        promoPopupLink,
+        freeShipAmt,
+        // Product Page settings
+        quickView: parseBool(get('quick_view')),
+        stockBar: parseBool(get('stock_bar')),
+        relatedProd: parseBool(get('related_prod'), true),
+        liveSearch: parseBool(get('live_search'), true),
+        hoverEffect: String(get('hover_effect') || 'zoom'),
+        addCartText: String(get('add_cart_text') || ''),
+        maxQty: parseInt(get('max_qty')) || 0,
+        expDelivery: String(get('exp_delivery') || ''),
+        // Cart & Checkout settings
+        cartDrawer: parseBool(get('cart_drawer'), true),
+        orderNotes: parseBool(get('order_notes')),
+        checkoutMode: String(get('checkout_mode') || 'website'),
+        customField: String(get('custom_field') || ''),
+        minOrder: parseFloat(get('min_order')) || 0,
+        // Marketing settings
+        exitPopup: parseBool(get('exit_popup')),
+        loyaltySystem: parseBool(get('loyalty_system')),
+        trustBadges: parseBool(get('trust_badges')),
+        abandonMsg: String(get('abandon_msg') || ''),
+        // Branding settings
+        websiteLogoUrl: String(get('website_logo_url') || ''),
+        font: String(get('font') || ''),
+        themeColor: String(get('theme_color') || ''),
+        footerText: String(get('footer_text') || ''),
+        // SEO settings
+        metaTitle: String(get('meta_title') || ''),
+        metaDesc: String(get('meta_desc') || ''),
+        ogImage: String(get('og_image') || ''),
+
+        // ✅ v11 EXTRAS — Premium controls
+        // Theme palette (v11.3 expanded — 9 controls)
+        themePrimary: String(get('theme_primary') || ''),
+        themeAccent: String(get('theme_accent') || ''),
+        themeBg: String(get('theme_bg') || ''),
+        themeCardBg: String(get('theme_card_bg') || ''),
+        themeText: String(get('theme_text') || ''),
+        themeBorder: String(get('theme_border') || ''),
+        themeLink: String(get('theme_link') || ''),
+        themeSalePrice: String(get('theme_sale_price') || ''),
+        themeFooterBg: String(get('theme_footer_bg') || ''),
+        // Typography
+        headingFont: String(get('heading_font') || ''),
+        bodyFont: String(get('body_font') || ''),
+        bengaliFont: String(get('bengali_font') || ''),
+        // Card style
+        cardStyle: String(get('card_style') || 'rounded'),
+        cardHover: String(get('card_hover') || 'zoom'),
+        // Sale countdown
+        countdownActive: parseBool(get('countdown_active')),
+        countdownEnd: String(get('countdown_end') || ''),
+        countdownTitle: String(get('countdown_title') || 'Sale Ends In'),
+        countdownStyle: String(get('countdown_style') || 'red'),
+        // Free shipping bar
+        freeShipBarActive: parseBool(get('free_ship_bar_active')),
+        freeShipBarText: String(get('free_ship_bar_text') || 'Free shipping on orders over ৳{amount}'),
+        // ✅ v11.8: Premium customization — color + thickness
+        countdownBg:     String(get('countdown_bg') || ''),
+        countdownText:   String(get('countdown_text') || ''),
+        freeShipBarBg:        String(get('free_ship_bar_bg') || ''),
+        freeShipBarTextColor: String(get('free_ship_bar_text_color') || ''),
+        freeShipBarThickness: String(get('free_ship_bar_thickness') || 'slim'),
+
+        // ✅ v11.8: Advanced (Royal) tab — 5 brand-new controls
+        marqueeActive:    parseBool(get('marquee_active')),
+        marqueeText:      String(get('marquee_text') || ''),
+        marqueeBg:        String(get('marquee_bg') || ''),
+        marqueeTextColor: String(get('marquee_text_color') || ''),
+        marqueeSpeed:     String(get('marquee_speed') || 'slow'),
+        trustStripActive: parseBool(get('trust_strip_active')),
+        trustBadges: (function(){
+          var arr = [];
+          for (var ti = 1; ti <= 4; ti++) {
+            var icon  = String(get('trust_' + ti + '_icon')  || '').trim();
+            var label = String(get('trust_' + ti + '_label') || '').trim();
+            if (icon || label) arr.push({ icon: icon, label: label });
+          }
+          return arr;
+        })(),
+        royalFrameActive: parseBool(get('royal_frame_active')),
+        royalAccent:      String(get('royal_accent') || '#D4910A'),
+        royalFrameStyle:  String(get('royal_frame_style') || 'corners'),
+        editorialActive:  parseBool(get('editorial_active')),
+        editorialImage:   String(get('editorial_image') || ''),
+        editorialTitle:   String(get('editorial_title') || ''),
+        editorialBody:    String(get('editorial_body') || ''),
+        editorialCta:     String(get('editorial_cta') || ''),
+        editorialLink:    String(get('editorial_link') || ''),
+        igGridActive:     parseBool(get('ig_grid_active')),
+        igGridTitle:      String(get('ig_grid_title') || ''),
+        igGridImages: (function(){
+          var arr = [];
+          for (var gi = 1; gi <= 6; gi++) {
+            var url = String(get('ig_grid_image_' + gi) || '').trim();
+            if (url) arr.push(url);
+          }
+          return arr;
+        })(),
+        igGridLink:       String(get('ig_grid_link') || ''),
+        // Best sellers / new arrivals / recently viewed / wishlist
+        bestSellersActive: parseBool(get('best_sellers_active')),
+        bestSellersTitle: String(get('best_sellers_title') || 'Best Sellers'),
+        bestSellersCount: parseInt(get('best_sellers_count')) || 8,
+        newArrivalActive: parseBool(get('new_arrival_active')),
+        newArrivalDays: parseInt(get('new_arrival_days')) || 7,
+        recentlyViewed: parseBool(get('recently_viewed')),
+        wishlistActive: parseBool(get('wishlist_active')),
+        // Product page premium
+        stickyAtcMobile: parseBool(get('sticky_atc_mobile')),
+        videoAutoplay: parseBool(get('video_autoplay')),
+        oosHide: parseBool(get('oos_hide')),
+        quickViewActive: parseBool(get('quick_view_active')),
+        // Newsletter popup
+        newsletterActive: parseBool(get('newsletter_active')),
+        newsletterTitle: String(get('newsletter_title') || 'Get 10% off your first order!'),
+        newsletterCode: String(get('newsletter_code') || ''),
+        newsletterTrigger: String(get('newsletter_trigger') || '15'),
+        // Store hours
+        storeHoursActive: parseBool(get('store_hours_active')),
+        storeHoursOpen: String(get('store_hours_open') || ''),
+        storeHoursClose: String(get('store_hours_close') || ''),
+        storeHoursMsg: String(get('store_hours_msg') || '🌙 Order will ship next business day'),
+        // FAQ
+        faqActive: parseBool(get('faq_active')),
+        faqList: (function(){
+          const arr = [];
+          for(let i=1;i<=10;i++){
+            const q = String(get('faq_q' + i) || s['FAQ Q' + i] || '');
+            const a = String(get('faq_a' + i) || s['FAQ A' + i] || '');
+            if(q || a) arr.push({ q: q, a: a });
+          }
+          return arr;
+        })(),
+        // Testimonials
+        reviewsActive: parseBool(get('reviews_active')),
+        reviewsList: (function(){
+          const arr = [];
+          for(let i=1;i<=10;i++){
+            const n = String(s['Review ' + i + ' Name'] || get('review_' + i + '_name') || '');
+            const p = String(s['Review ' + i + ' Photo'] || get('review_' + i + '_photo') || '');
+            const st = parseInt(s['Review ' + i + ' Stars'] || get('review_' + i + '_stars') || 5);
+            const t = String(s['Review ' + i + ' Text'] || get('review_' + i + '_text') || '');
+            if(n || t) arr.push({ name: n, photo: p, stars: Math.max(1, Math.min(5, st)), text: t });
+          }
+          return arr;
+        })(),
+        // Float chat
+        floatChatPosition: String(get('float_chat_position') || 'bottom-right'),
+        floatChatOffset: parseInt(get('float_chat_offset')) || 20,
+        // ✅ v11.7: Avg Order Value (BDT) — drives Lead/Subscribe bid value for FB optimization
+        avgOrderValue: parseFloat(get('avg_order_value') || s['Avg Order Value']) || 0,
+        // Promo popup slots (3)
+        popupSlots: (function(){
+          const arr = [];
+          for(let i=1;i<=3;i++){
+            const a = parseBool(s['Popup ' + i + ' Active'] || get('popup_' + i + '_active'));
+            if(!a) continue;
+            const img = String(s['Popup ' + i + ' Image'] || get('popup_' + i + '_image') || '');
+            if(!img) continue;
+            arr.push({
+              image: img,
+              link: String(s['Popup ' + i + ' Link'] || get('popup_' + i + '_link') || ''),
+              start: String(s['Popup ' + i + ' Start'] || get('popup_' + i + '_start') || ''),
+              end: String(s['Popup ' + i + ' End'] || get('popup_' + i + '_end') || ''),
+              trigger: String(s['Popup ' + i + ' Trigger'] || get('popup_' + i + '_trigger') || '10')
+            });
+          }
+          return arr;
+        })(),
+
+        raw: s
+      };
+    } catch (e) {
+      // Load error
+      return null;
+    }
+  }
+
+  // ✅ v9.7: PREFETCH — Optimized from 3 API calls to 1.
+  // The 'products' endpoint returns { products, categories, storeInfo } in one response.
+  // We fire ONLY 'products', then cross-populate store_info + categories caches
+  // from the same response — eliminates 2 network requests entirely.
+  function prefetchAll() {
+    try {
+      // ✅ v10.2: Clear leftover snapshot from older versions
+      try { localStorage.removeItem('yarz_prefetch_snapshot'); } catch(e) {}
+
+      // ✅ Fire single network request that returns everything (always fresh)
+      apiGet('products').then(function(res) {
+        if (!res || !res.success) return;
+        // Cross-populate store_info cache from the products response (in-memory only)
+        if (res.storeInfo) {
+          var storeInfoData = { success: true, ok: true, data: res.storeInfo, store: res.storeInfo };
+          var siKey = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=store_info';
+          setCache(siKey, storeInfoData);
+        }
+        // Cross-populate categories cache from the products response (in-memory only)
+        if (res.categories || (res.products && Array.isArray(res.products))) {
+          var cats = res.categories;
+          if (!cats && Array.isArray(res.products)) {
+            var counts = {};
+            res.products.forEach(function(p) { var c = p.category || ''; if(c) counts[c] = (counts[c]||0)+1; });
+            cats = Object.keys(counts).map(function(n) { return { name: n, count: counts[n] }; });
+          }
+          if (cats) {
+            var catKey = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=categories';
+            setCache(catKey, { success: true, ok: true, categories: cats });
+          }
+        }
+        // ✅ v10.2: No localStorage snapshot — always fresh from server
+      }).catch(function(){});
+      // Also fire store_info as backup (in case products endpoint doesn't include it)
+      apiGet('store_info').catch(function(){});
+    } catch (e) { /* fail silently */ }
+  }
+
+  // ✅ v4.1: Fire prefetch IMMEDIATELY (don't wait for DOMContentLoaded)
+  // This runs in parallel with HTML/CSS/font parsing — saves 200-500ms.
+  if (typeof window !== 'undefined') {
+    prefetchAll();
+  }
+
+  return {
+    CONFIG,
+    getBaseUrl,
+    getReadUrl,    // ✅ v11.7: exposed so pixel.js _sendCapiMirror can route CAPI through the Worker (for client IP/UA injection)
+    getWriteUrl,   // ✅ v11.7: exposed for symmetry / debugging
+    setBaseUrl,
+    isConfigured,
+    clearCache,
+    invalidateStoreInfo,
+    getProducts,
+    getProduct,
+    getProductStock,
+    getCategories,
+    getStoreInfo,
+    getDeliveryCharges,
+    getGlobalControls,
+    healthCheck,
+    placeOrder,
+    getOrdersByPhone,
+    deleteOrder,
+    archiveCompletedOrders,
+    updateOrderStatus,
+    onDataRefresh,
+    prefetchAll,
+    // ✅ v11: Newsletter subscription
+    subscribeNewsletter: function(email, source) {
+      try {
+        return apiPost('subscribeNewsletter', { email: email, source: source || 'website-popup', userAgent: navigator.userAgent });
+      } catch (e) { return Promise.resolve({ success: false }); }
+    },
+    // ⚡ v10.5: Expose turbo promise for instant first paint in app.js
+    _getTurboPromise: function() { return _turboPromise || (_turboData ? Promise.resolve(_turboData) : null); },
+  };
+})();
+
+
