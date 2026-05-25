@@ -21,7 +21,38 @@ const YARZ_API = (() => {
   
   // Cloudflare Worker reverse-proxy URL — public by design, required for
   // client-side fetches. Worker validates the API key and rate-limits requests.
-  const CLOUDFLARE_WORKER_URL = 'https://yarz.marufhasan80009.workers.dev/';
+  // ✅ v15.37: Smart base URL detection. When the website is served from
+  // yarzclothing.xyz (Worker-bound custom domain), API requests should go
+  // SAME-ORIGIN ('/') instead of cross-origin to workers.dev. This:
+  //   • eliminates DNS lookup + TLS handshake to a 2nd origin (~80-150ms saved)
+  //   • removes CORS preflight on every cacheable GET
+  //   • keeps cookies in scope (visitor cookie set by Worker is accessible)
+  //
+  // Detection: if current page hostname is anything OTHER than the local
+  // GitHub Pages preview (ixmaruf.github.io) or pure file://, assume the
+  // Worker is bound to the same origin and use relative URLs. The
+  // localStorage override `yarz_worker_url` still wins for staging/debug.
+  function _detectWorkerUrl() {
+    try {
+      var override = localStorage.getItem('yarz_worker_url');
+      if (override) return override;
+    } catch (e) {}
+    try {
+      var host = (typeof location !== 'undefined' && location.hostname) || '';
+      // Same-origin if running on a real domain (not GitHub Pages preview).
+      // GitHub Pages preview must keep using workers.dev because it can't
+      // host the Worker itself.
+      if (host && host !== 'localhost' && host !== '127.0.0.1' &&
+          host.indexOf('github.io') === -1 && host.indexOf('githubpreview.dev') === -1) {
+        // Same-origin: '' makes URL constructor use the page's origin.
+        // We use location.origin + '/' explicitly to keep the URL absolute
+        // (some Worker code paths expect a full URL, not a relative one).
+        return location.origin + '/';
+      }
+    } catch (e) {}
+    return 'https://yarz.marufhasan80009.workers.dev/';
+  }
+  const CLOUDFLARE_WORKER_URL = _detectWorkerUrl();
 
   // Helper: read override from localStorage, fall back to default
   function _getStoredCredential(key, fallback) {

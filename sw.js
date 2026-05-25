@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════════════════════════════
    YARZ TURBO Service Worker v2.0
    ════════════════════════════════════════════════════════════════════
    Strategy matrix:
@@ -14,7 +14,7 @@
      3) Product images NEVER re-downloaded once cached
    ════════════════════════════════════════════════════════════════════ */
 
-const VERSION       = 'yarz-turbo-v15.0-zero-cache-2026-05-24';
+const VERSION       = 'yarz-turbo-v15.37-2026-05-26';
 const STATIC_CACHE  = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const IMAGE_CACHE   = `${VERSION}-images`;
@@ -60,9 +60,17 @@ self.addEventListener('install', (event) => {
 // ──────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.map(k => k.startsWith('yarz-') && !k.startsWith(VERSION) ? caches.delete(k) : null)
-    )).then(() => self.clients.claim())
+    Promise.all([
+      // Purge old version caches
+      caches.keys().then((keys) => Promise.all(
+        keys.map(k => k.startsWith('yarz-') && !k.startsWith(VERSION) ? caches.delete(k) : null)
+      )),
+      // ✅ v15.33 PERF: Enable navigationPreload — when SW handles a navigation,
+      // browser starts the network fetch in PARALLEL with SW startup time.
+      // Saves 50-150ms on returning customers (typical SW startup is 50-200ms).
+      // Compatible with Chrome/Edge/Firefox/Samsung Internet — Safari ignores.
+      self.registration.navigationPreload && self.registration.navigationPreload.enable().catch(() => {})
+    ]).then(() => self.clients.claim())
   );
 });
 
@@ -80,6 +88,20 @@ function isImage(req) {
 }
 
 function isAPI(req) {
+  // ✅ v15.37: After custom-domain migration, API calls go to same-origin
+  // (yarzclothing.xyz/?action=...) instead of workers.dev. The SW must NOT
+  // cache those — Worker already handles edge caching with admin purge,
+  // and SW caching here would re-introduce the "stale data after publish"
+  // bug we already fixed at the Worker layer.
+  try {
+    const u = new URL(req.url);
+    if (u.origin === self.location.origin) {
+      // Any same-origin request with ?action= is an API call → bypass SW
+      if (u.searchParams.has('action')) return true;
+      // Worker control endpoints (analytics, health, purge) → bypass SW
+      if (u.pathname.startsWith('/__')) return true;
+    }
+  } catch (e) {}
   return req.url.includes('script.google.com') ||
          req.url.includes('/exec') ||
          req.url.includes('/macros/s/') ||
@@ -199,12 +221,20 @@ self.addEventListener('fetch', (event) => {
   // HTML pages — Network Only for real-time Cloudflare SSR data
   // Bypassed local caching completely to prevent customers from seeing stale products
   if (isHTML(req)) {
-    event.respondWith(
-      fetch(new Request(req, { cache: 'no-cache' })).catch(() => {
+    event.respondWith((async () => {
+      try {
+        // ✅ v15.33 PERF: Use navigationPreload response if available.
+        // This is the parallel network request the browser fired while
+        // the SW was starting up — saves 50-150ms vs `fetch()`.
+        const preloadResponse = event.preloadResponse ? await event.preloadResponse : null;
+        if (preloadResponse) return preloadResponse;
+        // Fallback: regular fetch with cache:'no-cache' to force revalidation
+        return await fetch(new Request(req, { cache: 'no-cache' }));
+      } catch (e) {
         // Only if completely offline (no internet), show the offline page
-        return caches.match('/404.html') || new Response('Offline', { status: 503 });
-      })
-    );
+        return (await caches.match('/404.html')) || new Response('Offline', { status: 503 });
+      }
+    })());
     return;
   }
 
