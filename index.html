@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bn">
 
 <head>
@@ -35,8 +35,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.37" as="script">
-  <link rel="preload" href="./css/style.css?v=15.33" as="style">
+  <link rel="preload" href="./js/api.js?v=15.46" as="script">
+  <link rel="preload" href="./css/style.css?v=15.46" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -222,8 +222,8 @@
        further down already paints first frame correctly; full stylesheet
        streams in parallel without delaying first paint. Saves ~150-300ms
        on slow connections. -->
-  <link rel="preload" href="./css/style.css?v=15.33" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="./css/style.css?v=15.33"></noscript>
+  <link rel="preload" href="./css/style.css?v=15.46" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="./css/style.css?v=15.46"></noscript>
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -546,12 +546,49 @@
     .fashion-typo-section {
       contain: layout style;
     }
+
+    /* ✅ v15.40 FOUC FIX: Hide all overlays/drawers/popups from FIRST PAINT.
+       Without this, CSS load lag (50-200ms before style.css applies) made
+       customers see the search overlay, cart drawer, filter drawer, and
+       modals briefly flash on every page load. The full stylesheet has
+       these same rules, but it loads non-blocking — so this inline copy
+       is what prevents the flash.
+
+       Note: rules use the same default-state selectors as style.css
+       (none for overlays, off-canvas for drawers). When JS adds .active
+       or .open the bigger stylesheet's rules take over. */
+    .search-overlay,
+    .cart-overlay,
+    .filter-overlay,
+    .modal-overlay,
+    .yarz-popup-overlay,
+    .maintenance-overlay,
+    #yarz-newsletter-popup,
+    #yarz-promo-popup,
+    .checkout-modal {
+      display: none;
+    }
+    .cart-drawer,
+    #filter-drawer,
+    #cart-drawer {
+      position: fixed;
+      top: 0;
+      right: -110%;
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      background: #FFF;
+      z-index: 250;
+      transition: right 0.3s ease;
+    }
+    /* When JS opens them, the bigger stylesheet's rules apply (right:0 etc).
+       This minimal off-canvas keeps them invisible until then. */
   </style>
 
   <!-- Instant hash-route check: hide home content if on a product page -->
   <style id="hash-route-style"></style>
   <script>
-    if ((window.location.hash && window.location.hash.indexOf('#product/') === 0) || (window.location.search && window.location.search.indexOf('product=') !== -1)) {
+    if ((window.location.hash && /^#(product|category|collection|wishlist)/.test(window.location.hash)) || (window.location.search && window.location.search.indexOf('product=') !== -1)) {
       document.getElementById('hash-route-style').textContent = '#home-content{display:none}';
     }
   </script>
@@ -1164,7 +1201,7 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.37" defer></script>
+  <script src="./js/api.js?v=15.46" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
   <script src="./js/boot.js?v=12.1" defer></script>
@@ -1174,7 +1211,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.37"  defer></script>
+  <script src="./js/app.js?v=15.46"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1222,7 +1259,7 @@
         // CPA over a few days. The 50KB load happens AFTER LCP (load+200ms),
         // so it doesn't affect first-paint speed anyway.
         // Pixel loads first — when ready, init it and replay any queued events
-        _yarzLoadLater('./js/pixel.js?v=12.1', function () {
+        _yarzLoadLater('./js/pixel.js?v=15.46', function () {
           try {
             // After pixel.js loads, window.YARZ_PIXEL is now the REAL module
             // (pixel.js's IIFE overwrites our stub)
@@ -1241,8 +1278,8 @@
             }
           } catch (e) {}
         });
-        _yarzLoadLater('./js/armor.js?v=12.1');
-        _yarzLoadLater('./js/shield.js?v=12.1');
+        _yarzLoadLater('./js/armor.js?v=15.46');
+        _yarzLoadLater('./js/shield.js?v=15.46');
       }
       // ✅ v13.1: 200ms instead of 1500ms — keeps ad attribution intact
       if (document.readyState === 'complete') {

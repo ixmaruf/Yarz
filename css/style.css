@@ -2373,6 +2373,15 @@ html body #hero-slider .slide .banner-overlay,
   right: 0;
 }
 
+/* ✅ v15.46 FIX: When the cart drawer is OPEN, lift it ABOVE the checkout
+   modal-overlay (z-index 400). This is a defense-in-depth layer for the
+   cart-vs-checkout bug — even if closeCheckout() somehow fails or another
+   modal stays active, an opened cart drawer must always be visible and
+   clickable. The .open class is only applied when JS explicitly opens
+   the drawer, so this never affects normal modal-only flows. */
+.cart-drawer.open { z-index: 450; }
+.cart-overlay.active { z-index: 449; }
+
 .cart-header {
   display: flex;
   align-items: center;

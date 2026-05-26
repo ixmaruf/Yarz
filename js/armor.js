@@ -16,9 +16,9 @@
     TRACKING_DOMAINS: [
       'facebook', 'fbq', 'fb.com', 'fbcdn',
       'google', 'gtag', 'analytics', 'googletagmanager',
-      'tiktok', 'ttq', 'bytedance',
-      'snapchat', 'sentry', 'hotjar',
-      'pinterest', 'clarity', 'fonts.googleapis'
+      'tiktok', 'ttq', 'bytedance', 'tiktokcdn', 'tiktokv',
+      'snapchat', 'sc-static', 'sentry', 'hotjar',
+      'pinterest', 'pinimg', 'clarity', 'fonts.googleapis'
     ],
     CHECK_INTERVAL: 3000,
   };

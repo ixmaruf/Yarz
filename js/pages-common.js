@@ -82,6 +82,10 @@
 
       // ✅ v11.7: Init YARZ_PIXEL on static pages (about/privacy/terms/...)
       // so PageView is fired with proper CAPI mirror + advanced matching from prior sessions.
+      // ✅ v15.44 FIX: Pass full `controls.raw` so pixel.js `_loadToggles()`
+      // sees the per-event `pixel_evt_*` keys. Previously we passed only the
+      // 5 pixel IDs in a hand-built object → every toggle defaulted to ON,
+      // ignoring admin's preferences on subpages.
       try {
         if (window.YARZ_PIXEL && typeof YARZ_PIXEL.init === 'function' && controls.raw) {
           var raw = controls.raw;
@@ -89,13 +93,17 @@
             var v = raw[k1] || raw[k2];
             return v ? String(v).trim() : '';
           }
-          YARZ_PIXEL.init({
+          // Build a merged init payload: keep the legacy normalized keys for
+          // backward-compat with older _storeInfo lookups, AND spread `raw`
+          // so toggles + Sheet keys are visible to _loadToggles().
+          var pixelInitPayload = Object.assign({}, raw, {
             fbPixel:        pix('FB Pixel', 'fb_pixel'),
             ga4Id:          pix('GA4', 'ga4'),
             tiktokPixel:    pix('TT Pixel', 'tt_pixel'),
-            snapchatPixel:  pix('Snapchat Pixel', 'snapchat_pixel'),
+            snapchatPixel:  pix('Snapchat Pixel', 'snap_pixel') || pix('Snapchat Pixel', 'snapchat_pixel'),
             pinterestPixel: pix('Pinterest Pixel', 'pinterest_pixel')
           });
+          YARZ_PIXEL.init(pixelInitPayload);
           // Inject FB domain verification meta (required for AEM 8-event priority)
           var fbDomVer = (raw['FB Domain Verify'] || raw['fb_domain_verify'] || '').toString().trim();
           if (fbDomVer && !document.querySelector('meta[name="facebook-domain-verification"]')) {

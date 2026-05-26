@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
@@ -18,28 +18,31 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Page Not Found — YARZ">
 <meta name="twitter:description" content="The page you are looking for does not exist on YARZ.">
-<link rel="stylesheet" href="./css/style.css?v=15.33">
+<link rel="stylesheet" href="/css/style.css?v=15.46">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='2' fill='%236E1F2A'/><text x='16' y='22' font-family='Arial' font-size='16' font-weight='900' fill='white' text-anchor='middle'>Y</text></svg>">
+<!-- ✅ v15.45 SEO: Tell Googlebot not to index this 404 page itself; it's
+     a soft-redirect, not real content. -->
+<meta name="robots" content="noindex,nofollow">
 <script>
   // GitHub Pages SPA redirect: if user landed here via deep link with a hash route,
-  // redirect to root index with the hash preserved
+  // redirect to root index with the hash preserved.
+  // ✅ v15.45 SEO: Delay redirect 5 seconds so users can read the message
+  // and Googlebot can crawl the noindex tag. Auto-redirect was destroying
+  // 404 attribution previously.
   (function () {
     var hash = window.location.hash || '';
     var path = window.location.pathname || '';
-    // If we are inside a subfolder deployment, find the repo root
     var segments = path.split('/').filter(Boolean);
-    // If path is /repo-name/something, redirect to /repo-name/ + hash
+    var redirect = '/' + (hash || '');
     if (segments.length > 0) {
       // Try to redirect to the closest index.html
-      var redirect = '/' + segments[0] + '/' + (hash || '');
+      redirect = '/' + segments[0] + '/' + (hash || '');
       // If we're on a custom domain (no subfolder), just go to root
       if (window.location.hostname.indexOf('github.io') === -1) {
         redirect = '/' + (hash || '');
       }
-      window.location.replace(redirect);
-    } else {
-      window.location.replace('/' + (hash || ''));
     }
+    setTimeout(function () { window.location.replace(redirect); }, 5000);
   })();
 </script>
 </head>

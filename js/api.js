@@ -1,5 +1,30 @@
 /* YARZ API v12.0 — Cloudflare Worker Edge Cache integration */
 
+// ✅ v15.44 FIX: Capture FB / TikTok click IDs (fbclid / ttclid) ASAP — at the
+// top of api.js (the FIRST script to run after HTML parse). Previously this
+// only happened inside pixel.js which loads 200ms AFTER the `load` event.
+// If the customer arrived via FB ad, opened a product, and clicked Buy Now
+// within ~250ms of landing, pixel.js hadn't loaded yet → the click ID never
+// got persisted to a cookie → the Purchase CAPI event was sent WITHOUT _fbc
+// → FB couldn't attribute the conversion → silent ad-spend waste.
+//
+// Running this here at the very top guarantees the cookie is set before any
+// order/lead form handler can fire.
+(function _yarzCaptureClickIdsEarly() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var fbclid = params.get('fbclid');
+    if (fbclid && !/_fbc=/.test(document.cookie || '')) {
+      var fbcVal = 'fb.1.' + Date.now() + '.' + fbclid;
+      document.cookie = '_fbc=' + fbcVal + '; max-age=' + (90 * 86400) + '; path=/; samesite=lax';
+    }
+    var ttclid = params.get('ttclid');
+    if (ttclid && !/_yarz_ttclid=/.test(document.cookie || '')) {
+      document.cookie = '_yarz_ttclid=' + encodeURIComponent(ttclid) + '; max-age=' + (90 * 86400) + '; path=/; samesite=lax';
+    }
+  } catch (e) {}
+})();
+
 const YARZ_API = (() => {
   // ===== CONFIGURATION =====
   // ℹ️ Honest note about "client-side credentials":
@@ -1046,7 +1071,7 @@ const YARZ_API = (() => {
       const promoPopupActive = parseBool(get('promo_popup_active'));
       const promoPopupImage = String(get('promo_popup_image') || '');
       const promoPopupLink = String(get('promo_popup_link') || '');
-      const freeShipAmt = parseFloat(get('free_ship_amt')) || 0;
+      const freeShipAmt = parseFloat(String(get('free_ship_amt') || '').replace(/[,\s]/g, '')) || 0;
 
       return {
         maintenanceMode,

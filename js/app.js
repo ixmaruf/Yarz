@@ -215,7 +215,14 @@ const YARZ = (() => {
   }
 
   function calculateCartDeliveryCharge(locationId) {
-    if (state.cart.length === 0) return 0;
+    if (state.cart.length === 0) {
+      // ✅ v15.42: Clear stale free-ship info on empty-cart early exit.
+      // Without this, a previously-applied state could leak to any code
+      // that reads state._lastFreeShipInfo without first calling this
+      // function (defensive — currently no such reader exists).
+      state._lastFreeShipInfo = { applied: false, threshold: 0, savings: 0, subtotal: 0 };
+      return 0;
+    }
     var locs = getDeliveryLocations();
     var locIndex = locs.findIndex(function(l) { return String(l.id) === String(locationId); });
     var defaultCharge = getDeliveryCharge(locationId);
@@ -237,12 +244,28 @@ const YARZ = (() => {
 
     var freeShipAmt = 0;
     if (state.storeInfo) {
-      freeShipAmt = parseFloat(state.storeInfo.freeShipAmt || state.storeInfo.free_ship_amt) || 0;
+      // ✅ v15.42: Strip commas/spaces before parsing. Bangladeshi admins
+      // commonly type "5,000" in spreadsheet cells; parseFloat("5,000") = 5
+      // which would silently make EVERY order qualify for free shipping.
+      var _fsRaw = String(state.storeInfo.freeShipAmt || state.storeInfo.free_ship_amt || '').replace(/[,\s]/g, '');
+      freeShipAmt = parseFloat(_fsRaw) || 0;
     }
+    // ✅ v15.41 FREE-SHIP MILESTONE: Track whether the cart unlocked free
+    // delivery so the cart drawer / checkout summary / confirm modal can
+    // show the celebratory "FREE" badge and the order payload can carry
+    // the marker through to GAS / Telegram / admin Orders sheet.
+    var originalCharge = deliveryCharge;
+    var freeShipApplied = false;
     if (freeShipAmt > 0 && subtotal >= freeShipAmt) {
       deliveryCharge = 0;
+      freeShipApplied = true;
     }
-    
+    state._lastFreeShipInfo = {
+      applied:   freeShipApplied,
+      threshold: freeShipAmt,
+      savings:   freeShipApplied ? originalCharge : 0,
+      subtotal:  subtotal
+    };
     return deliveryCharge;
   }
 
@@ -645,8 +668,23 @@ const YARZ = (() => {
   // ===== HERO SLIDER =====
   function initHeroSlider() {
     if (state.heroTimer) { clearInterval(state.heroTimer); state.heroTimer = null; }
+
+    // ✅ v15.40 FIX: Hero swipe was broken on customer's site because the
+    // `_swipeBound` guard prevented re-binding after SWR re-render — the
+    // old handlers kept a closure on the OLD `track` reference (which got
+    // replaced by `slider.innerHTML = ...`). Result: drag did nothing, taps
+    // worked but clicks felt unresponsive. Also, multiple bindings could
+    // accumulate from repeated initHeroSlider calls.
+    //
+    // Fix: clone the slider node FIRST so all old listeners are detached.
+    // Then bind everything fresh on the clone.
     var slider = $('.hero-slider');
-    var track = $('.hero-slider .slider-track');
+    if (slider) {
+      var freshSlider = slider.cloneNode(true);
+      slider.parentNode.replaceChild(freshSlider, slider);
+      slider = freshSlider;
+    }
+
     var slides = $$('.hero-slider .slide');
     var dots = $$('.slider-nav .slider-dot');
     if (!slides || slides.length <= 1) return;
@@ -654,19 +692,26 @@ const YARZ = (() => {
     var SLIDE_INTERVAL = 2500; // v11: 2.5s per user request
 
     function showSlide(idx) {
-      if (track) {
-        track.style.transform = 'translateX(-' + (idx * 100) + '%)';
-      }
-      dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+      // Always re-fetch the current track from DOM. After SWR re-renders the
+      // hero, any closure-captured `track` reference becomes stale (detached
+      // node). Re-querying inside showSlide ensures the visible track moves.
+      var t = $('.hero-slider .slider-track');
+      if (t) t.style.transform = 'translateX(-' + (idx * 100) + '%)';
+      var liveDots = $$('.slider-nav .slider-dot');
+      liveDots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
       state.heroSlideIndex = idx;
     }
 
     function nextSlide() {
-      showSlide((state.heroSlideIndex + 1) % slides.length);
+      var live = $$('.hero-slider .slide');
+      var n = (live && live.length) ? live.length : slides.length;
+      showSlide((state.heroSlideIndex + 1) % n);
     }
 
     function prevSlide() {
-      showSlide((state.heroSlideIndex - 1 + slides.length) % slides.length);
+      var live = $$('.hero-slider .slide');
+      var n = (live && live.length) ? live.length : slides.length;
+      showSlide((state.heroSlideIndex - 1 + n) % n);
     }
 
     function startAuto() {
@@ -680,42 +725,47 @@ const YARZ = (() => {
 
     startAuto();
 
+    // Bind arrow buttons (siblings of .hero-slider, inside .hero-section)
     var prevBtn = $('.slider-arrow.prev');
     var nextBtn = $('.slider-arrow.next');
     if (prevBtn) prevBtn.onclick = function () { pauseAuto(); prevSlide(); startAuto(); };
     if (nextBtn) nextBtn.onclick = function () { pauseAuto(); nextSlide(); startAuto(); };
 
-    dots.forEach(function (dot, i) {
+    // Bind dots (.slider-nav is sibling of .hero-slider, also inside .hero-section)
+    var liveDots = $$('.slider-nav .slider-dot');
+    liveDots.forEach(function (dot, i) {
       dot.onclick = function () { pauseAuto(); showSlide(i); startAuto(); };
     });
 
-    // ✅ v11.8: Touch + mouse swipe — visual drag feedback + click-suppress
-    // (so dragging on a banner that wraps an <a class="banner-link"> doesn't
-    // also navigate when the user lifts the mouse).
-    if (slider && !slider._swipeBound) {
-      slider._swipeBound = true;
+    // Touch + mouse swipe handlers — re-query track on every tick to avoid
+    // stale references after SWR re-renders the slider innerHTML.
+    if (slider) {
       var startX = 0, dx = 0, isDragging = false, hasMoved = false;
 
       function onStart(x) {
         startX = x; dx = 0; isDragging = true; hasMoved = false;
         pauseAuto();
-        if (track) track.style.transition = 'none';
+        var t = slider.querySelector('.slider-track');
+        if (t) t.style.transition = 'none';
       }
       function onMove(x) {
         if (!isDragging) return;
         dx = x - startX;
-        if (Math.abs(dx) > 3) hasMoved = true;
-        // Live track follow while dragging (premium feel)
-        if (track) {
+        // ✅ v15.45: Lift threshold to 8px so a tiny finger jitter on a tap
+        // does NOT suppress link navigation. 3px was way too tight for
+        // mobile touchscreens — Material/iOS use 6-10px.
+        if (Math.abs(dx) > 8) hasMoved = true;
+        var t = slider.querySelector('.slider-track');
+        if (t) {
           var basePct = state.heroSlideIndex * 100;
-          var deltaPct = (dx / slider.clientWidth) * 100;
-          track.style.transform = 'translateX(calc(-' + basePct + '% + ' + dx + 'px))';
+          t.style.transform = 'translateX(calc(-' + basePct + '% + ' + dx + 'px))';
         }
       }
       function onEnd() {
         if (!isDragging) return;
         isDragging = false;
-        if (track) track.style.transition = '';
+        var t = slider.querySelector('.slider-track');
+        if (t) t.style.transition = '';
         var threshold = Math.max(40, slider.clientWidth * 0.08);
         if (dx < -threshold) nextSlide();
         else if (dx > threshold) prevSlide();
@@ -3138,11 +3188,24 @@ const YARZ = (() => {
     $$('.pd-thumb').forEach(function (t, i) { t.classList.toggle('active', i === idx); });
 
     // 2. Get optimized URL for main image (1600px)
-    var optimizedSrc = window.ImageTurbo ? window.ImageTurbo.optimize(src, 1600) : src;
-    var thumbSrc = window.ImageTurbo ? window.ImageTurbo.optimize(src, 200) : src;
+    // ✅ v15.39 FIX: Cap at 1600 (no DPR multiply) so the URL matches what
+    // _preloadProductImages already warmed. Previously the optimize call
+    // could become =s2000-rw on retina displays — a fresh URL not in any
+    // cache — forcing every thumbnail click to re-download the full image.
+    var optimizedSrc = getImgSrc(src, 1600);
+    var thumbSrc = getImgSrc(src, 200);
 
     // 3. If new src is same as current, do nothing
-    if (img.src === optimizedSrc || img.src.indexOf(optimizedSrc) > -1) return;
+    if (img.currentSrc === optimizedSrc || img.src === optimizedSrc) return;
+
+    // ✅ v15.39 CRITICAL FIX: Remove srcset + sizes BEFORE setting src.
+    // Modern browsers honor `srcset` over a manually-changed `src`, so the
+    // old code (which only changed `src`) left the previously-resolved
+    // srcset variant of images[0] visible — thumbnails clicked silently
+    // had no visible effect. Stripping both attributes makes `src`
+    // authoritative again so the new image actually paints.
+    if (img.srcset) img.removeAttribute('srcset');
+    if (img.sizes) img.removeAttribute('sizes');
 
     // 4. 🚀 Superfast Loading: Set src to cached thumbnail instantly!
     img.style.transition = 'filter 0.3s ease';
@@ -3157,7 +3220,7 @@ const YARZ = (() => {
     probe.onerror = function () {
       // fallback: try original src
       img.src = src;
-      img.style.opacity = '1';
+      img.style.filter = 'blur(0px)';
     };
     probe.src = optimizedSrc;
   }
@@ -3183,10 +3246,12 @@ const YARZ = (() => {
     var doPreload = function () {
       images.forEach(function(src, idx) {
         if (!src) return;
-        if (idx === 0) return; // main image already loading
-        // images[1] gets full 1600 (likely next click), rest get 800
-        var size = idx === 1 ? 1600 : 800;
-        var url = window.ImageTurbo ? window.ImageTurbo.optimize(src, size) : src;
+        if (idx === 0) return; // main image already loading via the visible <img>
+        // ✅ v15.39: Pre-warm ALL gallery images at 1600 (not just images[1]).
+        // Customers click multiple thumbnails — every one needs to feel
+        // instant. _idle scheduling means this runs only when the browser
+        // is genuinely idle, so it never competes with the LCP main image.
+        var url = getImgSrc(src, 1600);
         var probe = new Image();
         probe.src = url; // browser caches, no callback needed
       });
@@ -3327,7 +3392,27 @@ const YARZ = (() => {
   function updateCartItemQty(key, delta) {
     var item = state.cart.find(function (i) { return i.key === key; });
     if (!item) return;
-    item.qty = Math.max(1, item.qty + delta);
+    var newQty = Math.max(1, item.qty + delta);
+    // ✅ v15.45 FIX: Cap at available stock so customers can't oversell.
+    // maxStock is captured per-size at addToCart time; if missing, fall
+    // back to the live product stock for this size.
+    var cap = item.maxStock;
+    if (cap == null) {
+      try {
+        var live = state.products.find(function (p) {
+          return (p.id || p.name) === (item.id || item.name);
+        });
+        if (live && live.sizes) {
+          var sObj = live.sizes[item.size] || live.sizes[String(item.size).toUpperCase()];
+          cap = (sObj && sObj.stock != null) ? Number(sObj.stock) : null;
+        }
+      } catch (e) {}
+    }
+    if (cap != null && cap > 0 && newQty > cap) {
+      newQty = cap;
+      try { showToast('Only ' + cap + ' in stock for size ' + item.size, 'warning'); } catch (e) {}
+    }
+    item.qty = newQty;
     saveCart();
     renderCartDrawer();
   }
@@ -3340,6 +3425,48 @@ const YARZ = (() => {
     var body = $('#cart-body');
     if (!body) return;
 
+    // ✅ v15.41 FREE-SHIP MILESTONE banner. Two states:
+    //   • Threshold UNLOCKED → green celebration card with savings amount
+    //   • Threshold not yet hit → gentle "৳XX more for free delivery" nudge
+    // Only shown when admin has configured a freeShipAmt > 0 and cart has items.
+    var freeShipBannerHtml = '';
+    try {
+      var siInfo = state.storeInfo || {};
+      // ✅ v15.42: Defensive comma-strip before parseFloat — see comment in
+      // calculateCartDeliveryCharge for the underlying reason.
+      var _fsRawCart = String(siInfo.freeShipAmt || siInfo.free_ship_amt || '').replace(/[,\s]/g, '');
+      var fsAmt = parseFloat(_fsRawCart) || 0;
+      if (fsAmt > 0 && state.cart.length > 0) {
+        var subtotal = state.cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+        if (subtotal >= fsAmt) {
+          // ✅ v15.43: Professional banner with CSS-only check icon — no emoji.
+          // Inline SVG keeps it crisp on every screen and avoids the boxy
+          // fallback look on older Android emoji fonts.
+          freeShipBannerHtml =
+            '<div style="margin:0 0 12px;padding:14px 16px;background:linear-gradient(135deg,#16A34A,#059669);color:#fff;border-radius:10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;box-shadow:0 4px 14px rgba(22,163,74,0.25);">' +
+              '<span aria-hidden="true" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.18);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+              '</span>' +
+              '<div style="flex:1;line-height:1.45;">' +
+                '<div style="font-weight:700;letter-spacing:0.2px;font-size:13.5px;">Free Delivery Unlocked</div>' +
+                '<div style="font-size:11.5px;font-weight:500;opacity:0.92;margin-top:2px;">For shopping over ' + formatPrice(fsAmt) + '. Shipping is on us.</div>' +
+              '</div>' +
+            '</div>';
+        } else {
+          var diff = fsAmt - subtotal;
+          // ✅ v15.43: Professional progress nudge — accent border, inline SVG
+          // truck (CSS replacement for 🚚 emoji), live progress text.
+          freeShipBannerHtml =
+            '<div style="margin:0 0 12px;padding:11px 14px;background:rgba(99,71,142,0.06);border:1px dashed rgba(99,71,142,0.3);color:var(--ink-1);border-radius:10px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:10px;">' +
+              '<span aria-hidden="true" style="width:24px;height:24px;border-radius:50%;background:rgba(99,71,142,0.12);color:var(--brand);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v12"/><path d="M14 9h4l3 4v5a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>' +
+              '</span>' +
+              '<span style="line-height:1.45;">Add <strong style="color:var(--brand);font-weight:700;">' + formatPrice(diff) + '</strong> more to unlock <strong>free delivery</strong>.</span>' +
+            '</div>';
+        }
+      }
+    } catch (e) {}
+
     var cartHtml = '';
     if (state.cart.length === 0) {
       cartHtml = '<div class="cart-empty">' +
@@ -3347,7 +3474,7 @@ const YARZ = (() => {
         '<p>Your cart is empty</p>' +
         '<p style="font-size:11px;margin-top:4px;color:var(--text-light)">Browse products and add items</p></div>';
     } else {
-      cartHtml = state.cart.map(function (item) {
+      cartHtml = freeShipBannerHtml + state.cart.map(function (item) {
         var safeKey = escHtml(item.key).replace(/'/g, "\\'");
         return '<div class="cart-item">' +
           '<div class="cart-item-img"><img src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" onerror="this.style.display=\'none\'"></div>' +
@@ -3409,9 +3536,46 @@ const YARZ = (() => {
   }
 
   function toggleCart(show) {
+    // ✅ v15.46 FIX (cart-vs-checkout layering bug):
+    // When the customer clicks the cart icon while the checkout modal is
+    // already open, the checkout's `.modal-overlay` (z-index 400) sits ABOVE
+    // the cart drawer (z-index 301), so even if the drawer toggles open it
+    // is invisible behind the checkout backdrop. Worse, when the admin has
+    // disabled the slide-out drawer (cartDrawer === false), the v15.6
+    // short-circuit below would re-call openCheckout(), making the form
+    // appear to "re-pop" instead of letting the user peek at their cart.
+    //
+    // Fix: when the user opens the cart, first dismiss any open checkout
+    // modal so the cart UI can become the primary surface. The user can
+    // re-open checkout via the drawer's Checkout button (or Buy Now).
+    if (show === true) {
+      var __coModal = document.getElementById('checkout-modal');
+      if (__coModal && __coModal.classList.contains('active')) {
+        closeCheckout();
+      }
+    }
+
     // ✅ v15.6 FIX: Honor admin's `Cart Drawer` toggle. When OFF, "Add to Cart"
     // and the cart icon take the user directly to checkout (no drawer slide-out).
+    // ✅ v15.46: Only auto-open checkout when it's NOT already been dismissed
+    // in this same call — the block above already closed it because the user
+    // clearly wants to navigate away from checkout. So if checkout was open
+    // a moment ago, just close it and stop. The user can re-open checkout
+    // via "Add to Cart" or "Buy Now" buttons on product cards.
     if (show === true && state.controls && state.controls.cartDrawer === false) {
+      // If we just closed an active checkout above, do not bounce them back
+      // into checkout — that's exactly the bug we're fixing.
+      var _justClosedCo = document.body.classList.contains('checkout-open') === false &&
+                          (document.getElementById('checkout-modal') &&
+                           !document.getElementById('checkout-modal').classList.contains('active'));
+      // The above is always true at this point (closeCheckout already ran),
+      // but we use a session marker so the *next* tick can tell whether the
+      // click was a fresh "open my cart" or a re-click after close.
+      // Simpler: track the close timestamp and skip auto-checkout if it just
+      // happened (within 250ms).
+      if (window._yarzCheckoutClosedAt && (Date.now() - window._yarzCheckoutClosedAt) < 250) {
+        return; // user wanted to leave checkout, not re-open it
+      }
       if (state.cart.length === 0) {
         showToast('Cart is empty', 'warning');
         return;
@@ -3512,17 +3676,25 @@ const YARZ = (() => {
     state._checkoutOpenedAt = Date.now();
 
     // ✅ v5.0: Facebook Pixel — InitiateCheckout event with Advanced Matching
+    // ✅ v15.44 FIX: Dedupe by cart contents — customer who closes & re-opens
+    // checkout with the same cart now fires only ONE InitiateCheckout per cart
+    // signature, not one per open. Previously inflated the funnel reporting.
     if (window.YARZ_PIXEL) {
       var checkoutTotal = state.cart.reduce(function(sum, c) { return sum + (c.price * c.qty); }, 0);
-      var cachedUser = {};
-      try { cachedUser = JSON.parse(localStorage.getItem('yarz_user') || '{}') || {}; } catch(e) {}
-      YARZ_PIXEL.initiateCheckout(state.cart, checkoutTotal, {
-        name: cachedUser.name || cachedUser.customerName || '',
-        phone: cachedUser.phone || '',
-        email: cachedUser.email || '',
-        city: cachedUser.city || cachedUser.area || '',
-        country: 'BD'
-      });
+      var cartSig = state.cart.map(function (c) { return c.name + '|' + c.size + '|' + c.qty; }).join('||') + '|t=' + checkoutTotal;
+      var icDedupeKey = 'yarz_ic_fired_' + Math.abs(cartSig.split('').reduce(function(h, ch) { return ((h << 5) - h) + ch.charCodeAt(0) | 0; }, 0));
+      if (!sessionStorage.getItem(icDedupeKey)) {
+        try { sessionStorage.setItem(icDedupeKey, '1'); } catch(_) {}
+        var cachedUser = {};
+        try { cachedUser = JSON.parse(localStorage.getItem('yarz_user') || '{}') || {}; } catch(e) {}
+        YARZ_PIXEL.initiateCheckout(state.cart, checkoutTotal, {
+          name: cachedUser.name || cachedUser.customerName || '',
+          phone: cachedUser.phone || '',
+          email: cachedUser.email || '',
+          city: cachedUser.city || cachedUser.area || '',
+          country: 'BD'
+        });
+      }
     }
 
     // ✅ FIX v4.3: Silent background refresh of COD toggle when checkout opens.
@@ -3845,7 +4017,38 @@ const YARZ = (() => {
     var deliveryEl = $('#checkout-delivery');
     var totalQty = state.cart.reduce(function(sum, item) { return sum + item.qty; }, 0);
     if (deliveryEl) {
-      if (totalQty > 1 && deliveryCharge > 0) {
+      // ✅ v15.41 FREE-SHIP MILESTONE: When cart unlocks free shipping,
+      // show a green "FREE ✨" badge with savings instead of ৳0. Customers
+      // see exactly why their delivery is free — encourages repeat orders.
+      // ✅ v15.42 FIX: Drop the savings>0 gate so we still show FREE when
+      // delivery was already 0 (e.g. free-pickup zone). Inconsistent UI
+      // before — cart drawer showed celebration but checkout summary fell
+      // through to plain "৳0".
+      var fsInfo = state._lastFreeShipInfo || {};
+      if (fsInfo.applied) {
+        var savingsHtml = '';
+        if (fsInfo.savings > 0) {
+          savingsHtml =
+            '<span style="font-size:11px;color:var(--text-muted);font-weight:500;text-decoration:line-through;">' + formatPrice(fsInfo.savings) + '</span>';
+        }
+        var savedTextHtml = '';
+        if (fsInfo.savings > 0) {
+          // ✅ v15.43: Professional savings caption — no emoji, accent green
+          // bullet for visual rhythm. Customers still understand "savings"
+          // without the party-popper emoji which felt cheap on a clothing brand.
+          savedTextHtml =
+            '<div style="font-size:10.5px;color:#059669;font-weight:600;margin-top:4px;display:inline-flex;align-items:center;gap:5px;">' +
+              '<span aria-hidden="true" style="width:5px;height:5px;border-radius:50%;background:#059669;flex-shrink:0;"></span>' +
+              'You saved ' + formatPrice(fsInfo.savings) + ' on delivery' +
+            '</div>';
+        }
+        deliveryEl.innerHTML =
+          '<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#16A34A;">' +
+            '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;letter-spacing:0.4px;">FREE</span>' +
+            savingsHtml +
+          '</span>' +
+          savedTextHtml;
+      } else if (totalQty > 1 && deliveryCharge > 0) {
         var extraCharge = (totalQty - 1) * 5;
         var baseCharge = deliveryCharge - extraCharge;
         deliveryEl.innerHTML = formatPrice(deliveryCharge) + ' <div style="font-size:10px;color:var(--text-muted);font-weight:500;margin-top:2px;">(মূল ' + formatPrice(baseCharge) + ' + অতিরিক্ত ' + formatPrice(extraCharge) + ')</div>';
@@ -3914,6 +4117,12 @@ const YARZ = (() => {
     var modal = $('#checkout-modal');
     if (modal) modal.classList.remove('active');
     document.body.classList.remove('checkout-open');
+    // ✅ v15.46: Stamp the close time so toggleCart(true) can tell whether
+    // the same click that closed checkout should ALSO try to re-open it
+    // (in cartDrawer===false mode). Without this, clicking the cart icon
+    // while checkout is open would close + immediately re-open checkout,
+    // which is the exact bug we're fixing.
+    try { window._yarzCheckoutClosedAt = Date.now(); } catch (e) {}
   }
 
   function submitOrder() {
@@ -4073,6 +4282,7 @@ const YARZ = (() => {
       var isBlocked = blockedList.some(function(b) { return b.trim() === phone; });
       if (isBlocked) {
         simulateFakeSuccess(name, phone, address, payment);
+        __resetOnExit();
         return;
       }
     }
@@ -4083,6 +4293,7 @@ const YARZ = (() => {
     var lastOrderTime2 = parseInt(localStorage.getItem('yarz_last_order')) || 0;
     if (Date.now() - lastOrderTime2 < 30 * 1000) {
       showToast('আপনি একটি অর্ডার করেছেন, দয়া করে ৩০ সেকেন্ড অপেক্ষা করুন।', 'warning');
+      __resetOnExit();
       return;
     }
 
@@ -4121,11 +4332,39 @@ const YARZ = (() => {
         var dlvCharge = calculateCartDeliveryCharge(locationField);
         var grandTotal = subtotal + dlvCharge;
         
-        var dlvText = formatPrice(dlvCharge);
-        if (totalQty > 1 && dlvCharge > 0) {
+        // ✅ v15.41 FREE-SHIP: Pull the milestone info that calculateCartDeliveryCharge
+        // just stamped onto state — used below to render a celebratory delivery line
+        // instead of plain ৳0.
+        // ✅ v15.42: Removed the savings>0 gate so admins/customers see FREE
+        // badge even when original delivery was already 0 (free-pickup zone
+        // edge case). Was causing UI to flip back to plain "৳0" inconsistently.
+        var fsInfoConfirm = state._lastFreeShipInfo || {};
+
+        var dlvText;
+        if (fsInfoConfirm.applied) {
+          var _stk = '';
+          var _sav = '';
+          if (fsInfoConfirm.savings > 0) {
+            _stk = '<span style="font-size:12px;color:var(--text-muted);font-weight:500;text-decoration:line-through;">' + formatPrice(fsInfoConfirm.savings) + '</span>';
+            // ✅ v15.43: Professional savings caption — accent dot in place of
+            // emoji, consistent with checkout summary styling.
+            _sav = '<div style="font-size:11px;color:#059669;font-weight:600;margin-top:4px;display:inline-flex;align-items:center;gap:5px;">' +
+                     '<span aria-hidden="true" style="width:5px;height:5px;border-radius:50%;background:#059669;flex-shrink:0;"></span>' +
+                     'You saved ' + formatPrice(fsInfoConfirm.savings) + ' on delivery' +
+                   '</div>';
+          }
+          dlvText =
+            '<span style="display:inline-flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;">' +
+              '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:0.4px;">FREE</span>' +
+              _stk +
+            '</span>' +
+            _sav;
+        } else if (totalQty > 1 && dlvCharge > 0) {
           var extraCharge = (totalQty - 1) * 5;
           var baseCharge = dlvCharge - extraCharge;
           dlvText = formatPrice(dlvCharge) + ' <span style="font-size:12px; font-weight:500; color:var(--text-muted);">(মূল ' + formatPrice(baseCharge) + ' + অতিরিক্ত ' + (totalQty-1) + 'টির জন্য ' + formatPrice(extraCharge) + ')</span>';
+        } else {
+          dlvText = formatPrice(dlvCharge);
         }
         
         var productListHtml = '<ul style="margin:8px 0; padding-left:18px; font-size:12.5px; font-weight:500; color:var(--text-secondary); text-align:left;">' + 
@@ -4309,6 +4548,16 @@ const YARZ = (() => {
     if (state.appliedCoupon) combinedNotes.push('Applied Coupon: ' + state.appliedCoupon.code);
     if (trxid) combinedNotes.push('TrxID: ' + trxid);
 
+    // ✅ v15.41 FREE-SHIP: Pull the milestone info computed at checkout
+    // render time (calculateCartDeliveryCharge stamps it onto state).
+    // This becomes part of the order payload so GAS can record it,
+    // Telegram can show "FREE delivery" badge, and admin can see why
+    // delivery charge is ৳0 in the order details.
+    var fsInfoOrder = state._lastFreeShipInfo || {};
+    var freeShipApplied = !!fsInfoOrder.applied;
+    var freeShipThreshold = parseFloat(fsInfoOrder.threshold) || 0;
+    var freeShipSavings = parseFloat(fsInfoOrder.savings) || 0;
+
     var orderData = {
       orderId: generatedOrderId,
       customerName: name,
@@ -4330,6 +4579,12 @@ const YARZ = (() => {
       // not inflated by delivery charges.
       subtotal: grandTotal - checkoutDeliveryCharge,
       deliveryCharge: checkoutDeliveryCharge,
+      // ✅ v15.41 FREE-SHIP MILESTONE markers — let GAS / Telegram / admin
+      // know whether this order qualified for the free-delivery promotion
+      // and how much the customer saved.
+      freeShipApplied: freeShipApplied,
+      freeShipThreshold: freeShipThreshold,
+      freeShipSavings: freeShipSavings,
       // ✅ v11.7: Pixel matching keys — sent server-side for CAPI
       fbp: _fbp,
       fbc: _fbc,
@@ -5964,6 +6219,55 @@ const YARZ = (() => {
         // Cache writing logic removed per user request
         console.log('⚡ TURBO FIRST PAINT: ' + state.products.length + ' products rendered');
         window._turboFirstPaintDone = true;
+
+        // ✅ v15.44 CRITICAL FIX: Hash routing on refresh of `?product=<slug>`
+        // or `#product/<slug>` URLs. Without this, the SSR-fast-path renders
+        // products into `#home-content` but the inline hash-route style at
+        // index.html line 332 keeps `#home-content` HIDDEN until openProduct()
+        // un-hides it via showView('product', ...). Result: customer hard-
+        // refreshes a product URL → blank page until they click somewhere.
+        //
+        // Mirror of the Promise.all branch's hash-routing block (lines ~6648-
+        // 6672), so BOTH paths handle deep-link refreshes consistently.
+        try {
+          var _params = new URLSearchParams(window.location.search);
+          var _productParam = _params.get('product');
+          var _hash = window.location.hash || '';
+          if (_productParam) {
+            var _p = findProductBySlug(_productParam);
+            if (_p && state.currentView !== 'product') {
+              setTimeout(function() { openProduct(_p.name); }, 50);
+              return;
+            }
+          } else if (_hash.indexOf('#product/') === 0) {
+            var _slug = _hash.replace('#product/', '');
+            var _p2 = findProductBySlug(_slug);
+            if (_p2 && state.currentView !== 'product') {
+              setTimeout(function() { openProduct(_p2.name); }, 50);
+              return;
+            }
+          } else if (_hash.indexOf('#collection/') === 0) {
+            var _ci = parseInt(_hash.replace('#collection/', ''), 10);
+            if (!isNaN(_ci) && state.currentView !== 'collection') {
+              setTimeout(function() { openCollection(_ci, true); }, 50);
+              return;
+            }
+          } else if (_hash.indexOf('#category/') === 0) {
+            var _cp = _hash.replace('#category/', '').split('/');
+            setTimeout(function() {
+              openCategoryPage(decodeURIComponent(_cp[0]), parseInt(_cp[1], 10) || 1, true);
+            }, 50);
+            return;
+          }
+          // No deep-link found — clear the inline hash-route style so
+          // #home-content becomes visible (otherwise customer sees blank).
+          var _hashStyle = document.getElementById('hash-route-style');
+          if (_hashStyle && _hashStyle.textContent) _hashStyle.textContent = '';
+        } catch (_routeErr) {
+          // Anything fails → at least make home visible
+          var _hsy = document.getElementById('hash-route-style');
+          if (_hsy) _hsy.textContent = '';
+        }
       }).catch(function() {});
     })();
 

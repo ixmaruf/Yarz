@@ -404,7 +404,10 @@ const YARZ_PIXEL = (() => {
       sessionStorage.setItem('yarz_vc_count', String(n));
       if (n === 3 && !sessionStorage.getItem('yarz_vmp_fired')) {
         sessionStorage.setItem('yarz_vmp_fired', '1');
-        trackCustom('ViewedManyProducts', { count: n }, _genEventId('vmp'));
+        var _vmpEid = _genEventId('vmp');
+        trackCustom('ViewedManyProducts', { count: n }, _vmpEid);
+        // ✅ v15.45: Server-side mirror so iOS-blocked browser pixels still attribute
+        _sendCapiMirror('ViewedManyProducts', _vmpEid, { count: n });
       }
     } catch (e) {}
   }
@@ -473,7 +476,10 @@ const YARZ_PIXEL = (() => {
         if (sessionStorage.getItem('yarz_purchased') === '1') return;
         if (sessionStorage.getItem('yarz_abandon_fired') === '1') return;
         sessionStorage.setItem('yarz_abandon_fired', '1');
-        trackCustom('AbandonedCheckout', { value: value, currency: 'BDT' }, _genEventId('abc'));
+        var _abcEid = _genEventId('abc');
+        trackCustom('AbandonedCheckout', { value: value, currency: 'BDT' }, _abcEid);
+        // ✅ v15.45: CAPI mirror — recovers iOS-blocked timer-based abandon signal
+        _sendCapiMirror('AbandonedCheckout', _abcEid, { value: value, currency: 'BDT' });
       }, 5 * 60 * 1000);
       // Also fire on visibility change (tab close / navigate away)
       if (!window._yarzVisibilityHooked) {
@@ -729,7 +735,7 @@ const YARZ_PIXEL = (() => {
   }
 
   // ===== Auto-Inject helpers =====
-  function _injectFbPixel(pixelId, am) {
+  function _injectFbPixel(pixelId, am, pvEventId) {
     !function (f, b, e, v, n, t, s) {
       if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); };
       if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
@@ -742,8 +748,11 @@ const YARZ_PIXEL = (() => {
     // Disable autoConfig — prevents FB from auto-firing buttons that pollute the pixel.
     try { fbq('set', 'autoConfig', 'false', pixelId); } catch (e) {}
     // ✅ v14.0: PageView gated by toggle (locked ON by default — disabling breaks all campaigns)
+    // ✅ v15.45 DEDUP FIX: Share the same eventID with CAPI mirror so FB
+    // counts ONE PageView (browser+server merged) instead of two.
     if (_isEventEnabled('pageview')) {
-      fbq('track', 'PageView');
+      if (pvEventId) fbq('track', 'PageView', {}, { eventID: pvEventId });
+      else fbq('track', 'PageView');
     }
   }
   function _injectGa4(gaId) {
@@ -826,7 +835,10 @@ const YARZ_PIXEL = (() => {
     // --- Auto-inject pixels from admin settings ---
     // ✅ v14.0: Each network injection now respects its master toggle.
     //   When toggle=OFF, the script never loads at all (clean DevTools, no requests).
-    if (fbPixelId  && _isNetworkEnabled('fb'))        _injectFbPixel(fbPixelId, cachedAm);
+    // ✅ v15.45 DEDUP: Generate the PageView eventID up-front so both
+    //   browser fbq AND CAPI mirror use the same ID → FB merges into one.
+    var pvEventId = _genEventId('pv');
+    if (fbPixelId  && _isNetworkEnabled('fb'))        _injectFbPixel(fbPixelId, cachedAm, pvEventId);
     if (ga4Id      && _isNetworkEnabled('ga4'))       _injectGa4(ga4Id);
     if (tiktokId   && _isNetworkEnabled('tiktok'))    _injectTikTok(tiktokId);
     if (snapId     && _isNetworkEnabled('snap'))      _injectSnap(snapId);
@@ -841,7 +853,8 @@ const YARZ_PIXEL = (() => {
       // even on slow networks where browser fbq might not load before bounce.
       if (_isEventEnabled('pageview') && !sessionStorage.getItem('yarz_pv_capi_fired')) {
         sessionStorage.setItem('yarz_pv_capi_fired', '1');
-        _sendCapiMirror('PageView', _genEventId('pv'), {
+        // ✅ v15.45: Same pvEventId as browser fbq — true CAPI dedup
+        _sendCapiMirror('PageView', pvEventId, {
           content_name: document.title || '',
           source_url: window.location.href
         });
