@@ -12,8 +12,16 @@
        lets iOS / Samsung pick the right one automatically.
        env(safe-area-inset-*) handles ALL future iPhone shapes — no
        per-model code, OS reports the actual cutout dimensions. -->
+  <!-- ✅ v15.53 FIX: All three theme-color metas now point to cream because
+       this site's design is cream-only (no dark mode skin). Previously the
+       dark-mode variant was #FFFDF8, so customers with system dark theme
+       (Android default for many) saw a BLACK address bar above the cream
+       header — looked broken. JS later syncs to header color on init/scroll;
+       these statics are the boot-time values the browser actually reads
+       BEFORE any JS runs (including FB/IG WebView which often ignores
+       dynamic theme-color updates). -->
   <meta name="theme-color" content="#FFFDF8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1A1A2E" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFDF8" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFDF8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -446,7 +454,7 @@
       pointer-events: none;
     }
     body.has-announcement::before {
-      background: #1A1A2E;
+      background: #FFFDF8;
     }
 
     .site-header {
@@ -479,7 +487,7 @@
       font-weight: 800;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: #1A1A2E;
+      color: #FFFDF8;
     }
     
     #main-content {

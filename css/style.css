@@ -288,7 +288,16 @@ body {
   width: 100%;
   max-width: 100%;
   min-width: auto;
+  /* ✅ v15.53: Hard guard against horizontal page scroll on mobile.
+     Without this, any overflowing child (e.g. PDP thumbnails strip with 6
+     images, hero slider track in transit, free-shipping bar marquee) can
+     push the body right and crop the main image's right edge. */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 .container {
@@ -4043,6 +4052,14 @@ textarea.form-input {
     background: var(--cream-100);
   }
   /* Thumbnails: horizontal scroll wrapper, 6টা সব দেখা যায় */
+  /* ✅ v15.53 FIX: Constrain thumbnails to PDP gallery width so the
+     horizontal scroll happens INSIDE the thumbnails container — not on
+     the body. Without max-width:100% + overflow-x:auto on a width-bound
+     parent, the thumbnails row could push the body horizontally on
+     phones with 6 thumbs (each ~60px + gap → ~408px), making the main
+     image appear cropped on the right edge. The min-width:0 on the
+     parent .pd-gallery is required because flex children default to
+     min-width:auto which prevents the thumbnails strip from shrinking. */
   .pd-thumbnails {
     display: flex !important;
     flex-wrap: nowrap !important;
@@ -4053,6 +4070,8 @@ textarea.form-input {
     padding: 4px 2px 8px;
     scroll-snap-type: x mandatory;
     scrollbar-width: thin;
+    width: 100%;
+    max-width: 100%;
   }
   .pd-thumbnails::-webkit-scrollbar {
     height: 4px;

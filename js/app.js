@@ -5733,8 +5733,19 @@ const YARZ = (() => {
   }
   // Re-sync when announcement bar toggles, theme changes, or page restore from bfcache
   window.addEventListener('pageshow', _syncBrowserChromeColor);
+  // ✅ v15.53: Multi-stage initial sync. Some mobile browsers (FB/IG WebView,
+  // older Chrome) only honor theme-color updates fired BEFORE the initial
+  // paint settles. Firing at multiple checkpoints gives every browser at
+  // least one chance to pick up the cream value.
   // Initial sync after a tick (lets stylesheets resolve)
+  setTimeout(_syncBrowserChromeColor, 0);
   setTimeout(_syncBrowserChromeColor, 100);
+  setTimeout(_syncBrowserChromeColor, 500);
+  if (document.readyState === 'complete') {
+    _syncBrowserChromeColor();
+  } else {
+    window.addEventListener('load', _syncBrowserChromeColor, { once: true });
+  }
 
   // Expose for other modules to nudge a re-sync after they update bg colors
   window.__yarzSyncChrome = _syncBrowserChromeColor;
