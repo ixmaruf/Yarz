@@ -218,12 +218,17 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap"></noscript>
 
-  <!-- Core CSS — v15.26 PERF: Non-blocking load. The hero/header inline CSS
-       further down already paints first frame correctly; full stylesheet
-       streams in parallel without delaying first paint. Saves ~150-300ms
-       on slow connections. -->
-  <link rel="preload" href="./css/style.css?v=15.47" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="./css/style.css?v=15.47"></noscript>
+  <!-- Core CSS — v15.48 FOUC FIX: Use blocking <link rel="stylesheet"> so
+       the page never paints unstyled. The earlier preload-swap pattern
+       (rel="preload" + onload swap) was non-blocking, which made the
+       browser render plain HTML for ~50–200 ms before CSS applied — that's
+       the brief "glitch / flash" customers reported on refresh.
+       Performance impact is minimal because:
+         (a) Cloudflare edge serves CSS in <50 ms with HTTP/2 multiplexing
+         (b) The CSS is versioned + cached for 1 year by the Worker
+         (c) HTTP/2 priority headers from CF push it ahead of JS anyway
+       Net: clean first paint, no visible FOUC. -->
+  <link rel="stylesheet" href="./css/style.css?v=15.47">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -557,20 +562,19 @@
        Note: rules use the same default-state selectors as style.css
        (none for overlays, off-canvas for drawers). When JS adds .active
        or .open the bigger stylesheet's rules take over. */
-    .search-overlay,
-    .cart-overlay,
-    .filter-overlay,
-    .modal-overlay,
-    .yarz-popup-overlay,
-    .maintenance-overlay,
-    #yarz-newsletter-popup,
-    #yarz-promo-popup,
-    .checkout-modal {
+    .search-overlay:not(.active),
+    .cart-overlay:not(.active),
+    .filter-overlay:not(.active),
+    .modal-overlay:not(.active),
+    .yarz-popup-overlay:not(.active),
+    .maintenance-overlay:not(.active),
+    #yarz-newsletter-popup:not(.active),
+    #yarz-promo-popup:not(.active) {
       display: none;
     }
-    .cart-drawer,
-    #filter-drawer,
-    #cart-drawer {
+    .cart-drawer:not(.open),
+    #filter-drawer:not(.open),
+    #cart-drawer:not(.open) {
       position: fixed;
       top: 0;
       right: 0;
@@ -579,15 +583,13 @@
       height: 100vh;
       background: #FFF;
       z-index: 250;
-      /* ✅ v15.47 FOUC FIX: Pre-set the FINAL hidden state so when the main
-         stylesheet swaps in (~50–200 ms after first paint) the cascade does
-         NOT animate the drawer in/out. Previously this block only declared
-         `right:-110%` with `transition: right 0.3s`. The mobile rule in
-         style.css then changed the property to `transform` (with right:0)
-         and the cascade-swap animated the transform from 0% → 110% — that's
-         the visible flash on refresh. By pre-setting `transform` and
-         `visibility:hidden` here, the post-swap state is identical → no
-         animation can run. `transition: none` is a belt-and-suspenders. */
+      /* ✅ v15.48 FOUC FIX: Use `:not(.open)` scope so when JS toggles the
+         `.open` class, ALL these inline rules disable themselves and the
+         full stylesheet's open-state rules (smooth slide-in, right:0,
+         visibility:visible) take over cleanly. Previously this rule fired
+         even when `.open` was on, leaving `transform:translateX(110%)`
+         winning over `style.css`'s `.cart-drawer.open { right:0 }` —
+         drawer never appeared. */
       transform: translateX(110%);
       visibility: hidden;
       transition: none;
