@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="bn" style="color-scheme: light">
 
 <head>
   <meta charset="UTF-8">
@@ -20,9 +20,20 @@
        these statics are the boot-time values the browser actually reads
        BEFORE any JS runs (including FB/IG WebView which often ignores
        dynamic theme-color updates). -->
-  <meta name="theme-color" content="#FFFDF8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#FFFDF8" media="(prefers-color-scheme: dark)">
+  <!-- ✅ v15.55: Single clean theme-color meta. Combined with the
+       `<meta name="color-scheme" content="light">` below, mobile
+       browsers will paint the address bar cream regardless of the
+       user's system dark-mode setting. -->
   <meta name="theme-color" content="#FFFDF8">
+  <!-- ✅ v15.55 DARK-MODE FIX: Declare this site as light-only so that
+       1) Mobile browsers (Brave/Chrome/Samsung) do NOT trigger the
+          force-dark / auto-dark "Web contents" feature on system dark
+          mode users — that's what was painting the address bar dark
+          and inverting our theme-color hint.
+       2) Native form controls + scrollbars stay light to match cream UI.
+       The `<html style="color-scheme: light">` mirror at the root forces
+       the same on user-agents that ignore the meta. -->
+  <meta name="color-scheme" content="light">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="mobile-web-app-capable" content="yes">

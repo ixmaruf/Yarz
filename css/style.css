@@ -6565,19 +6565,14 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
 
 
 
-/* ===== v14.3: Dark Mode Price Color =====
-   Previously forced red (#E53935) on Samsung / dark-mode browsers.
-   Now uses white-cream so prices stay readable on dark backgrounds
-   while keeping the premium black-on-light look in normal mode. */
-@media (prefers-color-scheme: dark) {
-  .card-info .sale-price,
-  .pd-sale-price,
-  .cart-item-price,
-  .cart-total-row span:last-child,
-  .order-total span:last-child {
-    color: #F5F0E6 !important;
-  }
-}
+/* ✅ v15.55: REMOVED the prefers-color-scheme:dark price override.
+   This site is light-only (cream bg always). The previous rule painted
+   .sale-price / .pd-sale-price / .cart-item-price text in cream
+   (#F5F0E6) when the user's system was in dark mode — but the page
+   background stays cream regardless, so prices became invisible.
+   The <meta name="color-scheme" content="light"> in index.html now
+   tells browsers to skip auto-dark inversion entirely; this CSS guard
+   is no longer needed. */
 
 
 /* ============================================================
