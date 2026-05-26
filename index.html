@@ -601,7 +601,10 @@
   <!-- Instant hash-route check: hide home content if on a product page -->
   <style id="hash-route-style"></style>
   <script>
-    if ((window.location.hash && /^#(product|category|collection|wishlist)/.test(window.location.hash)) || (window.location.search && window.location.search.indexOf('product=') !== -1)) {
+    if (
+      (window.location.hash && /^#(product|category|collection|wishlist)/.test(window.location.hash)) ||
+      (window.location.search && /[?&](product|collection)=/.test(window.location.search))
+    ) {
       document.getElementById('hash-route-style').textContent = '#home-content{display:none}';
     }
   </script>

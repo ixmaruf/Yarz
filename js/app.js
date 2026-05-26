@@ -623,12 +623,16 @@ const YARZ = (() => {
         window.scrollTo(0, 0);
       }
 
-      // 11) Clean URL — drop any #product/... hash or ?product=...
+      // 11) Clean URL — drop any #product/... hash or ?product=... or ?collection=...
       var params = new URLSearchParams(window.location.search);
       var hasProductParam = params.has('product');
-      if (window.location.hash || hasProductParam) {
+      var hasCollectionParam = params.has('collection');
+      if (window.location.hash || hasProductParam || hasCollectionParam) {
         if (hasProductParam) {
             params.delete('product');
+        }
+        if (hasCollectionParam) {
+            params.delete('collection');
         }
         var newSearch = params.toString() ? '?' + params.toString() : '';
         try { history.pushState(null, '', window.location.pathname + newSearch); } catch (e) {}
@@ -2424,10 +2428,14 @@ const YARZ = (() => {
     if (!sec) return;
 
     // Push URL state for browser back button support
+    // ✅ v15.52 SEO: Use `?collection=N` query format instead of `#collection/N`
+    // hash. Hash URLs look ugly in the address bar (the user reported "the
+    // hashtag in the URL looks bad"). Query format is also crawler-friendly.
     if (!skipPushState) {
-      var expectedHash = '#collection/' + idx;
-      if (window.location.hash !== expectedHash) {
-        history.pushState(null, '', expectedHash);
+      var expectedSearch = '?collection=' + idx;
+      var currentSearch = window.location.search || '';
+      if (currentSearch !== expectedSearch) {
+        history.pushState({ view: 'collection', idx: idx }, '', window.location.pathname + expectedSearch);
       }
     }
 
@@ -2463,16 +2471,58 @@ const YARZ = (() => {
     
     // 1. Filter by Target Links (Allow duplicates if admin linked same product twice)
     if (validLinks.length > 0) {
-      var namesToMatch = validLinks.map(function(l) {
-        return l.split('/').pop().replace(/-/g, ' ').toLowerCase().trim();
-      }).filter(function(n) { return n !== ''; });
+      // ✅ v15.52 SLUG-EXTRACT FIX: Robust extractor that handles every URL
+      // shape admin might paste:
+      //   https://site.xyz/?product=classic-old-money    → "classic-old-money"
+      //   https://site.xyz/#product/classic-old-money    → "classic-old-money"
+      //   https://site.xyz/product/classic-old-money     → "classic-old-money"
+      //   /classic-old-money                             → "classic-old-money"
+      //   classic-old-money                              → "classic-old-money"
+      // Previously `split('/').pop()` returned "?product=classic-old-money"
+      // for the most common (current website) URL format, breaking match
+      // and forcing the category fallback to load EVERY product in that
+      // category — admin saw "1 link added, 5 products show".
+      var extractSlug = function(rawUrl) {
+        var s = String(rawUrl || '').trim();
+        if (!s) return '';
+        // Try ?product=<slug>
+        var qm = s.match(/[?&]product=([^&#?]+)/i);
+        if (qm) return decodeURIComponent(qm[1]).replace(/-/g, ' ').toLowerCase().trim();
+        // Try #product/<slug>
+        var hm = s.match(/#product\/([^?&#/]+)/i);
+        if (hm) return decodeURIComponent(hm[1]).replace(/-/g, ' ').toLowerCase().trim();
+        // Try /product/<slug>
+        var pm = s.match(/\/product\/([^?&#/]+)/i);
+        if (pm) return decodeURIComponent(pm[1]).replace(/-/g, ' ').toLowerCase().trim();
+        // Fallback: last path segment, strip query
+        var bare = s.split('?')[0].split('#')[0].split('/').filter(Boolean).pop() || '';
+        return bare.replace(/-/g, ' ').toLowerCase().trim();
+      };
+      var namesToMatch = validLinks.map(extractSlug).filter(function(n) { return n !== ''; });
 
       if (namesToMatch.length > 0) {
         namesToMatch.forEach(function(n) {
+          // ✅ v15.52: Prefer exact match, then exact slug match, then
+          // contains. Three-tier prevents the category fallback from being
+          // triggered just because a slug failed to parse.
           var matched = state.products.find(function(p) {
             var pName = (p.name || '').toLowerCase().trim();
-            return pName === n || pName.indexOf(n) > -1;
+            if (pName === n) return true;
+            // Slug match — admin URLs use slugified product names
+            if (typeof slugify === 'function') {
+              var pSlug = slugify(p.name || '');
+              var nSlug = n.replace(/\s+/g, '-');
+              if (pSlug === nSlug) return true;
+            }
+            return false;
           });
+          // Last-resort fuzzy match only if exact-slug failed
+          if (!matched) {
+            matched = state.products.find(function(p) {
+              var pName = (p.name || '').toLowerCase().trim();
+              return pName.indexOf(n) > -1;
+            });
+          }
           if (matched) {
             // Push a cloned object to prevent DOM ID collisions if rendered twice
             secProducts.push(Object.assign({}, matched));
@@ -2481,8 +2531,14 @@ const YARZ = (() => {
       }
     } 
     
-    // 2. Fallback to Category filter if no links matched
-    if (secProducts.length === 0 && sec.category) {
+    // 2. Fallback to Category filter ONLY when admin provided NO links at all.
+    // ✅ v15.52: Previously the fallback fired whenever links FAILED to
+    // match (slug parsing error etc.) — admin saw "I added 1 link → 5
+    // products appear" because the whole category dumped in. Now we only
+    // fall back to category when validLinks itself is empty, so a broken
+    // link returns an empty section instead of polluting it with every
+    // category product.
+    if (validLinks.length === 0 && sec.category) {
       var searchCat = sec.category.trim().toLowerCase();
       secProducts = state.products.filter(function(p) {
         var pc = (p.category || '').trim().toLowerCase();
@@ -6162,11 +6218,16 @@ const YARZ = (() => {
       try {
         var params = new URLSearchParams(window.location.search);
         var productParam = params.get('product');
+        // ✅ v15.52: Accept ?collection=N query in addition to legacy hash
+        var collectionParam = params.get('collection');
         var hash = window.location.hash || '';
-        
+
         if (productParam) {
           var p = findProductBySlug(productParam);
           if (p) { openProduct(p.name); return; }
+        } else if (collectionParam !== null && collectionParam !== '') {
+          var cIdx = parseInt(collectionParam, 10);
+          if (!isNaN(cIdx)) { openCollection(cIdx, true); return; }
         } else if (hash.indexOf('#product/') === 0) {
           var slugOrName = hash.replace('#product/', '');
           var p = findProductBySlug(slugOrName);
@@ -6455,11 +6516,19 @@ const YARZ = (() => {
         try {
           var _params = new URLSearchParams(window.location.search);
           var _productParam = _params.get('product');
+          var _collectionParam = _params.get('collection');
           var _hash = window.location.hash || '';
           if (_productParam) {
             var _p = findProductBySlug(_productParam);
             if (_p && state.currentView !== 'product') {
               setTimeout(function() { openProduct(_p.name); }, 50);
+              return;
+            }
+          } else if (_collectionParam !== null && _collectionParam !== '') {
+            // ✅ v15.52: Accept ?collection=N query
+            var _cqi = parseInt(_collectionParam, 10);
+            if (!isNaN(_cqi) && state.currentView !== 'collection') {
+              setTimeout(function() { openCollection(_cqi, true); }, 50);
               return;
             }
           } else if (_hash.indexOf('#product/') === 0) {
@@ -7004,6 +7073,7 @@ const YARZ = (() => {
           var hash = window.location.hash || '';
           var params = new URLSearchParams(window.location.search);
           var productParam = params.get('product');
+          var collectionParam = params.get('collection');
           var _routed = false;
 
           if (productParam) {
@@ -7011,6 +7081,13 @@ const YARZ = (() => {
             if (matchedProduct && state.currentView !== 'product') {
               _routed = true;
               setTimeout(function() { openProduct(matchedProduct.name); }, 100);
+            }
+          } else if (collectionParam !== null && collectionParam !== '') {
+            // ✅ v15.52: Accept ?collection=N query (cleaner than legacy hash)
+            var _qIdx = parseInt(collectionParam, 10);
+            if (!isNaN(_qIdx) && state.currentView !== 'collection') {
+              _routed = true;
+              setTimeout(function() { openCollection(_qIdx, true); }, 100);
             }
           } else if (hash.indexOf('#product/') === 0) {
             var slugOrName = hash.replace('#product/', '');
