@@ -4027,11 +4027,29 @@ textarea.form-input {
     grid-template-columns: 1fr !important;
     gap: 16px !important;
     padding: 0 12px !important;
+    /* ✅ v15.54: Lock the grid to the viewport so children can't push it
+       past the right edge regardless of their intrinsic widths. */
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow: hidden;
   }
   .pd-gallery {
+    /* ✅ v15.54 FIX: With 6 thumbnails (~408px total), the gallery's child
+       thumbnails container was bursting past the grid cell on the right
+       side because:
+         - max-width: 100vw ignored the parent's 12px horizontal padding,
+           so the gallery extended 12px past the right edge.
+         - overflow: visible let the thumbnails strip's intrinsic width
+           push the gallery wider than the grid cell.
+         - min-width: auto (default for grid items) prevented the cell
+           from shrinking the gallery to its track width.
+       Now the gallery stays inside the cell, the main image is bounded
+       to the cell width on both sides, and the thumbnails scroll
+       horizontally within the gallery — never pushing the page right. */
     width: 100%;
-    max-width: 100vw;
-    overflow: visible;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
   /* Main image: full image দেখায়, কোনো crop নেই */
   .pd-main-image {
