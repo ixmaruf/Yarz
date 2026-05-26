@@ -5691,6 +5691,33 @@ const YARZ = (() => {
     } catch (e) {}
   }
 
+  // ✅ v15.57 LOCK: MutationObserver guards against ANY other code path
+  // (future modules, third-party widgets, browser extensions) trying to
+  // overwrite theme-color back to a non-cream value. If something tries,
+  // we revert it within microseconds. Only attached after first sync to
+  // avoid feedback loop with our own write.
+  function _lockChromeColorMeta() {
+    try {
+      var CREAM = '#FFFDF8';
+      var metas = document.querySelectorAll('meta[name="theme-color"]');
+      if (!metas.length) return;
+      var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          if (m.type === 'attributes' && m.attributeName === 'content') {
+            var el = m.target;
+            if (el.getAttribute('content') !== CREAM) {
+              el.setAttribute('content', CREAM);
+            }
+          }
+        });
+      });
+      metas.forEach(function (m) {
+        observer.observe(m, { attributes: true, attributeFilter: ['content'] });
+      });
+    } catch (e) {}
+  }
+  setTimeout(_lockChromeColorMeta, 600); // after multi-stage sync settles
+
   // Convert "rgb(255, 253, 248)" or "rgba(...)" → "#FFFDF8"
   function _rgbToHex(str) {
     if (!str) return null;

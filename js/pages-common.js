@@ -269,31 +269,17 @@
   // default; announcement bar bg if it's showing). Prevents the visible
   // "seam" between browser chrome and page header.
   function initChromeColorSync() {
-    var cache = null;
-    function rgbToHex(str) {
-      if (!str) return null;
-      if (str.charAt(0) === '#') return str.toUpperCase();
-      var m = str.match(/rgba?\((\d+)[ ,]+(\d+)[ ,]+(\d+)/);
-      if (!m) return null;
-      var r = +m[1], g = +m[2], b = +m[3];
-      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-    }
+    // ✅ v15.57 FIX: This subpage helper used to dynamically sample the
+    // top-most visible element's bg color and stamp it into theme-color.
+    // Same problem as the main app.js sync — when the announcement bar
+    // is at the viewport top with a red/pink/dark gradient, its sampled
+    // hex got written into theme-color and stuck the address bar dark.
+    // Site is cream-only on every subpage, so just hard-write cream.
     function sync() {
       try {
-        var top;
-        var bar = document.querySelector('.announcement-bar.active');
-        if (bar) top = getComputedStyle(bar).backgroundColor;
-        if (!top) {
-          var hdr = document.querySelector('.site-header') ||
-                    document.querySelector('header');
-          if (hdr) top = getComputedStyle(hdr).backgroundColor;
-        }
-        if (!top) return;
-        var hex = rgbToHex(top);
-        if (!hex || hex === cache) return;
-        cache = hex;
+        var CREAM = '#FFFDF8';
         var metas = document.querySelectorAll('meta[name="theme-color"]');
-        metas.forEach(function (m) { m.setAttribute('content', hex); });
+        metas.forEach(function (m) { m.setAttribute('content', CREAM); });
       } catch (e) {}
     }
     // Initial sync after stylesheets resolve
