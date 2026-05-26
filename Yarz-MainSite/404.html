@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="bn" style="color-scheme: light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- iPhone notch + Dynamic Island support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FFFDF8">
+<meta name="color-scheme" content="light">
+<title>Page Not Found — YARZ</title>
+<meta name="description" content="The page you are looking for does not exist on YARZ.">
+<meta property="og:title" content="Page Not Found — YARZ">
+<meta property="og:description" content="The page you are looking for does not exist on YARZ.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Page Not Found — YARZ">
+<meta name="twitter:description" content="The page you are looking for does not exist on YARZ.">
+<link rel="stylesheet" href="/css/style.css?v=15.55">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='2' fill='%236E1F2A'/><text x='16' y='22' font-family='Arial' font-size='16' font-weight='900' fill='white' text-anchor='middle'>Y</text></svg>">
+<!-- ✅ v15.45 SEO: Tell Googlebot not to index this 404 page itself; it's
+     a soft-redirect, not real content. -->
+<meta name="robots" content="noindex,nofollow">
+<script>
+  // GitHub Pages SPA redirect: if user landed here via deep link with a hash route,
+  // redirect to root index with the hash preserved.
+  // ✅ v15.45 SEO: Delay redirect 5 seconds so users can read the message
+  // and Googlebot can crawl the noindex tag. Auto-redirect was destroying
+  // 404 attribution previously.
+  (function () {
+    var hash = window.location.hash || '';
+    var path = window.location.pathname || '';
+    var segments = path.split('/').filter(Boolean);
+    var redirect = '/' + (hash || '');
+    if (segments.length > 0) {
+      // Try to redirect to the closest index.html
+      redirect = '/' + segments[0] + '/' + (hash || '');
+      // If we're on a custom domain (no subfolder), just go to root
+      if (window.location.hostname.indexOf('github.io') === -1) {
+        redirect = '/' + (hash || '');
+      }
+    }
+    setTimeout(function () { window.location.replace(redirect); }, 5000);
+  })();
+</script>
+</head>
+<body style="background:#FBF8F1;font-family:'Inter',sans-serif;">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+  <div>
+    <div style="font-size:72px;font-weight:800;color:#6E1F2A;letter-spacing:0.05em;">404</div>
+    <div style="font-size:20px;font-weight:600;color:#1A1411;margin:12px 0;">Page Not Found</div>
+    <p style="font-size:14px;color:#6B6660;max-width:400px;margin:0 auto 24px;">The page you are looking for doesn't exist or has been moved. Redirecting you to homepage...</p>
+    <a href="./" style="display:inline-block;padding:12px 28px;background:#6E1F2A;color:#fff;text-decoration:none;border-radius:0;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;">Go to Homepage</a>
+  </div>
+</div>
+</body>
+</html>
