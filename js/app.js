@@ -5671,42 +5671,23 @@ const YARZ = (() => {
   //   no stale value lingers after `prefers-color-scheme` changes.
   var _chromeColorCache = null;
   function _syncBrowserChromeColor() {
+    // ✅ v15.56 FIX: This function used to dynamically read the topmost
+    // visible element's computed background and write it to theme-color.
+    // Problem: when the announcement bar was active, it sampled the
+    // bar's gradient (pink/red) and stamped a dark hex into the meta —
+    // browsers then stuck with that dark color even after the user
+    // scrolled past the announcement. Result: address bar looked dark
+    // even though the page bg is always cream.
+    //
+    // Since the entire site is cream-only (no dark theme skin) the
+    // address bar should ALWAYS be cream — no dynamic detection needed.
+    // We just hard-write the cream value on every sync request.
     try {
-      // Detect what color is at viewport top
-      var hasAnnouncement = document.body.classList.contains('has-announcement');
-      var isDark = document.body.classList.contains('dark') ||
-                   (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-      var topColor;
-      if (hasAnnouncement) {
-        // Announcement bar is at the very top — sample its bg
-        var bar = document.querySelector('.announcement-bar.active') ||
-                  document.querySelector('.announcement-bar');
-        if (bar) {
-          topColor = getComputedStyle(bar).backgroundColor;
-        }
-      }
-      if (!topColor) {
-        // Default: header background
-        var hdr = document.querySelector('.site-header');
-        if (hdr) {
-          topColor = getComputedStyle(hdr).backgroundColor;
-        }
-      }
-      if (!topColor) return;
-
-      // Convert rgb(...) / rgba(...) → #RRGGBB so meta value is normalized
-      var hex = _rgbToHex(topColor);
-      if (!hex) return;
-      // Skip if unchanged (avoid DOM thrash on every scroll tick)
-      if (hex === _chromeColorCache) return;
-      _chromeColorCache = hex;
-
-      // Update ALL theme-color meta tags so light/dark variants stay in sync.
-      // The current visual state is what the user sees, so we set them all
-      // to the same value — browser will pick the right one anyway.
+      var CREAM = '#FFFDF8';
+      if (CREAM === _chromeColorCache) return;
+      _chromeColorCache = CREAM;
       var metas = document.querySelectorAll('meta[name="theme-color"]');
-      metas.forEach(function (m) { m.setAttribute('content', hex); });
+      metas.forEach(function (m) { m.setAttribute('content', CREAM); });
     } catch (e) {}
   }
 
