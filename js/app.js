@@ -266,7 +266,56 @@ const YARZ = (() => {
       savings:   freeShipApplied ? originalCharge : 0,
       subtotal:  subtotal
     };
+
+    // ✅ v15.49 FREE-SHIP ADVANCE: When admin has disabled COD AND the
+    // customer's cart unlocked free shipping, charge a small ৳100 advance
+    // via bKash/Nagad to protect against fake orders. If customer accepts
+    // the parcel, ৳100 stays as a discount on top of free delivery; if they
+    // refuse, we don't lose the full delivery charge.
+    //
+    // Trigger conditions:
+    //   • COD disabled (admin toggle off)
+    //   • Cart unlocked free-shipping threshold
+    //   • Admin's `freeShipAdvance` toggle is ON (default true)
+    var fsa = isFreeShipAdvanceEnabled();
+    var codOn = isCODEnabled();
+    if (freeShipApplied && !codOn && fsa) {
+      deliveryCharge = 100; // ৳100 advance — security against fake orders
+      state._lastFreeShipInfo.advanceApplied = true;
+      state._lastFreeShipInfo.advanceAmt = 100;
+    } else {
+      state._lastFreeShipInfo.advanceApplied = false;
+      state._lastFreeShipInfo.advanceAmt = 0;
+    }
     return deliveryCharge;
+  }
+
+  // ✅ v15.49: Helper — admin's "Free-Ship Advance" toggle. Default TRUE
+  // (security ON) so existing stores don't accidentally suffer fake-order
+  // losses on free-ship orders the moment admin turns COD off.
+  function isFreeShipAdvanceEnabled() {
+    var info = state.storeInfo || {};
+    var raw = info.raw || {};
+    if (state.controls && typeof state.controls.freeShipAdvance === 'boolean') {
+      return state.controls.freeShipAdvance;
+    }
+    var candidates = [
+      info.freeShipAdvance,
+      info.freeship_advance,
+      raw.freeship_advance,
+      raw['FreeShip Advance']
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      var v = candidates[i];
+      if (v === true || v === 1) return true;
+      if (v === false || v === 0) return false;
+      if (typeof v === 'string') {
+        var s = v.toLowerCase().trim();
+        if (s === 'false' || s === 'no' || s === '0' || s === 'off') return false;
+        if (s === 'true' || s === 'yes' || s === '1' || s === 'on') return true;
+      }
+    }
+    return true; // default ON
   }
 
   function getDeliveryLocationName(locationId) {
@@ -3725,11 +3774,18 @@ const YARZ = (() => {
       if (window.YARZ_API && YARZ_API.getGlobalControls) {
         YARZ_API.getGlobalControls().then(function (controls) {
           if (!controls) return;
+          // ✅ v15.49: Keep state.controls fresh with the latest admin
+          // settings (incl. freeShipAdvance toggle). Also propagate the
+          // raw flag into storeInfo so isFreeShipAdvanceEnabled's fallback
+          // candidate list resolves correctly even if state.controls hasn't
+          // been wired yet on this code path.
+          state.controls = Object.assign(state.controls || {}, controls);
           var rawStore = controls.raw || {};
           state.storeInfo = Object.assign(state.storeInfo || {}, rawStore, {
             enableCOD: controls.enableCOD,
             enable_cod: rawStore.enable_cod !== undefined ? rawStore.enable_cod : (controls.enableCOD ? 'true' : 'false'),
             freeShipAmt: controls.freeShipAmt || 0,
+            freeShipAdvance: controls.freeShipAdvance,
             deliveryLocations: controls.deliveryLocations || [],
             _parsedDynamicSections: controls.dynamicSections || [],
             raw: rawStore
@@ -3889,6 +3945,32 @@ const YARZ = (() => {
     if (paymentSel) showPaymentInfo(paymentSel.value);
     modal.classList.add('active');
     document.body.classList.add('checkout-open');
+
+    // ✅ v15.49 FREE-SHIP ADVANCE: When customer's cart unlocked free
+    // shipping AND admin has disabled COD AND advance-protection is on,
+    // show the friendly explanation popup once per cart signature, and
+    // force-switch payment to bKash/Nagad (since COD is unavailable).
+    try {
+      if (isFreeShipAdvanceActive()) {
+        // De-dupe per cart contents so we don't nag on every re-open
+        var fsKey = 'yarz_fs_advance_seen_' + Math.abs(
+          (state.cart || []).map(function(c){return c.name+'|'+c.size+'|'+c.qty;}).join('||')
+            .split('').reduce(function(h, ch){return ((h<<5)-h)+ch.charCodeAt(0)|0;}, 0)
+        );
+        if (!sessionStorage.getItem(fsKey)) {
+          try { sessionStorage.setItem(fsKey, '1'); } catch (_) {}
+          // Slight delay so the modal slides in after the checkout panel,
+          // mirroring how showCODDisabledModal opens at line 3823.
+          setTimeout(function() { showFreeShipAdvanceModal(); }, 350);
+        }
+        // Force-switch payment to bKash if currently COD (COD is off but
+        // some legacy localStorage value may have stuck COD as default).
+        if (paymentSel && paymentSel.value === 'COD') {
+          paymentSel.value = 'bKash';
+          showPaymentInfo('bKash');
+        }
+      }
+    } catch (_) {}
   }
 
   // ✅ FIX v4.2 (HARDENED): Centralized COD-enable check
@@ -4016,6 +4098,101 @@ const YARZ = (() => {
     document.addEventListener('keydown', escHandler);
   }
 
+  // ✅ v15.49 FREE-SHIP ADVANCE POPUP — same visual style as showCODDisabledModal,
+  // explains to the customer why a small ৳100 advance is required even though
+  // their delivery is "free". Triggered ONLY when COD is off + free-ship
+  // unlocked + admin's freeShipAdvance toggle on. Shows once per session per
+  // cart signature so it doesn't nag the customer on every form refresh.
+  function showFreeShipAdvanceModal() {
+    var prev = document.getElementById('fs-advance-modal');
+    if (prev) prev.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'fs-advance-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(26,26,46,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:codFadeIn 0.25s ease-out;';
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--cream-50,#FFFDF8);max-width:400px;width:100%;border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(22,163,74,0.25),0 0 0 1px rgba(22,163,74,0.08);font-family:var(--font-bengali, "Hind Siliguri", sans-serif);animation:codSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);overflow:hidden;';
+    box.innerHTML =
+      // Header — green gradient (free-ship celebratory + security note)
+      '<div style="background:linear-gradient(135deg,#16A34A 0%,#059669 50%,#16A34A 100%);padding:28px 24px 22px;text-align:center;position:relative;overflow:hidden;">' +
+        '<div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 30%, rgba(255,255,255,0.12), transparent 60%);"></div>' +
+        '<button type="button" onclick="document.getElementById(\'fs-advance-modal\').remove()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>' +
+        '<div style="position:relative;width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.15);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.25);box-shadow:0 4px 16px rgba(0,0,0,0.15);">' +
+          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-9 6 18 3-9h3"/></svg>' +
+        '</div>' +
+        '<h3 style="position:relative;font-size:18px;font-weight:700;color:#fff;margin:0;font-family:var(--font-bengali);letter-spacing:-0.01em;">Congratulations! Free Delivery Unlocked</h3>' +
+        '<p style="position:relative;font-size:12px;color:rgba(255,255,255,0.85);margin:8px 0 0;font-family:var(--font-bengali);letter-spacing:0.01em;">একটি গুরুত্বপূর্ণ তথ্য আপনার জন্য</p>' +
+      '</div>' +
+      '<div style="padding:20px 22px 22px;">' +
+        '<p style="font-size:13.5px;line-height:1.85;color:var(--text-secondary,#4A4A5A);margin:0 0 16px;font-family:var(--font-bengali);text-align:center;">' +
+          'আপনি আমাদের <strong style="color:#16A34A;">টার্গেট অ্যামাউন্ট</strong> পূরণ করেছেন, তাই ডেলিভারি চার্জ <strong style="color:#16A34A;">সম্পূর্ণ ফ্রি</strong>। কিন্তু কিছু অসাধু ক্রেতার ফেক অর্ডারের কারণে আমাদের ক্যাশ অন ডেলিভারি বন্ধ রাখতে হয়েছে।' +
+        '</p>' +
+        // Solution box — soft green
+        '<div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:14px 16px;margin:0 0 16px;position:relative;">' +
+          '<div style="position:absolute;top:-9px;left:14px;display:inline-flex;align-items:center;gap:4px;background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:8px;letter-spacing:0.3px;">' + _icon('check', 10) + '<span>সমাধান</span></div>' +
+          '<p style="font-size:13px;line-height:1.8;color:#14532D;margin:6px 0 0;font-family:var(--font-bengali);">' +
+            'শুধুমাত্র <strong>৳১০০ অগ্রিম সিকিউরিটি</strong> <strong style="color:#E91E63;">bKash</strong> অথবা <strong style="color:#FF6F00;">Nagad</strong>-এ পেমেন্ট করুন। বাকি সম্পূর্ণ টাকা ডেলিভারির সময় হাতে হাতে দেবেন। ' +
+            '<span style="color:#15803D;font-weight:600;display:block;margin-top:6px;font-size:12px;">পার্সেল গ্রহণ করলে এই ৳১০০ আপনার অর্ডারে অ্যাডজাস্ট হয়ে যাবে।</span>' +
+          '</p>' +
+        '</div>' +
+        // Trust chips
+        '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">' +
+          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>' +
+            '১০০% নিরাপদ' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
+            'পার্সেলে অ্যাডজাস্ট' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+            'বিশ্বস্ত সেবা' +
+          '</div>' +
+        '</div>' +
+        '<button id="fs-advance-ok" style="width:100%;background:linear-gradient(135deg,#16A34A 0%,#059669 100%);color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:var(--font-bengali);box-shadow:0 4px 14px rgba(22,163,74,0.3);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+          'বুঝেছি, ৳১০০ অগ্রিম পরিশোধ করব' +
+        '</button>' +
+        '<p style="font-size:10.5px;color:var(--text-muted,#8A8A9A);margin:10px 0 0;font-family:var(--font-bengali);text-align:center;">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>' +
+      '</div>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    // Reuse the COD modal animation styles (already injected on first COD show)
+    if (!document.getElementById('cod-modal-anim-style')) {
+      var st = document.createElement('style');
+      st.id = 'cod-modal-anim-style';
+      st.textContent = '@keyframes codFadeIn{from{opacity:0}to{opacity:1}}@keyframes codSlideUp{from{opacity:0;transform:translateY(20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}#fs-advance-ok:hover,#cod-modal-ok:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(22,163,74,0.4)}#fs-advance-ok:active,#cod-modal-ok:active{transform:translateY(0)}';
+      document.head.appendChild(st);
+    }
+
+    function close() {
+      overlay.style.animation = 'codFadeIn 0.2s ease-out reverse';
+      setTimeout(function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }, 180);
+    }
+    document.getElementById('fs-advance-ok').addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    var fsEsc = function (e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', fsEsc); }
+    };
+    document.addEventListener('keydown', fsEsc);
+  }
+
+  // ✅ v15.49: Returns true when the cart is currently in the
+  // "free-ship-advance" state — used by openCheckout to disable COD,
+  // by submitOrder to validate the trxid, and by Telegram payload.
+  function isFreeShipAdvanceActive() {
+    try {
+      var info = state._lastFreeShipInfo || {};
+      return !!(info.applied && info.advanceApplied && !isCODEnabled() && isFreeShipAdvanceEnabled());
+    } catch (e) { return false; }
+  }
+
   function renderCheckoutSummary() {
     var el = $('#checkout-items');
     if (!el) return;
@@ -4063,12 +4240,27 @@ const YARZ = (() => {
               'You saved ' + formatPrice(fsInfo.savings) + ' on delivery' +
             '</div>';
         }
-        deliveryEl.innerHTML =
-          '<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#16A34A;">' +
-            '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;letter-spacing:0.4px;">FREE</span>' +
-            savingsHtml +
-          '</span>' +
-          savedTextHtml;
+        // ✅ v15.49 FREE-SHIP ADVANCE: When admin has disabled COD and the
+        // free-ship advance toggle is on, show "FREE + ৳100 advance" so the
+        // customer immediately understands the small charge in their total.
+        if (fsInfo.advanceApplied) {
+          deliveryEl.innerHTML =
+            '<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#16A34A;">' +
+              '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;letter-spacing:0.4px;">FREE</span>' +
+              savingsHtml +
+              '<span style="font-size:11px;color:#4E3A72;font-weight:600;">+ ' + formatPrice(fsInfo.advanceAmt || 100) + ' advance</span>' +
+            '</span>' +
+            '<div style="font-size:10.5px;color:#4E3A72;font-weight:600;margin-top:4px;font-family:var(--font-bengali);line-height:1.5;">' +
+              'সিকিউরিটি অগ্রিম: bKash/Nagad-এ ৳' + (fsInfo.advanceAmt || 100) + ' পরিশোধ করুন। পার্সেল গ্রহণ করলে এটি অর্ডারে অ্যাডজাস্ট হবে।' +
+            '</div>';
+        } else {
+          deliveryEl.innerHTML =
+            '<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#16A34A;">' +
+              '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;letter-spacing:0.4px;">FREE</span>' +
+              savingsHtml +
+            '</span>' +
+            savedTextHtml;
+        }
       } else if (totalQty > 1 && deliveryCharge > 0) {
         var extraCharge = (totalQty - 1) * 5;
         var baseCharge = deliveryCharge - extraCharge;
@@ -4606,6 +4798,11 @@ const YARZ = (() => {
       freeShipApplied: freeShipApplied,
       freeShipThreshold: freeShipThreshold,
       freeShipSavings: freeShipSavings,
+      // ✅ v15.49 FREE-SHIP ADVANCE markers — let GAS / Telegram know
+      // this order is paying ৳100 advance (not a delivery charge) and
+      // expects the parcel total to credit it back.
+      freeShipAdvanceApplied: !!fsInfoOrder.advanceApplied,
+      freeShipAdvanceAmt: parseFloat(fsInfoOrder.advanceAmt) || 0,
       // ✅ v11.7: Pixel matching keys — sent server-side for CAPI
       fbp: _fbp,
       fbc: _fbc,

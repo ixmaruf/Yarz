@@ -1110,6 +1110,7 @@ const YARZ_API = (() => {
         expDelivery: String(get('exp_delivery') || ''),
         // Cart & Checkout settings
         cartDrawer: parseBool(get('cart_drawer'), true),
+        freeShipAdvance: parseBool(get('freeship_advance'), true),
         orderNotes: parseBool(get('order_notes')),
         checkoutMode: String(get('checkout_mode') || 'website'),
         customField: String(get('custom_field') || ''),
