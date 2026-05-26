@@ -706,15 +706,28 @@ const YARZ = (() => {
     });
 
     // Close menu on window resize (if resizing to larger screen)
+    // ✅ v15.58 FIX: Mobile browsers fire 'resize' when the URL bar shows/hides
+    // on scroll — that was firing toggleCart(false) every time customers
+    // scrolled inside the cart drawer, auto-closing it. Now we only fire
+    // toggleCart(false) when the actual layout breakpoint changes (cross
+    // from mobile to desktop or vice versa), not on every URL-bar twitch.
+    var __lastWasMobile = window.innerWidth <= 768;
     window.addEventListener('resize', function () {
+      var nowMobile = window.innerWidth <= 768;
+      var crossedBreakpoint = (nowMobile !== __lastWasMobile);
+      __lastWasMobile = nowMobile;
+
       if (window.innerWidth > 768) {
         hamburger.classList.remove('active');
         mainNav.classList.remove('active');
       }
-      // ✅ v9.7 FIX: Force-close filter & cart drawers on ANY resize
-      // Prevents drawer from peeking when user resizes browser window
-      toggleFilterDrawer(false);
-      toggleCart(false);
+      // Only force-close drawers when the breakpoint actually flips.
+      // This stops the drawer from collapsing on every mobile URL-bar
+      // resize event triggered by inner-cart scrolling.
+      if (crossedBreakpoint) {
+        toggleFilterDrawer(false);
+        toggleCart(false);
+      }
     });
   }
 
@@ -3695,12 +3708,12 @@ const YARZ = (() => {
     if (!overlay || !drawer) return;
     if (show === undefined) show = !drawer.classList.contains('open');
 
-    // Empty-cart courtesy: if user opens the cart with nothing inside, just
-    // show a toast and skip the slide-in.
-    if (show === true && (!state.cart || state.cart.length === 0)) {
-      showToast('Cart is empty', 'warning');
-      return;
-    }
+    // ✅ v15.58 FIX: Removed the empty-cart toast guard. Old behavior:
+    // toggleCart(true) on empty cart fired a toast and skipped the drawer
+    // entirely — but renderCartDrawer ALREADY has a beautiful empty-state
+    // UI ("Your cart is empty / Browse products and add items"). Customers
+    // expect the drawer to open regardless so they can confirm what's
+    // inside. The friendly empty UI now shows inside the drawer.
 
     overlay.classList.toggle('active', show);
     drawer.classList.toggle('open', show);
@@ -3858,7 +3871,11 @@ const YARZ = (() => {
             // If admin just disabled COD and user had it selected → auto-switch + notify
             if (!codNow && (prev === 'COD' || !prev)) {
               pSel.value = 'bKash';
-              showCODDisabledModal();
+              // ✅ v15.58: Same guard — skip COD popup when free-ship-advance
+              // popup is the better fit for this cart state.
+              if (!isFreeShipAdvanceActive()) {
+                showCODDisabledModal();
+              }
               showPaymentInfo('bKash');
             } else {
               pSel.value = prev || (codNow ? 'COD' : 'bKash');
@@ -3955,10 +3972,17 @@ const YARZ = (() => {
       // ✅ HARD FIX: If COD is disabled and user previously had COD selected, force-switch
       if (!codEnabled && (currentVal === 'COD' || !currentVal)) {
         paymentSel.value = 'bKash';
-        // Show the modal once on checkout open (so user knows why)
-        setTimeout(function () {
-          showCODDisabledModal({ silent: false });
-        }, 300);
+        // ✅ v15.58 DOUBLE-POPUP FIX: Skip the generic COD-disabled popup
+        // when the free-ship-advance popup is going to fire instead. The
+        // free-ship popup already explains BOTH the COD-off state AND the
+        // ৳100 advance in a single, more specific message. Showing both
+        // back-to-back was confusing customers.
+        if (!isFreeShipAdvanceActive()) {
+          // Show the modal once on checkout open (so user knows why)
+          setTimeout(function () {
+            showCODDisabledModal({ silent: false });
+          }, 300);
+        }
       } else if (!paymentSel.value) {
         paymentSel.value = codEnabled ? 'COD' : 'bKash';
       } else {
@@ -4066,170 +4090,103 @@ const YARZ = (() => {
   window._yarzIsCODEnabled = isCODEnabled;
 
   // ✅ FIX v4.2 (HARDENED): Friendly modal popup explaining COD restriction
+  // ✅ v15.58 REDESIGN: Rewritten using site CSS variables and component
+  // classes (.btn, .btn-primary, .btn-outline) so the popup follows the
+  // burgundy/cream brand palette automatically. Latin numerals wrapped in
+  // .yarz-num class so digits render in crisp Inter (instead of weak Hind
+  // Siliguri Latin glyphs). Removed gradients, glassmorphism, lavender
+  // hardcoded hex, springy bounce animation — replaced with site-standard
+  // 4px radius, calm settle easing, ink-shadow.
   // Triggered when:
   //   1. Customer selects COD in dropdown (instant feedback)
   //   2. Customer opens checkout while COD is disabled (auto-shown once)
   //   3. submitOrder() detects COD bypass attempt (final guard)
   function showCODDisabledModal(opts) {
     opts = opts || {};
-    // Remove any existing instance
     var prev = document.getElementById('cod-disabled-modal');
     if (prev) prev.remove();
 
     var overlay = document.createElement('div');
     overlay.id = 'cod-disabled-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(26,26,46,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:codFadeIn 0.25s ease-out;';
+    overlay.className = 'modal-overlay yarz-info-modal active';
 
     var box = document.createElement('div');
-    box.style.cssText = 'background:var(--cream-50,#FFFDF8);max-width:400px;width:100%;border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(99,74,142,0.25),0 0 0 1px rgba(99,74,142,0.08);font-family:var(--font-bengali, "Hind Siliguri", sans-serif);animation:codSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);overflow:hidden;';
+    box.className = 'modal-box yarz-info-box';
     box.innerHTML =
-      // Header — purple gradient matching site accent
-      '<div style="background:linear-gradient(135deg,#634A8E 0%,#4E3A72 50%,#634A8E 100%);padding:28px 24px 22px;text-align:center;position:relative;overflow:hidden;">' +
-        '<div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 30%, rgba(255,255,255,0.12), transparent 60%);"></div>' +
-        '<button type="button" onclick="document.getElementById(\'cod-disabled-modal\').remove()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>' +
-        '<div style="position:relative;width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.15);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.25);box-shadow:0 4px 16px rgba(0,0,0,0.15);">' +
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-        '</div>' +
-        '<h3 style="position:relative;font-size:18px;font-weight:700;color:#fff;margin:0;font-family:var(--font-bengali);letter-spacing:-0.01em;">সম্মানিত ক্রেতা</h3>' +
-        '<p style="position:relative;font-size:12px;color:rgba(255,255,255,0.8);margin:8px 0 0;font-family:var(--font-bengali);letter-spacing:0.01em;">একটি গুরুত্বপূর্ণ তথ্য আপনার জন্য</p>' +
+      '<button type="button" class="yarz-info-close" aria-label="Close" onclick="document.getElementById(\'cod-disabled-modal\').remove()">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button>' +
+      '<div class="yarz-info-icon">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
       '</div>' +
-      // Body content — cream theme
-      '<div style="padding:20px 22px 22px;">' +
-        '<p style="font-size:13.5px;line-height:1.85;color:var(--text-secondary,#4A4A5A);margin:0 0 16px;font-family:var(--font-bengali);text-align:center;">' +
-          'কিছু অসাধু ক্রেতা পার্সেল গ্রহণ না করার কারণে আমাদের <strong style="color:var(--purple-700,#4E3A72);">ক্যাশ অন ডেলিভারি (COD)</strong> সার্ভিসটি সাময়িকভাবে বন্ধ রাখা হয়েছে।' +
-        '</p>' +
-        // Solution box — soft purple instead of green
-        '<div style="background:var(--purple-50,#F6F3FA);border:1.5px solid var(--purple-200,#D9CEE9);border-radius:12px;padding:14px 16px;margin:0 0 16px;position:relative;">' +
-          '<div style="position:absolute;top:-9px;left:14px;display:inline-flex;align-items:center;gap:4px;background:var(--purple-600,#634A8E);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:8px;letter-spacing:0.3px;">' + _icon('check', 10) + '<span>সমাধান</span></div>' +
-          '<p style="font-size:13px;line-height:1.8;color:var(--purple-800,#634A8E);margin:6px 0 0;font-family:var(--font-bengali);">' +
-            'শুধুমাত্র <strong>ডেলিভারি চার্জটি</strong> আগেই <strong style="color:#E91E63;">bKash</strong> অথবা <strong style="color:#FF6F00;">Nagad</strong>-এ পেমেন্ট করুন। প্রোডাক্টের বাকি টাকা ডেলিভারির সময় হাতে হাতে পরিশোধ করবেন।' +
-          '</p>' +
-        '</div>' +
-        // Trust indicators — cream/purple chips
-        '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">' +
-          '<div style="display:flex;align-items:center;gap:4px;background:var(--cream-200,#F5F0E6);padding:5px 10px;border-radius:6px;font-size:10.5px;color:var(--text-secondary,#4A4A5A);font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#634A8E" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>' +
-            '১০০% নিরাপদ' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:4px;background:var(--cream-200,#F5F0E6);padding:5px 10px;border-radius:6px;font-size:10.5px;color:var(--text-secondary,#4A4A5A);font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#634A8E" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
-            'বিশ্বস্ত সেবা' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:4px;background:var(--cream-200,#F5F0E6);padding:5px 10px;border-radius:6px;font-size:10.5px;color:var(--text-secondary,#4A4A5A);font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#634A8E" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
-            'গুণগত মান' +
-          '</div>' +
-        '</div>' +
-        // CTA button — brand purple
-        '<button id="cod-modal-ok" style="width:100%;background:linear-gradient(135deg,var(--purple-600,#634A8E) 0%,var(--purple-700,#4E3A72) 100%);color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:var(--font-bengali);box-shadow:0 4px 14px rgba(99,74,142,0.3);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
-          'বুঝেছি, bKash/Nagad ব্যবহার করব' +
-        '</button>' +
-        '<p style="font-size:10.5px;color:var(--text-muted,#8A8A9A);margin:10px 0 0;font-family:var(--font-bengali);text-align:center;">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>' +
-      '</div>';
+      '<h3 class="yarz-info-title">সম্মানিত ক্রেতা</h3>' +
+      '<p class="yarz-info-sub">একটি গুরুত্বপূর্ণ তথ্য আপনার জন্য</p>' +
+      '<div class="yarz-info-body">' +
+        'কিছু অসাধু ক্রেতা পার্সেল গ্রহণ না করার কারণে আমাদের <strong>ক্যাশ অন ডেলিভারি (COD)</strong> সার্ভিসটি সাময়িকভাবে বন্ধ রাখা হয়েছে।' +
+      '</div>' +
+      '<div class="yarz-info-callout">' +
+        '<div class="yarz-info-callout-label">সমাধান</div>' +
+        '<div class="yarz-info-callout-text">শুধুমাত্র <strong>ডেলিভারি চার্জটি</strong> আগেই <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ পেমেন্ট করুন। প্রোডাক্টের বাকি টাকা ডেলিভারির সময় হাতে হাতে পরিশোধ করবেন।</div>' +
+      '</div>' +
+      '<button id="cod-modal-ok" class="btn btn-primary btn-block yarz-info-cta">বুঝেছি, bKash/Nagad ব্যবহার করব</button>' +
+      '<p class="yarz-info-foot">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>';
 
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    // Animation styles (inject once)
-    if (!document.getElementById('cod-modal-anim-style')) {
-      var st = document.createElement('style');
-      st.id = 'cod-modal-anim-style';
-      st.textContent = '@keyframes codFadeIn{from{opacity:0}to{opacity:1}}@keyframes codSlideUp{from{opacity:0;transform:translateY(20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}#cod-modal-ok:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(99,74,142,0.4)}#cod-modal-ok:active{transform:translateY(0);box-shadow:0 2px 8px rgba(99,74,142,0.25)}';
-      document.head.appendChild(st);
-    }
-
     function close() {
-      overlay.style.animation = 'codFadeIn 0.2s ease-out reverse';
-      setTimeout(function () {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      }, 180);
+      overlay.classList.remove('active');
+      setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
     }
     document.getElementById('cod-modal-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    // ESC key support
     var escHandler = function (e) {
       if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); }
     };
     document.addEventListener('keydown', escHandler);
   }
 
-  // ✅ v15.49 FREE-SHIP ADVANCE POPUP — same visual style as showCODDisabledModal,
-  // explains to the customer why a small ৳100 advance is required even though
-  // their delivery is "free". Triggered ONLY when COD is off + free-ship
-  // unlocked + admin's freeShipAdvance toggle on. Shows once per session per
-  // cart signature so it doesn't nag the customer on every form refresh.
+  // ✅ v15.49 FREE-SHIP ADVANCE POPUP
+  // ✅ v15.58 REDESIGN: Same site-class architecture as the COD modal —
+  // burgundy/cream brand palette, no green hex codes, Latin numerals via
+  // Inter font (.yarz-num), 4px modal radius, calm settle animation.
+  // Triggered ONLY when COD is off + free-ship unlocked + admin's
+  // freeShipAdvance toggle on. Shows once per session per cart signature.
   function showFreeShipAdvanceModal() {
     var prev = document.getElementById('fs-advance-modal');
     if (prev) prev.remove();
 
     var overlay = document.createElement('div');
     overlay.id = 'fs-advance-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(26,26,46,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:codFadeIn 0.25s ease-out;';
+    overlay.className = 'modal-overlay yarz-info-modal active';
 
     var box = document.createElement('div');
-    box.style.cssText = 'background:var(--cream-50,#FFFDF8);max-width:400px;width:100%;border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(22,163,74,0.25),0 0 0 1px rgba(22,163,74,0.08);font-family:var(--font-bengali, "Hind Siliguri", sans-serif);animation:codSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);overflow:hidden;';
+    box.className = 'modal-box yarz-info-box';
     box.innerHTML =
-      // Header — green gradient (free-ship celebratory + security note)
-      '<div style="background:linear-gradient(135deg,#16A34A 0%,#059669 50%,#16A34A 100%);padding:28px 24px 22px;text-align:center;position:relative;overflow:hidden;">' +
-        '<div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 30%, rgba(255,255,255,0.12), transparent 60%);"></div>' +
-        '<button type="button" onclick="document.getElementById(\'fs-advance-modal\').remove()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;transition:background 0.2s;" onmouseover="this.style.background=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.15)\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>' +
-        '<div style="position:relative;width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.15);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,0.25);box-shadow:0 4px 16px rgba(0,0,0,0.15);">' +
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-9 6 18 3-9h3"/></svg>' +
-        '</div>' +
-        '<h3 style="position:relative;font-size:18px;font-weight:700;color:#fff;margin:0;font-family:var(--font-bengali);letter-spacing:-0.01em;">Congratulations! Free Delivery Unlocked</h3>' +
-        '<p style="position:relative;font-size:12px;color:rgba(255,255,255,0.85);margin:8px 0 0;font-family:var(--font-bengali);letter-spacing:0.01em;">একটি গুরুত্বপূর্ণ তথ্য আপনার জন্য</p>' +
+      '<button type="button" class="yarz-info-close" aria-label="Close" onclick="document.getElementById(\'fs-advance-modal\').remove()">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button>' +
+      '<div class="yarz-info-icon">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v12"/><path d="M14 9h4l3 4v5a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>' +
       '</div>' +
-      '<div style="padding:20px 22px 22px;">' +
-        '<p style="font-size:13.5px;line-height:1.85;color:var(--text-secondary,#4A4A5A);margin:0 0 16px;font-family:var(--font-bengali);text-align:center;">' +
-          'আপনি আমাদের <strong style="color:#16A34A;">টার্গেট অ্যামাউন্ট</strong> পূরণ করেছেন, তাই ডেলিভারি চার্জ <strong style="color:#16A34A;">সম্পূর্ণ ফ্রি</strong>। কিন্তু কিছু অসাধু ক্রেতার ফেক অর্ডারের কারণে আমাদের ক্যাশ অন ডেলিভারি বন্ধ রাখতে হয়েছে।' +
-        '</p>' +
-        // Solution box — soft green
-        '<div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:14px 16px;margin:0 0 16px;position:relative;">' +
-          '<div style="position:absolute;top:-9px;left:14px;display:inline-flex;align-items:center;gap:4px;background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:8px;letter-spacing:0.3px;">' + _icon('check', 10) + '<span>সমাধান</span></div>' +
-          '<p style="font-size:13px;line-height:1.8;color:#14532D;margin:6px 0 0;font-family:var(--font-bengali);">' +
-            'শুধুমাত্র <strong>৳১০০ অগ্রিম সিকিউরিটি</strong> <strong style="color:#E91E63;">bKash</strong> অথবা <strong style="color:#FF6F00;">Nagad</strong>-এ পেমেন্ট করুন। বাকি সম্পূর্ণ টাকা ডেলিভারির সময় হাতে হাতে দেবেন। ' +
-            '<span style="color:#15803D;font-weight:600;display:block;margin-top:6px;font-size:12px;">পার্সেল গ্রহণ করলে এই ৳১০০ আপনার অর্ডারে অ্যাডজাস্ট হয়ে যাবে।</span>' +
-          '</p>' +
-        '</div>' +
-        // Trust chips
-        '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">' +
-          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>' +
-            '১০০% নিরাপদ' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
-            'পার্সেলে অ্যাডজাস্ট' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:4px;background:#F0FDF4;padding:5px 10px;border-radius:6px;font-size:10.5px;color:#14532D;font-family:var(--font-bengali);font-weight:600;">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
-            'বিশ্বস্ত সেবা' +
-          '</div>' +
-        '</div>' +
-        '<button id="fs-advance-ok" style="width:100%;background:linear-gradient(135deg,#16A34A 0%,#059669 100%);color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:var(--font-bengali);box-shadow:0 4px 14px rgba(22,163,74,0.3);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
-          'বুঝেছি, ৳১০০ অগ্রিম পরিশোধ করব' +
-        '</button>' +
-        '<p style="font-size:10.5px;color:var(--text-muted,#8A8A9A);margin:10px 0 0;font-family:var(--font-bengali);text-align:center;">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>' +
-      '</div>';
+      '<h3 class="yarz-info-title">Free Delivery Unlocked</h3>' +
+      '<p class="yarz-info-sub">একটি গুরুত্বপূর্ণ তথ্য আপনার জন্য</p>' +
+      '<div class="yarz-info-body">' +
+        'আপনি আমাদের <strong>টার্গেট অ্যামাউন্ট</strong> পূরণ করেছেন, তাই ডেলিভারি চার্জ <strong>সম্পূর্ণ ফ্রি</strong>। কিন্তু কিছু অসাধু ক্রেতার ফেক অর্ডারের কারণে আমাদের ক্যাশ অন ডেলিভারি বন্ধ রাখতে হয়েছে।' +
+      '</div>' +
+      '<div class="yarz-info-callout">' +
+        '<div class="yarz-info-callout-label">সমাধান</div>' +
+        '<div class="yarz-info-callout-text">শুধুমাত্র <strong><span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ পেমেন্ট করুন। বাকি সম্পূর্ণ টাকা ডেলিভারির সময় হাতে হাতে দেবেন।<span class="yarz-info-note">পার্সেল গ্রহণ করলে এই <span class="yarz-num">৳100</span> আপনার অর্ডারে অ্যাডজাস্ট হয়ে যাবে।</span></div>' +
+      '</div>' +
+      '<button id="fs-advance-ok" class="btn btn-primary btn-block yarz-info-cta">বুঝেছি, <span class="yarz-num">৳100</span> অগ্রিম পরিশোধ করব</button>' +
+      '<p class="yarz-info-foot">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>';
 
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    // Reuse the COD modal animation styles (already injected on first COD show)
-    if (!document.getElementById('cod-modal-anim-style')) {
-      var st = document.createElement('style');
-      st.id = 'cod-modal-anim-style';
-      st.textContent = '@keyframes codFadeIn{from{opacity:0}to{opacity:1}}@keyframes codSlideUp{from{opacity:0;transform:translateY(20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}#fs-advance-ok:hover,#cod-modal-ok:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(22,163,74,0.4)}#fs-advance-ok:active,#cod-modal-ok:active{transform:translateY(0)}';
-      document.head.appendChild(st);
-    }
-
     function close() {
-      overlay.style.animation = 'codFadeIn 0.2s ease-out reverse';
-      setTimeout(function () {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      }, 180);
+      overlay.classList.remove('active');
+      setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
     }
     document.getElementById('fs-advance-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
@@ -4304,10 +4261,10 @@ const YARZ = (() => {
             '<span style="display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#16A34A;">' +
               '<span style="background:linear-gradient(135deg,#16A34A,#059669);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;letter-spacing:0.4px;">FREE</span>' +
               savingsHtml +
-              '<span style="font-size:11px;color:#4E3A72;font-weight:600;">+ ' + formatPrice(fsInfo.advanceAmt || 100) + ' advance</span>' +
+              '<span style="font-size:11px;color:var(--accent);font-weight:600;">+ <span class="yarz-num">' + formatPrice(fsInfo.advanceAmt || 100) + '</span> advance</span>' +
             '</span>' +
-            '<div style="font-size:10.5px;color:#4E3A72;font-weight:600;margin-top:4px;font-family:var(--font-bengali);line-height:1.5;">' +
-              'সিকিউরিটি অগ্রিম: bKash/Nagad-এ ৳' + (fsInfo.advanceAmt || 100) + ' পরিশোধ করুন। পার্সেল গ্রহণ করলে এটি অর্ডারে অ্যাডজাস্ট হবে।' +
+            '<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:4px;font-family:var(--font-bengali);line-height:1.5;">' +
+              'সিকিউরিটি অগ্রিম: bKash/Nagad-এ <span class="yarz-num">৳' + (fsInfo.advanceAmt || 100) + '</span> পরিশোধ করুন। পার্সেল গ্রহণ করলে এটি অর্ডারে অ্যাডজাস্ট হবে।' +
             '</div>';
         } else {
           deliveryEl.innerHTML =

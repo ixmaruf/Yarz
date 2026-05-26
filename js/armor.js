@@ -180,14 +180,14 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  // ===== G. IMAGE DRAG PREVENTION (ALL PLATFORMS) =====
+  // ===== G. IMAGE DRAG PREVENTION (REMOVED v15.58) =====
+  // Customers want to take screenshots and share product images on
+  // Facebook/Messenger to friends — that's free word-of-mouth advertising
+  // for the store. Blocking image-drag was misinterpreted as blocking
+  // screenshots. We now allow drag, long-press save, and copy-image so
+  // customers can share freely.
   function _preventDrag() {
-    document.addEventListener('dragstart', function(e) {
-      if (e.target && e.target.tagName === 'IMG') {
-        e.preventDefault();
-        return false;
-      }
-    });
+    // No-op — kept for backward-compat init() call ordering
   }
 
   // ===== H. GLOBAL PROTECTION =====
