@@ -54,8 +54,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.49" as="script">
-  <link rel="preload" href="./css/style.css?v=15.49" as="style">
+  <link rel="preload" href="./js/api.js?v=15.55" as="script">
+  <link rel="preload" href="./css/style.css?v=15.55" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -247,7 +247,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.49">
+  <link rel="stylesheet" href="./css/style.css?v=15.55">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -1236,7 +1236,7 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.49" defer></script>
+  <script src="./js/api.js?v=15.55" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
   <script src="./js/boot.js?v=12.1" defer></script>
@@ -1246,7 +1246,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.49"  defer></script>
+  <script src="./js/app.js?v=15.55"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1294,7 +1294,7 @@
         // CPA over a few days. The 50KB load happens AFTER LCP (load+200ms),
         // so it doesn't affect first-paint speed anyway.
         // Pixel loads first — when ready, init it and replay any queued events
-        _yarzLoadLater('./js/pixel.js?v=15.49', function () {
+        _yarzLoadLater('./js/pixel.js?v=15.55', function () {
           try {
             // After pixel.js loads, window.YARZ_PIXEL is now the REAL module
             // (pixel.js's IIFE overwrites our stub)
@@ -1313,8 +1313,8 @@
             }
           } catch (e) {}
         });
-        _yarzLoadLater('./js/armor.js?v=15.49');
-        _yarzLoadLater('./js/shield.js?v=15.49');
+        _yarzLoadLater('./js/armor.js?v=15.55');
+        _yarzLoadLater('./js/shield.js?v=15.55');
       }
       // ✅ v13.1: 200ms instead of 1500ms — keeps ad attribution intact
       if (document.readyState === 'complete') {
