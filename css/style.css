@@ -9556,14 +9556,16 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   .site-header .brand-logo.yarz-mark { --yarz-mark-size: 24px; }
   .site-header .brand-logo.yarz-mark .yarz-mark__word {
     font-size: 16px !important;
-    letter-spacing: 0.16em !important;
+    letter-spacing: 0.12em !important; /* v15.64: tightened with bold weight */
+    font-weight: 700 !important;
   }
 }
 @media (max-width: 480px) {
   .site-header .brand-logo.yarz-mark { --yarz-mark-size: 22px; }
   .site-header .brand-logo.yarz-mark .yarz-mark__word {
     font-size: 14px !important;
-    letter-spacing: 0.14em !important;
+    letter-spacing: 0.10em !important; /* v15.64: tightest on small phones */
+    font-weight: 700 !important;
   }
 }
 @media (max-width: 360px) {
@@ -9584,8 +9586,12 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    flex-gap behavior. */
 .brand-logo.yarz-mark,
 .brand-logo.yarz-mark .yarz-mark__word {
-  letter-spacing: 0.18em !important;
-  font-weight: 600 !important;
+  /* v15.64: Bold (700) wordmark — was 600 (semi-bold) which read as thin
+     on mobile. Cormorant Garamond 700 ships in the font URL now, so this
+     is real bold (no faux-bold smearing). Tracking tightened 0.18 → 0.14
+     so the bolder strokes don't look airy. */
+  letter-spacing: 0.14em !important;
+  font-weight: 700 !important;
   color: var(--yarz-mark-text) !important;
 }
 .site-footer .brand-logo.yarz-mark .yarz-mark__word,
@@ -9644,6 +9650,95 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 @media (max-width: 320px) {
   .site-header .brand-logo.yarz-mark .yarz-mark__word {
     display: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v15.62 — Header lockup: Alternating X-Stitch Thread Fade
+   ────────────────────────────────────────────────────────────
+   Two <line> overlays inside the header <svg.yarz-mark__icon>.
+   The <symbol id="yarz-button-mark"> is NOT modified — footer,
+   cart, hero, popups (which reuse it via <use>) stay static.
+
+   8-second infinite cycle, single shared timeline:
+     0.00–2.00s  (0–25%)   line A fades 0 → 0.85
+     2.00–4.00s  (25–50%)  line A holds; line B fades 0 → 0.85
+     4.00–6.00s  (50–75%)  both hold at 0.85 — "stitch is done"
+     6.00–8.00s  (75–100%) both fade 0.85 → 0
+
+   Line B's 2s offset is encoded into its keyframe (held at 0
+   from 0–25%), not via animation-delay, so both lines complete
+   their fade-out together at the cycle boundary.
+
+   Performance:
+     • Property animated: opacity only — composited on GPU
+     • Zero layout shift  — opacity does not trigger layout
+     • Zero paint flash   — same render layer, same fill color
+     • Two extra paint calls/cycle (the <line>s themselves) —
+       trivial on a 28×28 viewport
+     • Scoped to .site-header so other lockups have no overhead
+   ════════════════════════════════════════════════════════════ */
+
+/* Threads start invisible and stay invisible everywhere by default.
+   Only the header lockup turns the animation on. */
+.yarz-thread {
+  opacity: 0;
+  pointer-events: none;
+  /* Hint to the compositor — opacity-only changes go to GPU. */
+  will-change: opacity;
+}
+
+/* Header lockup only — animation is opt-in via parent selector */
+.site-header .brand-logo.yarz-mark .yarz-thread--a {
+  animation: yarz-thread-a 8s ease-in-out infinite;
+}
+.site-header .brand-logo.yarz-mark .yarz-thread--b {
+  animation: yarz-thread-b 8s ease-in-out infinite;
+}
+
+/* Line A: fades in 0–2s, holds 2–6s, fades out 6–8s */
+@keyframes yarz-thread-a {
+  0%   { opacity: 0;    }
+  25%  { opacity: 0.85; }   /* 2s — fade-in complete */
+  75%  { opacity: 0.85; }   /* 6s — hold ends, both visible */
+  100% { opacity: 0;    }   /* 8s — fade-out complete */
+}
+
+/* Line B: stays at 0 through 0–2s, fades in 2–4s, holds 4–6s, fades out 6–8s */
+@keyframes yarz-thread-b {
+  0%   { opacity: 0;    }
+  25%  { opacity: 0;    }   /* 2s — still hidden, A is up */
+  50%  { opacity: 0.85; }   /* 4s — fade-in complete */
+  75%  { opacity: 0.85; }   /* 6s — hold ends */
+  100% { opacity: 0;    }   /* 8s — fade-out complete */
+}
+
+/* Reduced-motion: kill the animation entirely and keep both threads
+   fully invisible (the static button mark already reads as a button). */
+@media (prefers-reduced-motion: reduce) {
+  .site-header .brand-logo.yarz-mark .yarz-thread--a,
+  .site-header .brand-logo.yarz-mark .yarz-thread--b {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* v15.64: Tiny phones (≤360px) — disable threads to save battery and
+   avoid sub-pixel mud on low-DPI Adreno-class GPUs. */
+@media (max-width: 360px) {
+  .site-header .brand-logo.yarz-mark .yarz-thread--a,
+  .site-header .brand-logo.yarz-mark .yarz-thread--b {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* v15.64: Reduced-data — skip thread animation on metered connections. */
+@media (prefers-reduced-data: reduce) {
+  .site-header .brand-logo.yarz-mark .yarz-thread--a,
+  .site-header .brand-logo.yarz-mark .yarz-thread--b {
+    animation: none !important;
+    opacity: 0 !important;
   }
 }
 

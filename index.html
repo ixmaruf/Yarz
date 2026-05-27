@@ -54,8 +54,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.63" as="script">
-  <link rel="preload" href="./css/style.css?v=15.63" as="style">
+  <link rel="preload" href="./js/api.js?v=15.64" as="script">
+  <link rel="preload" href="./css/style.css?v=15.64" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -164,7 +164,7 @@
   <meta property="og:site_name" content="YARZ (Yarzclothing)">
   <meta property="og:title" content="YARZ | Premium Men's Fashion Bangladesh (Yarzclothing)">
   <meta property="og:description" content="Shop premium Panjabi, Shirts & T-Shirts at YARZ.">
-  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.63">
+  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.64">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -176,7 +176,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="YARZ | Premium Men's Fashion Bangladesh">
   <meta name="twitter:description" content="YARZ (Yarzclothing) — Premium Men's Fashion. শার্ট, টি-শার্ট, পোলো, পাঞ্জাবি।">
-  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.63">
+  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.64">
   <meta name="twitter:image:alt" content="YARZ — Premium Men's Fashion Bangladesh">
 
   <!-- Geo / Location for Bangladesh SEO -->
@@ -199,7 +199,7 @@
         "name": "YARZ",
         "alternateName": "Yarzclothing",
         "url": "https://yarzclothing.xyz/",
-        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.63",
+        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.64",
         "description": "Premium Men's Fashion Brand from Bangladesh",
         "address": {
           "@type": "PostalAddress",
@@ -246,8 +246,10 @@
        were falling back to Georgia (NOT premium). Now: Inter 400/600/700,
        Hind Siliguri 400, Playfair Display 0,400;0,600;0,700;1,400;1,600;1,700.
        Still saves ~40 KB vs the old SC family (4 vs 9 woff2 files). -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap"></noscript>
+  <!-- v15.64: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
+       Without 700, browsers were synthesizing fake-bold which looked thin/blurry on mobile. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap"></noscript>
 
   <!-- Core CSS — v15.48 FOUC FIX: Use blocking <link rel="stylesheet"> so
        the page never paints unstyled. The earlier preload-swap pattern
@@ -259,7 +261,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.63">
+  <link rel="stylesheet" href="./css/style.css?v=15.64">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -756,9 +758,20 @@
   <!-- ===== HEADER ===== -->
   <header class="site-header">
     <div class="header-inner">
-      <!-- Logo — v15.61 shirt-button + YARZ wordmark lockup (a11y: <span aria-hidden> not <h1>) -->
+      <!-- Logo — v15.62 shirt-button + YARZ wordmark lockup + alternating X-stitch thread fade
+           (a11y: <span aria-hidden> not <h1>; threads also aria-hidden via parent SVG)
+           Threads are siblings of <use> — symbol stays untouched; footer/cart/popups
+           reuse the same symbol but without these <line> overlays, so they stay static. -->
       <a href="#" class="brand-logo yarz-mark" onclick="YARZ.goHome();return false;" aria-label="YARZ — Premium Men's Fashion">
-        <svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#yarz-button-mark"/></svg>
+        <svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <use href="#yarz-button-mark"/>
+          <!-- v15.64: X-stitch threads — cream, 0.9 viewBox-units stroke (~1.05px on 28px header).
+               Two diagonal lines that alternate fade-in/out on an 8s loop. Symbol untouched —
+               these are siblings of <use>, so footer/cart/popup instances stay still by default
+               (CSS scopes activation strictly to .site-header). -->
+          <line class="yarz-thread yarz-thread--a" x1="8.7"  y1="8.7"  x2="15.3" y2="15.3" stroke="#FBF8F1" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+          <line class="yarz-thread yarz-thread--b" x1="15.3" y1="8.7"  x2="8.7"  y2="15.3" stroke="#FBF8F1" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+        </svg>
         <span class="yarz-mark__word" aria-hidden="true" style="line-height:1;display:inline;">YARZ</span>
       </a>
 
@@ -1272,7 +1285,7 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.63" defer></script>
+  <script src="./js/api.js?v=15.64" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
   <script src="./js/boot.js?v=12.1" defer></script>
@@ -1282,7 +1295,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.63"  defer></script>
+  <script src="./js/app.js?v=15.64"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1330,7 +1343,7 @@
         // CPA over a few days. The 50KB load happens AFTER LCP (load+200ms),
         // so it doesn't affect first-paint speed anyway.
         // Pixel loads first — when ready, init it and replay any queued events
-        _yarzLoadLater('./js/pixel.js?v=15.63', function () {
+        _yarzLoadLater('./js/pixel.js?v=15.64', function () {
           try {
             // After pixel.js loads, window.YARZ_PIXEL is now the REAL module
             // (pixel.js's IIFE overwrites our stub)
@@ -1349,8 +1362,8 @@
             }
           } catch (e) {}
         });
-        _yarzLoadLater('./js/armor.js?v=15.63');
-        _yarzLoadLater('./js/shield.js?v=15.63');
+        _yarzLoadLater('./js/armor.js?v=15.64');
+        _yarzLoadLater('./js/shield.js?v=15.64');
       }
       // ✅ v13.1: 200ms instead of 1500ms — keeps ad attribution intact
       if (document.readyState === 'complete') {
