@@ -5406,18 +5406,21 @@ body::before {
     padding: 0 16px;
   }
 
-  /* Better modal on mobile */
-  .modal-overlay {
+  /* Better modal on mobile — bottom-sheet pattern.
+     ✅ v15.59: scope OUT yarz-info-modal so info popups (COD-disabled,
+     Free-Ship Advance) stay center-aligned instead of inheriting the
+     bottom-sheet anchor. */
+  .modal-overlay:not(.yarz-info-modal) {
     align-items: flex-end;
     padding: 0;
   }
 
-  .modal-box {
+  .modal-overlay:not(.yarz-info-modal) .modal-box {
     border-radius: 20px 20px 0 0;
     max-height: 92vh;
   }
 
-  .modal-header {
+  .modal-overlay:not(.yarz-info-modal) .modal-header {
     padding: 18px 20px;
     border-radius: 20px 20px 0 0;
   }
@@ -9306,3 +9309,348 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   font-weight: inherit;
   letter-spacing: 0.01em;
 }
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.59 — Popup centering + cart-footer breathing + footer gap
+   ────────────────────────────────────────────────────────────
+   Three small but visible polish fixes:
+   (1) Popups now ALWAYS render in the geometric center of the
+       viewport on mobile. A previous cascade (specifically the
+       active-modal flex layout interacting with body's
+       overflow:hidden lock when checkout is open) was anchoring
+       the popup to the bottom edge instead of the middle.
+   (2) Cart drawer footer (Subtotal + Checkout button) now has
+       safe-area-inset-bottom padding so it doesn't kiss the
+       phone's home indicator.
+   (3) The cream sliver visible BELOW the dark footer on mobile
+       was the page background bleeding through padding-bottom
+       reserved for the (now removed) mobile-bottom-nav. We just
+       paint that bottom strip in the footer color.
+   ════════════════════════════════════════════════════════════ */
+
+/* (1) Popup — guaranteed center on every viewport, including
+       when stacked on top of an already-open checkout modal.
+       Uses ID selectors for max specificity, !important to win
+       over any later cascade. */
+#cod-disabled-modal,
+#fs-advance-modal,
+.yarz-info-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  z-index: 99999 !important;
+  background: rgba(26, 20, 17, 0.55) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  /* Reserve safe-area on top + bottom so the box is visually
+     centered between the URL bar and the home indicator on
+     iPhone X+ class devices. */
+  padding-top: max(16px, env(safe-area-inset-top)) !important;
+  padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+}
+
+#cod-disabled-modal .yarz-info-box,
+#fs-advance-modal .yarz-info-box,
+.yarz-info-modal .yarz-info-box {
+  /* Prevent the content from overflowing past the viewport on
+     short screens — keep the box scrollable internally so the
+     overall card stays centered. */
+  max-height: calc(100vh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 auto !important;
+}
+
+/* (2) Cart drawer — lift the Subtotal/Checkout footer so it never
+       looks cut off, and respect the iPhone home indicator.
+       ✅ v15.59: floor raised from 20px → 28px after user reported
+       the button still felt "kissing the bottom edge" on Android. */
+.cart-footer {
+  padding: 16px 18px max(28px, calc(16px + env(safe-area-inset-bottom))) 18px !important;
+}
+
+/* Use 100dvh on supporting browsers so the drawer's true height
+   matches the visible viewport (NOT the URL-bar-included 100vh).
+   Fixes "footer cut off" on mobile Chrome where the URL bar makes
+   100vh ~70px taller than the rendered area. */
+@supports (height: 100dvh) {
+  .cart-drawer {
+    height: 100dvh !important;
+  }
+}
+
+/* (3) Footer cream-gap fix — paint the body bottom strip in
+       footer color so the dark footer visually extends to the
+       very bottom of the viewport on mobile.
+       ✅ v15.59: bumped specificity using `html body` to win over
+       the global `body { background: var(--bg-primary) }` on
+       lines 381 and 7707, plus the body radial-gradient on 8072.
+       Also explicitly set background on the footer wrapper so the
+       safe-area-inset-bottom strip below it shows the dark color. */
+@media (max-width: 768px) {
+  html body {
+    background-color: var(--footer-bg, #1A1411) !important;
+    background-image: none !important;
+  }
+  /* But the visible content area still needs the cream paper bg.
+     Apply it on the wrapping content + header so visually nothing
+     changes EXCEPT the strip below the footer. */
+  html body > main,
+  html body > #app,
+  html body > header,
+  html body > .site-header,
+  html body > .announcement-bar,
+  html body > #home-content,
+  html body > #dynamic-view,
+  html body > #collection-view,
+  html body > #yarz-newsletter-popup,
+  html body > #yarz-promo-popup {
+    background-color: var(--bg-primary, #FBF8F1);
+  }
+  /* Footer itself anchors at the bottom-most edge — paint its
+     border/edge area too so no cream slips through. */
+  html body > footer.site-footer,
+  html body .site-footer {
+    background-color: var(--footer-bg, #1A1411) !important;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.60 — YARZ BRAND MARK SYSTEM (Shirt Button Logo)
+   ────────────────────────────────────────────────────────────
+   Pure CSS+SVG. NO image assets.
+   Three lockups, all driven by one inline <svg> + one font.
+   ────────────────────────────────────────────────────────────
+   1. .yarz-mark            — horizontal lockup (header default)
+   2. .yarz-mark--stacked   — vertical lockup (hero/footer/404/popup)
+   3. .yarz-mark--icon-only — button icon alone (favicon-tier)
+
+   Color tokens (override via .yarz-mark--inverse for dark surfaces):
+     --yarz-mark-fill    burgundy disc body
+     --yarz-mark-ring    burgundy outer stroke
+     --yarz-mark-hole    cream hole color (negative)
+     --yarz-mark-text    wordmark color
+   ════════════════════════════════════════════════════════════ */
+
+.yarz-mark {
+  --yarz-mark-fill: var(--accent, #6E1F2A);
+  --yarz-mark-ring: var(--accent-hover, #571821);
+  --yarz-mark-hole: var(--bg-primary, #FBF8F1);
+  --yarz-mark-text: var(--text-primary, #1A1411);
+  --yarz-mark-size: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--yarz-mark-size) * 0.30);
+  text-decoration: none;
+  color: var(--yarz-mark-text);
+  line-height: 1;
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.yarz-mark__icon {
+  width: var(--yarz-mark-size);
+  height: var(--yarz-mark-size);
+  flex: 0 0 auto;
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.yarz-mark:hover .yarz-mark__icon,
+.yarz-mark:focus-visible .yarz-mark__icon {
+  transform: rotate(8deg);
+}
+.yarz-mark:focus-visible {
+  outline: 2px solid var(--yarz-mark-ring);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.yarz-mark__word {
+  font-size: calc(var(--yarz-mark-size) * 0.78);
+  letter-spacing: 0.18em;
+  color: var(--yarz-mark-text);
+  /* Slight optical lift — round shapes always look low next to caps */
+  transform: translateY(0.02em);
+}
+
+/* Inverse — for dark surfaces (footer, announcement bar, maintenance, etc.) */
+.yarz-mark--inverse {
+  --yarz-mark-fill: var(--bg-primary, #FBF8F1);
+  --yarz-mark-ring: var(--bg-primary, #FBF8F1);
+  --yarz-mark-hole: var(--accent, #6E1F2A);
+  --yarz-mark-text: var(--bg-primary, #FBF8F1);
+}
+
+/* Sizes */
+.yarz-mark--xs   { --yarz-mark-size: 18px; }
+.yarz-mark--sm   { --yarz-mark-size: 22px; }
+.yarz-mark--md   { --yarz-mark-size: 28px; }
+.yarz-mark--lg   { --yarz-mark-size: 40px; }
+.yarz-mark--xl   { --yarz-mark-size: 64px; }
+.yarz-mark--2xl  { --yarz-mark-size: 96px; }
+
+/* Stacked vertical lockup — hero/footer/404/popups/maintenance/order success */
+.yarz-mark--stacked {
+  flex-direction: column;
+  gap: calc(var(--yarz-mark-size) * 0.32);
+  text-align: center;
+}
+.yarz-mark--stacked .yarz-mark__word {
+  font-size: calc(var(--yarz-mark-size) * 0.46);
+  letter-spacing: 0.32em;
+  /* The hairline-rule under the wordmark — fashion-plate signature */
+  position: relative;
+  padding-bottom: calc(var(--yarz-mark-size) * 0.18);
+}
+.yarz-mark--stacked .yarz-mark__word::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 60%;
+  max-width: 96px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+/* Icon-only — favicon-tier, used inline (e.g. toast, notification, skeleton) */
+.yarz-mark--icon-only {
+  gap: 0;
+}
+.yarz-mark--icon-only .yarz-mark__word {
+  display: none;
+}
+
+/* Header lockup default — sized to current --header-height ceiling */
+.site-header .brand-logo.yarz-mark {
+  --yarz-mark-size: 28px;
+}
+.site-header .brand-logo .yarz-mark__icon {
+  /* Hover already lifted at .yarz-mark:hover; nothing to add */
+}
+
+/* Footer lockup (cream wordmark on dark) */
+.site-footer .footer-col .footer-brand.yarz-mark {
+  --yarz-mark-size: 56px;
+  display: inline-flex;
+}
+.site-footer .footer-col .footer-brand.yarz-mark .yarz-mark__word {
+  color: #FFFFFF;
+}
+
+/* Mobile sizing for header lockup */
+@media (max-width: 768px) {
+  .site-header .brand-logo.yarz-mark { --yarz-mark-size: 24px; }
+  .site-header .brand-logo.yarz-mark .yarz-mark__word {
+    font-size: 16px !important;
+    letter-spacing: 0.16em !important;
+  }
+}
+@media (max-width: 480px) {
+  .site-header .brand-logo.yarz-mark { --yarz-mark-size: 22px; }
+  .site-header .brand-logo.yarz-mark .yarz-mark__word {
+    font-size: 14px !important;
+    letter-spacing: 0.14em !important;
+  }
+}
+@media (max-width: 360px) {
+  .site-header .brand-logo.yarz-mark .yarz-mark__word {
+    display: none; /* very tiny phones — keep button only */
+  }
+}
+
+/* Reduced motion — kill the rotate */
+@media (prefers-reduced-motion: reduce) {
+  .yarz-mark__icon { transition: none; }
+  .yarz-mark:hover .yarz-mark__icon,
+  .yarz-mark:focus-visible .yarz-mark__icon { transform: none; }
+}
+
+/* Override the legacy v15.1 rule that forces letter-spacing on .brand-logo
+   itself (line 7720). When .brand-logo is also .yarz-mark, restore proper
+   flex-gap behavior. */
+.brand-logo.yarz-mark,
+.brand-logo.yarz-mark .yarz-mark__word {
+  letter-spacing: 0.18em !important;
+  font-weight: 600 !important;
+  color: var(--yarz-mark-text) !important;
+}
+.site-footer .brand-logo.yarz-mark .yarz-mark__word,
+.site-footer .footer-brand.yarz-mark .yarz-mark__word {
+  color: #FFFFFF !important;
+}
+
+/* Pin the maintenance-overlay logo to the new lockup */
+.maintenance-overlay .maintenance-logo.yarz-mark {
+  --yarz-mark-size: 64px;
+  margin-bottom: 28px;
+}
+.maintenance-overlay .maintenance-logo.yarz-mark .yarz-mark__word {
+  color: #FFFFFF;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.61 — YARZ BRAND MARK REFINEMENTS (synthesis of 18-agent audit)
+   ────────────────────────────────────────────────────────────
+   Polish only — no spec change. Addresses:
+   1. Inverse variant ring vanished (cream-on-cream)
+   2. Stacked tracking too wide (0.32em → 0.26em — closer to header)
+   3. Stacked gap too tight (0.32 → 0.38 — proper fashion-plate breathing)
+   4. Optical translateY (0.02em → 0.04em — true center on Cormorant)
+   5. ≤360px: shrink wordmark, only hide at ≤320px (not 360px)
+   ════════════════════════════════════════════════════════════ */
+
+/* (1) Inverse — keep the burgundy outline ring so silhouette doesn't melt */
+.yarz-mark--inverse {
+  --yarz-mark-ring: var(--accent, #6E1F2A);
+}
+
+/* (2 + 3) Stacked — tighter tracking, more vertical breathing */
+.yarz-mark--stacked {
+  gap: calc(var(--yarz-mark-size) * 0.38);
+}
+.yarz-mark--stacked .yarz-mark__word {
+  letter-spacing: 0.26em;
+}
+
+/* (4) Stronger optical lift — circle's true center sits below cap-line */
+.yarz-mark__word {
+  transform: translateY(0.04em);
+}
+
+/* (5) Tiny phones — shrink, only hide ≤320px */
+@media (max-width: 360px) and (min-width: 321px) {
+  .site-header .brand-logo.yarz-mark { --yarz-mark-size: 20px; }
+  .site-header .brand-logo.yarz-mark .yarz-mark__word {
+    display: inline !important;
+    font-size: 12px !important;
+    letter-spacing: 0.10em !important;
+  }
+}
+@media (max-width: 320px) {
+  .site-header .brand-logo.yarz-mark .yarz-mark__word {
+    display: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v15.61 — Admin panel brand-icon dark chip (override CSS war)
+   The existing .sidebar .brand-icon { background: #FFFFFF !important }
+   was painting the chip white in both light and dark modes, defeating
+   our inline #0F1623. Admin's CSS now uses :has(svg) to win.
+   ════════════════════════════════════════════════════════════ */
+/* (Rule lives in admin/index.html — no main-site rule needed.) */

@@ -1816,7 +1816,16 @@ const YARZ = (() => {
       overlay.innerHTML =
         '<div class="yarz-popup-card newsletter-card">' +
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-newsletter-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_newsletter_dismissed\',\'1\')">✕</button>' +
-        '<div class="popup-icon">📬</div>' +
+        '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
+          '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+            '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
+            '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+          '</svg>' +
+        '</div>' +
         '<div class="popup-title">' + escHtml(c.newsletterTitle || 'Get 10% off your first order!') + '</div>' +
         '<div class="popup-desc">Enter your email to receive your discount code instantly.</div>' +
         '<input type="email" id="yarz-nl-email" placeholder="you@example.com" class="newsletter-input">' +
@@ -4126,7 +4135,7 @@ const YARZ = (() => {
       '</div>' +
       '<div class="yarz-info-callout">' +
         '<div class="yarz-info-callout-label">সমাধান</div>' +
-        '<div class="yarz-info-callout-text">শুধুমাত্র <strong>ডেলিভারি চার্জটি</strong> আগেই <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ পেমেন্ট করুন। প্রোডাক্টের বাকি টাকা ডেলিভারির সময় হাতে হাতে পরিশোধ করবেন।</div>' +
+        '<div class="yarz-info-callout-text">শুধুমাত্র <strong>ডেলিভারি চার্জটি</strong> আগেই <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ সেন্ড মানি করুন। প্রোডাক্টের বাকি টাকা ডেলিভারির সময় হাতে হাতে পরিশোধ করবেন।</div>' +
       '</div>' +
       '<button id="cod-modal-ok" class="btn btn-primary btn-block yarz-info-cta">বুঝেছি, bKash/Nagad ব্যবহার করব</button>' +
       '<p class="yarz-info-foot">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>';
@@ -4176,7 +4185,7 @@ const YARZ = (() => {
       '</div>' +
       '<div class="yarz-info-callout">' +
         '<div class="yarz-info-callout-label">সমাধান</div>' +
-        '<div class="yarz-info-callout-text">শুধুমাত্র <strong><span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ পেমেন্ট করুন। বাকি সম্পূর্ণ টাকা ডেলিভারির সময় হাতে হাতে দেবেন।<span class="yarz-info-note">পার্সেল গ্রহণ করলে এই <span class="yarz-num">৳100</span> আপনার অর্ডারে অ্যাডজাস্ট হয়ে যাবে।</span></div>' +
+        '<div class="yarz-info-callout-text">শুধুমাত্র <strong><span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> <strong>bKash</strong> অথবা <strong>Nagad</strong>-এ সেন্ড মানি করুন। বাকি সম্পূর্ণ টাকা ডেলিভারির সময় হাতে হাতে দেবেন।<span class="yarz-info-note">পার্সেল গ্রহণ করলে এই <span class="yarz-num">৳100</span> আপনার অর্ডারে অ্যাডজাস্ট হয়ে যাবে।</span></div>' +
       '</div>' +
       '<button id="fs-advance-ok" class="btn btn-primary btn-block yarz-info-cta">বুঝেছি, <span class="yarz-num">৳100</span> অগ্রিম পরিশোধ করব</button>' +
       '<p class="yarz-info-foot">আপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।</p>';
@@ -4264,7 +4273,7 @@ const YARZ = (() => {
               '<span style="font-size:11px;color:var(--accent);font-weight:600;">+ <span class="yarz-num">' + formatPrice(fsInfo.advanceAmt || 100) + '</span> advance</span>' +
             '</span>' +
             '<div style="font-size:10.5px;color:var(--accent);font-weight:600;margin-top:4px;font-family:var(--font-bengali);line-height:1.5;">' +
-              'সিকিউরিটি অগ্রিম: bKash/Nagad-এ <span class="yarz-num">৳' + (fsInfo.advanceAmt || 100) + '</span> পরিশোধ করুন। পার্সেল গ্রহণ করলে এটি অর্ডারে অ্যাডজাস্ট হবে।' +
+              'সিকিউরিটি অগ্রিম: bKash/Nagad-এ <span class="yarz-num">৳' + (fsInfo.advanceAmt || 100) + '</span> সেন্ড মানি করুন। পার্সেল গ্রহণ করলে এটি অর্ডারে অ্যাডজাস্ট হবে।' +
             '</div>';
         } else {
           deliveryEl.innerHTML =
@@ -5019,6 +5028,17 @@ const YARZ = (() => {
     }
 
     var html = '<div style="max-width:480px;margin:48px auto;text-align:center;padding:0 24px;">' +
+      '<div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px;">' +
+      '<svg viewBox="0 0 24 24" style="width:48px;height:48px;" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+      '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
+      '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '</svg>' +
+      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:14px;font-weight:600;letter-spacing:0.26em;color:#6E1F2A;text-transform:uppercase;border-bottom:1px solid rgba(110,31,42,0.4);padding-bottom:6px;">YARZ</span>' +
+      '</div>' +
       '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 24px rgba(16,185,129,0.35);">' + ICONS.check + '</div>' +
       '<h2 style="font-family:var(--font-serif);font-size:22px;font-weight:600;margin-bottom:12px;color:var(--ink-1);">ধন্যবাদ!</h2>' +
       '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.04));border:1.5px solid rgba(16,185,129,0.25);border-radius:12px;padding:20px 18px;margin-bottom:24px;text-align:center;">' +
@@ -6858,7 +6878,16 @@ const YARZ = (() => {
             exitOverlay.innerHTML =
               '<div class="yarz-popup-card">' +
               '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\')">&times;</button>' +
-              '<div class="popup-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div>' +
+              '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
+                '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
+                  '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+                  '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
+                  '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+                  '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+                  '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+                  '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+                '</svg>' +
+              '</div>' +
               '<div class="popup-title">একটু দাঁড়ান</div>' +
               '<div class="popup-desc">আপনার জন্য বিশেষ অফার অপেক্ষা করছে। এখনই অর্ডার করুন এবং স্পেশাল ডিসকাউন্ট পান।</div>' +
               '<button class="popup-cta" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\');YARZ.goHome();">শপিং চালিয়ে যান</button>' +
@@ -7318,7 +7347,17 @@ const YARZ = (() => {
       '<line x1="12" y1="16" x2="12.01" y2="16"/>' +
       '</svg>' +
       '</div>' +
-      '<div class="maintenance-logo">Y A R Z</div>' +
+      '<div class="maintenance-logo yarz-mark yarz-mark--stacked yarz-mark--inverse" style="display:inline-flex;align-items:center;flex-direction:column;gap:14px;margin-bottom:24px;">' +
+      '<svg viewBox="0 0 24 24" style="width:64px;height:64px;" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+      '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
+      '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '</svg>' +
+      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.26em;color:#FFFFFF;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.45);padding-bottom:6px;">YARZ</span>' +
+      '</div>' +
       '<h2>We\'ll Be Right Back</h2>' +
       '<p>আমাদের সাইটটি সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ আছে।<br>শীঘ্রই ফিরে আসছি। অসুবিধার জন্য দুঃখিত।</p>' +
       '<p style="margin-top:20px;">' +
