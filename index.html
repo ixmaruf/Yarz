@@ -54,8 +54,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.64" as="script">
-  <link rel="preload" href="./css/style.css?v=15.64" as="style">
+  <link rel="preload" href="./js/api.js?v=15.66" as="script">
+  <link rel="preload" href="./css/style.css?v=15.66" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -164,7 +164,7 @@
   <meta property="og:site_name" content="YARZ (Yarzclothing)">
   <meta property="og:title" content="YARZ | Premium Men's Fashion Bangladesh (Yarzclothing)">
   <meta property="og:description" content="Shop premium Panjabi, Shirts & T-Shirts at YARZ.">
-  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.64">
+  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.66">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -176,7 +176,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="YARZ | Premium Men's Fashion Bangladesh">
   <meta name="twitter:description" content="YARZ (Yarzclothing) — Premium Men's Fashion. শার্ট, টি-শার্ট, পোলো, পাঞ্জাবি।">
-  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.64">
+  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.66">
   <meta name="twitter:image:alt" content="YARZ — Premium Men's Fashion Bangladesh">
 
   <!-- Geo / Location for Bangladesh SEO -->
@@ -199,7 +199,7 @@
         "name": "YARZ",
         "alternateName": "Yarzclothing",
         "url": "https://yarzclothing.xyz/",
-        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.64",
+        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.66",
         "description": "Premium Men's Fashion Brand from Bangladesh",
         "address": {
           "@type": "PostalAddress",
@@ -246,7 +246,7 @@
        were falling back to Georgia (NOT premium). Now: Inter 400/600/700,
        Hind Siliguri 400, Playfair Display 0,400;0,600;0,700;1,400;1,600;1,700.
        Still saves ~40 KB vs the old SC family (4 vs 9 woff2 files). -->
-  <!-- v15.64: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
+  <!-- v15.66: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
        Without 700, browsers were synthesizing fake-bold which looked thin/blurry on mobile. -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap"></noscript>
@@ -261,7 +261,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.64">
+  <link rel="stylesheet" href="./css/style.css?v=15.66">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -763,14 +763,60 @@
            Threads are siblings of <use> — symbol stays untouched; footer/cart/popups
            reuse the same symbol but without these <line> overlays, so they stay static. -->
       <a href="#" class="brand-logo yarz-mark" onclick="YARZ.goHome();return false;" aria-label="YARZ — Premium Men's Fashion">
-        <svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <svg class="yarz-mark__icon yarz-mark__icon--sewing" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <use href="#yarz-button-mark"/>
-          <!-- v15.64: X-stitch threads — cream, 0.9 viewBox-units stroke (~1.05px on 28px header).
-               Two diagonal lines that alternate fade-in/out on an 8s loop. Symbol untouched —
-               these are siblings of <use>, so footer/cart/popup instances stay still by default
+          <!-- ═══════════════════════════════════════════════════════════════
+               v15.66: REAL SEWING ANIMATION — needle + thread, 10s cycle
+               ═══════════════════════════════════════════════════════════════
+               Choreography (10s):
+                 0.0 → 1.0s   needle "lying" idle to the LEFT of the button
+                 1.0 → 2.0s   needle flies in toward TL hole (rotates to point)
+                 2.0 → 3.0s   needle dives into TL → emerges at BR
+                              (thread A draws underneath via stroke-dashoffset)
+                 3.0 → 4.0s   needle arcs over to TR (visible mid-air flight)
+                 4.0 → 5.0s   needle dives into TR → emerges at BL
+                              (thread B draws underneath)
+                 5.0 → 6.0s   needle pulls away to the right and fades
+                 6.0 → 9.0s   "admire" window — full X-stitch on the button
+                 9.0 → 10.0s  threads fade out, reset for seamless loop
+
+               Symbol untouched — only the header instance gets the overlays
                (CSS scopes activation strictly to .site-header). -->
-          <line class="yarz-thread yarz-thread--a" x1="8.7"  y1="8.7"  x2="15.3" y2="15.3" stroke="#FBF8F1" stroke-width="0.9" stroke-linecap="round" fill="none"/>
-          <line class="yarz-thread yarz-thread--b" x1="15.3" y1="8.7"  x2="8.7"  y2="15.3" stroke="#FBF8F1" stroke-width="0.9" stroke-linecap="round" fill="none"/>
+
+          <!-- Stitch 1: TL → BR. pathLength=100 normalizes the dash math. -->
+          <path class="yarz-thread yarz-thread--a"
+                d="M 8.7 8.7 L 15.3 15.3"
+                stroke="#FBF8F1" stroke-width="1.1" stroke-linecap="round" fill="none"
+                pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+
+          <!-- Stitch 2: TR → BL -->
+          <path class="yarz-thread yarz-thread--b"
+                d="M 15.3 8.7 L 8.7 15.3"
+                stroke="#FBF8F1" stroke-width="1.1" stroke-linecap="round" fill="none"
+                pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+
+          <!-- Sparkle "knot" dots — pop at each hole-entry for tactile "click". -->
+          <circle class="yarz-knot yarz-knot--tl" cx="8.7"  cy="8.7"  r="0.7" fill="#FBF8F1"/>
+          <circle class="yarz-knot yarz-knot--br" cx="15.3" cy="15.3" r="0.7" fill="#FBF8F1"/>
+          <circle class="yarz-knot yarz-knot--tr" cx="15.3" cy="8.7"  r="0.7" fill="#FBF8F1"/>
+          <circle class="yarz-knot yarz-knot--bl" cx="8.7"  cy="15.3" r="0.7" fill="#FBF8F1"/>
+
+          <!-- The needle group — designed at origin pointing RIGHT (+X axis).
+               Tip at (0,0), shaft extending left to eye at (-7, 0).
+               Tail thread comes out of the eye, swaying for "thread tension".
+               All animation = transform on this <g> + sway on .yarz-needle__tail. -->
+          <g class="yarz-needle" aria-hidden="true">
+            <!-- shaft body (silver) -->
+            <line x1="-7" y1="0" x2="0" y2="0" stroke="#9AA1A6" stroke-width="0.7" stroke-linecap="round"/>
+            <!-- shaft highlight (lighter silver) -->
+            <line x1="-6.5" y1="-0.15" x2="-0.5" y2="-0.15" stroke="#F0F0F2" stroke-width="0.22" stroke-linecap="round"/>
+            <!-- needle eye (open ring at the back end) -->
+            <circle cx="-7" cy="0" r="0.7" fill="none" stroke="#9AA1A6" stroke-width="0.32"/>
+            <!-- tail thread out of the eye — sways with needle -->
+            <path class="yarz-needle__tail"
+                  d="M -7 0 q -1.5 -0.5 -2.6 0.6"
+                  stroke="#FBF8F1" stroke-width="0.55" stroke-linecap="round" fill="none" opacity="0.9"/>
+          </g>
         </svg>
         <span class="yarz-mark__word" aria-hidden="true" style="line-height:1;display:inline;">YARZ</span>
       </a>
@@ -1285,7 +1331,7 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.64" defer></script>
+  <script src="./js/api.js?v=15.66" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
   <script src="./js/boot.js?v=12.1" defer></script>
@@ -1295,7 +1341,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.64"  defer></script>
+  <script src="./js/app.js?v=15.66"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1343,7 +1389,7 @@
         // CPA over a few days. The 50KB load happens AFTER LCP (load+200ms),
         // so it doesn't affect first-paint speed anyway.
         // Pixel loads first — when ready, init it and replay any queued events
-        _yarzLoadLater('./js/pixel.js?v=15.64', function () {
+        _yarzLoadLater('./js/pixel.js?v=15.66', function () {
           try {
             // After pixel.js loads, window.YARZ_PIXEL is now the REAL module
             // (pixel.js's IIFE overwrites our stub)
@@ -1362,8 +1408,8 @@
             }
           } catch (e) {}
         });
-        _yarzLoadLater('./js/armor.js?v=15.64');
-        _yarzLoadLater('./js/shield.js?v=15.64');
+        _yarzLoadLater('./js/armor.js?v=15.66');
+        _yarzLoadLater('./js/shield.js?v=15.66');
       }
       // ✅ v13.1: 200ms instead of 1500ms — keeps ad attribution intact
       if (document.readyState === 'complete') {

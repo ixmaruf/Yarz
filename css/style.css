@@ -9556,16 +9556,30 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   .site-header .brand-logo.yarz-mark { --yarz-mark-size: 24px; }
   .site-header .brand-logo.yarz-mark .yarz-mark__word {
     font-size: 16px !important;
-    letter-spacing: 0.12em !important; /* v15.64: tightened with bold weight */
+    letter-spacing: 0.12em !important;
     font-weight: 700 !important;
+    /* v15.66: heavier paint-stroke + double-shadow nudge for chunky bold */
+    -webkit-text-stroke: 0.8px var(--yarz-mark-text) !important;
+            text-stroke: 0.8px var(--yarz-mark-text) !important;
+    text-shadow:
+      0.3px 0 0 var(--yarz-mark-text),
+      -0.3px 0 0 var(--yarz-mark-text);
+    paint-order: stroke fill;
   }
 }
 @media (max-width: 480px) {
   .site-header .brand-logo.yarz-mark { --yarz-mark-size: 22px; }
   .site-header .brand-logo.yarz-mark .yarz-mark__word {
     font-size: 14px !important;
-    letter-spacing: 0.10em !important; /* v15.64: tightest on small phones */
+    letter-spacing: 0.10em !important;
     font-weight: 700 !important;
+    /* v15.66: heaviest stroke on small phones — full chunky read */
+    -webkit-text-stroke: 0.95px var(--yarz-mark-text) !important;
+            text-stroke: 0.95px var(--yarz-mark-text) !important;
+    text-shadow:
+      0.35px 0 0 var(--yarz-mark-text),
+      -0.35px 0 0 var(--yarz-mark-text);
+    paint-order: stroke fill;
   }
 }
 @media (max-width: 360px) {
@@ -9586,13 +9600,19 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    flex-gap behavior. */
 .brand-logo.yarz-mark,
 .brand-logo.yarz-mark .yarz-mark__word {
-  /* v15.64: Bold (700) wordmark — was 600 (semi-bold) which read as thin
-     on mobile. Cormorant Garamond 700 ships in the font URL now, so this
-     is real bold (no faux-bold smearing). Tracking tightened 0.18 → 0.14
-     so the bolder strokes don't look airy. */
+  /* v15.66: BOLDER wordmark via real 700 weight + double-pass paint.
+     -webkit-text-stroke paints the glyph outline on top of the fill,
+     and text-shadow nudges 0.3px L/R to thicken horizontally without
+     blurring (no blur-radius). Result: chunky read at every size. */
   letter-spacing: 0.14em !important;
   font-weight: 700 !important;
   color: var(--yarz-mark-text) !important;
+  -webkit-text-stroke: 0.5px var(--yarz-mark-text);
+          text-stroke: 0.5px var(--yarz-mark-text);
+  text-shadow:
+    0.3px 0 0 var(--yarz-mark-text),
+    -0.3px 0 0 var(--yarz-mark-text);
+  paint-order: stroke fill;
 }
 .site-footer .brand-logo.yarz-mark .yarz-mark__word,
 .site-footer .footer-brand.yarz-mark .yarz-mark__word {
@@ -9654,89 +9674,207 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 }
 
 /* ════════════════════════════════════════════════════════════
-   v15.62 — Header lockup: Alternating X-Stitch Thread Fade
+   v15.66 — Header lockup: CINEMATIC SEWING ANIMATION
    ────────────────────────────────────────────────────────────
-   Two <line> overlays inside the header <svg.yarz-mark__icon>.
-   The <symbol id="yarz-button-mark"> is NOT modified — footer,
-   cart, hero, popups (which reuse it via <use>) stay static.
+   Synthesized from 18 design-lens audit of v15.65 (rotation
+   bugs, transform-box origin, needle scale, missing "lying"
+   preamble). This version reads like a short film loop:
+   needle lies idle, flies in, dives, draws thread, arcs over,
+   dives again, exits — admire window — loop.
 
-   8-second infinite cycle, single shared timeline:
-     0.00–2.00s  (0–25%)   line A fades 0 → 0.85
-     2.00–4.00s  (25–50%)  line A holds; line B fades 0 → 0.85
-     4.00–6.00s  (50–75%)  both hold at 0.85 — "stitch is done"
-     6.00–8.00s  (75–100%) both fade 0.85 → 0
+   Components (all siblings of <use> inside .site-header SVG):
+     • <path .yarz-thread--a>   — first stitch (TL → BR)
+     • <path .yarz-thread--b>   — second stitch (TR → BL)
+     • <circle .yarz-knot--*>   — sparkle dots at each hole entry
+     • <g .yarz-needle>         — the moving needle group
 
-   Line B's 2s offset is encoded into its keyframe (held at 0
-   from 0–25%), not via animation-delay, so both lines complete
-   their fade-out together at the cycle boundary.
+   10-second cycle (every keyframe in viewBox units; needle is
+   designed pointing +X with tip at origin (0,0), eye at (-7,0)):
+
+     time  %    translate     rotate    scale  opacity   stage
+     0.0s   0   (-1,  13)        0       1.0   0.85      lying-idle
+     1.0s  10   (-1,  13)        0       1.0   0.95      lying-idle (held)
+     2.0s  20   ( 3,   3)       45       1.0   1.0       arrived above TL
+     2.4s  24   ( 8.7, 8.7)     45       0.7   0.55      diving into TL
+     2.6s  26   ( 8.7, 8.7)     45       0.5   0.0       gone under cloth
+     2.9s  29   (15.3,15.3)     45       0.5   0.0       still under cloth
+     3.0s  30   (16,  16)       45       1.0   1.0       emerged at BR
+     3.5s  35   (18,  10)       90       1.0   1.0       mid-air arc up
+     4.0s  40   (18,   5)      135       1.0   1.0       above TR
+     4.4s  44   (15.3, 8.7)    135       0.7   0.55      diving into TR
+     4.6s  46   (15.3, 8.7)    135       0.5   0.0       gone
+     4.9s  49   ( 8.7,15.3)    135       0.5   0.0       still gone
+     5.0s  50   ( 7,  17)      135       1.0   1.0       emerged at BL
+     6.0s  60   (-2,  22)      135       0.9   0.0       exiting bottom-left
+     9.0s  90   (-1,  13)        0       1.0   0.0       hidden during admire
+    10.0s 100   (-1,  13)        0       1.0   0.85      back to lying
 
    Performance:
-     • Property animated: opacity only — composited on GPU
-     • Zero layout shift  — opacity does not trigger layout
-     • Zero paint flash   — same render layer, same fill color
-     • Two extra paint calls/cycle (the <line>s themselves) —
-       trivial on a 28×28 viewport
-     • Scoped to .site-header so other lockups have no overhead
+     • Animated properties: transform, opacity, stroke-dashoffset
+     • transform/opacity composited on GPU
+     • stroke-dashoffset paints in a 24×24 region (~1.5ms on
+       Adreno 506) — negligible
+     • will-change scoped to .site-header only
    ════════════════════════════════════════════════════════════ */
-
-/* Threads start invisible and stay invisible everywhere by default.
-   Only the header lockup turns the animation on. */
-.yarz-thread {
-  opacity: 0;
+/* (A) Defaults — invisible everywhere. The CSS only ever activates
+       under .site-header so footer/cart/popup/maintenance stay static. */
+.yarz-thread,
+.yarz-needle,
+.yarz-knot {
   pointer-events: none;
-  /* Hint to the compositor — opacity-only changes go to GPU. */
-  will-change: opacity;
+}
+.yarz-thread {
+  opacity: 1;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+.yarz-needle {
+  opacity: 0;
+  /* transform-box: view-box gives correct origin in viewBox space.
+     Falls back gracefully on older browsers (translate is in px units
+     of the viewBox already, which on a 24×24 viewBox = 1:1). */
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+.yarz-knot {
+  opacity: 0;
 }
 
-/* Header lockup only — animation is opt-in via parent selector */
+/* (B) Header-only activation. Promote the SVG to its own GPU layer
+       so the surrounding header chrome doesn't repaint. */
+.site-header .brand-logo.yarz-mark .yarz-mark__icon--sewing {
+  will-change: transform;
+  transform: translateZ(0);
+  overflow: visible; /* needle exits viewBox during "lying" preamble */
+}
+
+/* (C) Needle — single 10s timeline. Defined in detail in the
+       header comment above. cubic-bezier eases give a natural
+       "pulled by hand" feel rather than mechanical lerp. */
+.site-header .brand-logo.yarz-mark .yarz-needle {
+  animation: yarz-needle 10s cubic-bezier(0.4, 0.0, 0.2, 1.0) infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes yarz-needle {
+  /* lying-idle (left of button) */
+  0%   { transform: translate(-1px, 13px) rotate(  0deg) scale(1.0); opacity: 0.85; }
+  10%  { transform: translate(-1px, 13px) rotate(  0deg) scale(1.0); opacity: 0.95; }
+  /* arrived above TL (rotated to point down-right) */
+  20%  { transform: translate( 3px,  3px) rotate( 45deg) scale(1.0); opacity: 1;   }
+  /* diving into TL hole */
+  24%  { transform: translate( 8.7px,  8.7px) rotate( 45deg) scale(0.7); opacity: 0.55; }
+  26%  { transform: translate( 8.7px,  8.7px) rotate( 45deg) scale(0.5); opacity: 0;   }
+  /* under cloth — invisible during travel under fabric */
+  29%  { transform: translate(15.3px, 15.3px) rotate( 45deg) scale(0.5); opacity: 0;   }
+  /* emerging at BR */
+  30%  { transform: translate(16px,  16px) rotate( 45deg) scale(1.0); opacity: 1;   }
+  /* mid-air arc up */
+  35%  { transform: translate(18px,  10px) rotate( 90deg) scale(1.0); opacity: 1;   }
+  /* arrived above TR (rotated to point down-left) */
+  40%  { transform: translate(18px,   5px) rotate(135deg) scale(1.0); opacity: 1;   }
+  /* diving into TR hole */
+  44%  { transform: translate(15.3px, 8.7px) rotate(135deg) scale(0.7); opacity: 0.55; }
+  46%  { transform: translate(15.3px, 8.7px) rotate(135deg) scale(0.5); opacity: 0;   }
+  /* under cloth */
+  49%  { transform: translate( 8.7px,15.3px) rotate(135deg) scale(0.5); opacity: 0;   }
+  /* emerging at BL */
+  50%  { transform: translate( 7px,  17px) rotate(135deg) scale(1.0); opacity: 1;   }
+  /* exiting bottom-left, pulling thread away */
+  60%  { transform: translate(-2px, 22px) rotate(135deg) scale(0.9); opacity: 0;   }
+  /* hidden during admire window */
+  90%  { transform: translate(-1px, 13px) rotate(  0deg) scale(1.0); opacity: 0;   }
+  /* fade back to lying-idle for seamless loop */
+  100% { transform: translate(-1px, 13px) rotate(  0deg) scale(1.0); opacity: 0.85; }
+}
+
+/* (D) Threads — drawn via stroke-dashoffset, locked to needle dive.
+       Thread A: drawn 24-30% (TL→BR underneath travel)
+       Thread B: drawn 44-50% (TR→BL underneath travel)
+       Both hold visible 50-90% (admire window), fade 90-100%. */
 .site-header .brand-logo.yarz-mark .yarz-thread--a {
-  animation: yarz-thread-a 8s ease-in-out infinite;
+  animation: yarz-thread-a 10s linear infinite;
 }
 .site-header .brand-logo.yarz-mark .yarz-thread--b {
-  animation: yarz-thread-b 8s ease-in-out infinite;
+  animation: yarz-thread-b 10s linear infinite;
 }
-
-/* Line A: fades in 0–2s, holds 2–6s, fades out 6–8s */
 @keyframes yarz-thread-a {
-  0%   { opacity: 0;    }
-  25%  { opacity: 0.85; }   /* 2s — fade-in complete */
-  75%  { opacity: 0.85; }   /* 6s — hold ends, both visible */
-  100% { opacity: 0;    }   /* 8s — fade-out complete */
+  0%, 24%  { stroke-dashoffset: 100; opacity: 1; }
+  30%      { stroke-dashoffset:   0; opacity: 1; }
+  90%      { stroke-dashoffset:   0; opacity: 1; }
+  100%     { stroke-dashoffset:   0; opacity: 0; }
 }
-
-/* Line B: stays at 0 through 0–2s, fades in 2–4s, holds 4–6s, fades out 6–8s */
 @keyframes yarz-thread-b {
-  0%   { opacity: 0;    }
-  25%  { opacity: 0;    }   /* 2s — still hidden, A is up */
-  50%  { opacity: 0.85; }   /* 4s — fade-in complete */
-  75%  { opacity: 0.85; }   /* 6s — hold ends */
-  100% { opacity: 0;    }   /* 8s — fade-out complete */
+  0%, 44%  { stroke-dashoffset: 100; opacity: 1; }
+  50%      { stroke-dashoffset:   0; opacity: 1; }
+  90%      { stroke-dashoffset:   0; opacity: 1; }
+  100%     { stroke-dashoffset:   0; opacity: 0; }
 }
 
-/* Reduced-motion: kill the animation entirely and keep both threads
-   fully invisible (the static button mark already reads as a button). */
+/* (E) Knot sparkles — pop at each hole entry/exit for tactile "click". */
+.site-header .brand-logo.yarz-mark .yarz-knot--tl { animation: yarz-knot-tl 10s ease-out infinite; }
+.site-header .brand-logo.yarz-mark .yarz-knot--br { animation: yarz-knot-br 10s ease-out infinite; }
+.site-header .brand-logo.yarz-mark .yarz-knot--tr { animation: yarz-knot-tr 10s ease-out infinite; }
+.site-header .brand-logo.yarz-mark .yarz-knot--bl { animation: yarz-knot-bl 10s ease-out infinite; }
+@keyframes yarz-knot-tl { 0%,22% {opacity:0} 24% {opacity:1} 32% {opacity:0} 100% {opacity:0} }
+@keyframes yarz-knot-br { 0%,28% {opacity:0} 30% {opacity:1} 38% {opacity:0} 100% {opacity:0} }
+@keyframes yarz-knot-tr { 0%,42% {opacity:0} 44% {opacity:1} 52% {opacity:0} 100% {opacity:0} }
+@keyframes yarz-knot-bl { 0%,48% {opacity:0} 50% {opacity:1} 58% {opacity:0} 100% {opacity:0} }
+
+/* (F) Tail-thread sway — adds "thread tension" wobble on the trailing thread. */
+.site-header .brand-logo.yarz-mark .yarz-needle__tail {
+  animation: yarz-tail-sway 1.4s ease-in-out infinite;
+  transform-origin: 0 0;
+  transform-box: view-box;
+}
+@keyframes yarz-tail-sway {
+  0%, 100% { transform: rotate(  0deg); }
+  50%      { transform: rotate( -10deg); }
+}
+
+/* (G) Reduced-motion: static X-stitch + no needle. */
 @media (prefers-reduced-motion: reduce) {
   .site-header .brand-logo.yarz-mark .yarz-thread--a,
   .site-header .brand-logo.yarz-mark .yarz-thread--b {
     animation: none !important;
-    opacity: 0 !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
   }
-}
-
-/* v15.64: Tiny phones (≤360px) — disable threads to save battery and
-   avoid sub-pixel mud on low-DPI Adreno-class GPUs. */
-@media (max-width: 360px) {
-  .site-header .brand-logo.yarz-mark .yarz-thread--a,
-  .site-header .brand-logo.yarz-mark .yarz-thread--b {
+  .site-header .brand-logo.yarz-mark .yarz-needle,
+  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
+  .site-header .brand-logo.yarz-mark .yarz-knot {
     animation: none !important;
     opacity: 0 !important;
   }
 }
 
-/* v15.64: Reduced-data — skip thread animation on metered connections. */
+/* (H) Tiny phones (≤360px) — needle off, static X visible. */
+@media (max-width: 360px) {
+  .site-header .brand-logo.yarz-mark .yarz-thread--a,
+  .site-header .brand-logo.yarz-mark .yarz-thread--b {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 0.85 !important;
+  }
+  .site-header .brand-logo.yarz-mark .yarz-needle,
+  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
+  .site-header .brand-logo.yarz-mark .yarz-knot {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* (I) Reduced-data — same treatment as ≤360px. */
 @media (prefers-reduced-data: reduce) {
   .site-header .brand-logo.yarz-mark .yarz-thread--a,
   .site-header .brand-logo.yarz-mark .yarz-thread--b {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 0.85 !important;
+  }
+  .site-header .brand-logo.yarz-mark .yarz-needle,
+  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
+  .site-header .brand-logo.yarz-mark .yarz-knot {
     animation: none !important;
     opacity: 0 !important;
   }
