@@ -1,13 +1,18 @@
 {
-  "name": "YARZ — Premium Fashion",
+  "name": "YARZ (Yarzclothing) — Premium Men's Fashion Bangladesh",
   "short_name": "YARZ",
-  "description": "YARZ — Premium men's fashion store",
+  "description": "YARZ — Bangladesh-এর Premium Men's Fashion store. Shop শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট with Cash on Delivery.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#FBF8F1",
   "theme_color": "#FAFAF7",
-  "lang": "bn",
+  "lang": "bn-BD",
+  "dir": "ltr",
+  "categories": ["shopping", "lifestyle", "fashion"],
+  "screenshots": [],
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23FBF8F1'/><circle cx='96' cy='96' r='66' fill='%236E1F2A' stroke='%23571821' stroke-width='3.6'/><circle cx='96' cy='96' r='54' fill='none' stroke='%23FBF8F1' stroke-width='2' opacity='0.85'/><circle cx='77' cy='77' r='12.4' fill='%23FBF8F1'/><circle cx='115' cy='77' r='12.4' fill='%23FBF8F1'/><circle cx='77' cy='115' r='12.4' fill='%23FBF8F1'/><circle cx='115' cy='115' r='12.4' fill='%23FBF8F1'/></svg>",

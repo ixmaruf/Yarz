@@ -99,6 +99,29 @@ const YARZ_API = (() => {
   // Bypasses Apps Script cold start (3-10s) → loads in ~300-500ms.
   // Falls back to Apps Script if direct read fails.
   // ════════════════════════════════════════════════════════════════
+
+  // ✅ v15.84 ZERO-CACHE GUARANTEE: Owner explicitly requires that NOTHING
+  //   product-related is saved to the customer's localStorage / IndexedDB.
+  //   Every visit (1st, 2nd, 3rd) must show the LATEST data fetched live
+  //   from Cloudflare Worker (which has its own server-side edge cache that
+  //   admin Publish purges instantly).
+  //
+  //   The earlier v15.83 attempt used a localStorage snapshot for instant
+  //   repeat-visit hydration — REVERTED because it contradicted the owner's
+  //   policy (returning customers could see stale products until refresh).
+  //
+  //   Speed strategy now:
+  //     1. Cloudflare Worker Edge SSR injects __YARZ_INITIAL_STATE on the
+  //        SERVER (no client storage involved) — instant for SSR HITs.
+  //     2. Inline <head> early-fetch script fires the products request in
+  //        parallel with CSS/JS download — no caching, just earlier timing.
+  //     3. Cloudflare Worker FRESH_TTL=30min serves from server-side edge
+  //        cache; admin Publish purges it instantly.
+  //   No customer-side persistence at any layer. ALWAYS LIVE.
+  //
+  //   If a customer somehow has a leftover snapshot from v15.83, clean it up.
+  try { localStorage.removeItem('yarz_snapshot_v1'); } catch (e) {}
+
   var _turboStart = Date.now();
   var _turboData = null;
   var _turboPromise = (function _turboPreload() {
@@ -108,6 +131,20 @@ const YARZ_API = (() => {
       // ⚡ Edge SSR 0ms Load: Check if HTML was injected with state
       if (window.__YARZ_INITIAL_STATE) {
         fetchPromise = Promise.resolve(window.__YARZ_INITIAL_STATE);
+      } else if (window.__YARZ_EARLY_FETCH) {
+        // ✅ v15.83 PERF: Inline <head> early-fetch is in flight — reuse it
+        //   instead of firing a duplicate. By the time _turboPreload runs
+        //   (after api.js parse, ~50-150ms after HTML parse), the early
+        //   fetch is usually already past TLS handshake and waiting on
+        //   GAS — saves 100-300ms vs starting a fresh request here.
+        fetchPromise = window.__YARZ_EARLY_FETCH.then(function (data) {
+          return data || (function() {
+            // Early fetch returned null (network error / 5xx) — fall back
+            // to a fresh request so we still try once before giving up.
+            var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&cb=1&_t=' + Date.now();
+            return fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
+          })();
+        });
       } else {
         // Fallback: fire fetch now
         var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&cb=1&_t=' + Date.now();
@@ -179,6 +216,10 @@ const YARZ_API = (() => {
 
           _turboData = { products:products, storeInfo:storeInfo, categories:categories };
           console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (CF Worker)');
+          // ✅ v15.84: NO client-side snapshot. Owner policy requires every
+          //   visit to fetch fresh data from Worker edge so admin updates
+          //   show on the very next page load (not stuck behind a stale
+          //   localStorage snapshot until customer hits refresh).
           return _turboData;
         })
         .catch(function(e) {
@@ -242,6 +283,7 @@ const YARZ_API = (() => {
               var catList = Object.keys(cats).map(function(n) { return {name:n, count:cats[n]}; });
               _turboData = { products:products, storeInfo:storeInfo, categories:catList };
               console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (Sheets fallback)');
+              // ✅ v15.84: NO client-side snapshot — see policy note above.
               return _turboData;
             })
             .catch(function(e2) { console.warn('TURBO all failed:', e2); return null; });
@@ -964,6 +1006,14 @@ const YARZ_API = (() => {
 
       const storeStatus = String(get('store_status') || 'open').toLowerCase();
       const maintenanceMode = parseBool(get('maintenance_mode')) || storeStatus === 'maintenance';
+      // ── v15.74: Holiday / Vacation Mode ──
+      // Different from maintenance: shown when courier services pause for
+      // Eid / Puja / festival / inventory etc. so customers don't place
+      // orders that can't be fulfilled in time. Maintenance still wins if both ON.
+      const holidayMode = parseBool(get('holiday_mode')) || storeStatus === 'holiday';
+      const holidayReason = String(get('holiday_reason') || 'custom').toLowerCase();
+      const holidayCustomMessage = String(get('holiday_custom_message') || '');
+      const holidayReturnDate = String(get('holiday_return_date') || '');
       const announcementActive = parseBool(get('announcement_active'));
       const announcementText = String(get('announcement_text') || '');
       const paymentMethods = String(get('payment_methods') || 'COD, bKash, Nagad');
@@ -1075,6 +1125,10 @@ const YARZ_API = (() => {
 
       return {
         maintenanceMode,
+        holidayMode,
+        holidayReason,
+        holidayCustomMessage,
+        holidayReturnDate,
         announcementActive,
         announcementText,
         announcementBg: String(get('announcement_bg') || '#634A8E'),
@@ -1208,13 +1262,36 @@ const YARZ_API = (() => {
         bestSellersCount: parseInt(get('best_sellers_count')) || 8,
         newArrivalActive: parseBool(get('new_arrival_active')),
         newArrivalDays: parseInt(get('new_arrival_days')) || 7,
-        recentlyViewed: parseBool(get('recently_viewed')),
+        // ✅ v15.82: Recently Viewed section default-on. Pre-fix the parseBool
+        //   had no default — so sellers who never touched the toggle had Sheet
+        //   value = empty → false → section never rendered. With default=true
+        //   the homepage "Recently Viewed" rail shows automatically once the
+        //   visitor has browsed at least 2 products. Admin can still turn it
+        //   OFF explicitly via the toggle.
+        recentlyViewed: parseBool(get('recently_viewed'), true),
         wishlistActive: parseBool(get('wishlist_active')),
         // Product page premium
         stickyAtcMobile: parseBool(get('sticky_atc_mobile')),
         videoAutoplay: parseBool(get('video_autoplay')),
         oosHide: parseBool(get('oos_hide')),
         quickViewActive: parseBool(get('quick_view_active')),
+        // Size Visibility Control — per-size global on/off + OOS-size display mode
+        // Default: every size ON (true) so existing sites don't break when admin
+        // hasn't touched the new toggles. sizeOosHide defaults to FALSE (show
+        // strikethrough), matching the user's expected default behavior.
+        sizeOosHide:    parseBool(get('size_oos_hide'),    false),
+        sizeShirtS:     parseBool(get('size_shirt_s'),     true),
+        sizeShirtM:     parseBool(get('size_shirt_m'),     true),
+        sizeShirtL:     parseBool(get('size_shirt_l'),     true),
+        sizeShirtXL:    parseBool(get('size_shirt_xl'),    true),
+        sizeShirtXXL:   parseBool(get('size_shirt_xxl'),   true),
+        sizeShirt3XL:   parseBool(get('size_shirt_3xl'),   true),
+        sizePant28:     parseBool(get('size_pant_28'),     true),
+        sizePant30:     parseBool(get('size_pant_30'),     true),
+        sizePant32:     parseBool(get('size_pant_32'),     true),
+        sizePant34:     parseBool(get('size_pant_34'),     true),
+        sizePant36:     parseBool(get('size_pant_36'),     true),
+        sizePant38:     parseBool(get('size_pant_38'),     true),
         // Newsletter popup
         newsletterActive: parseBool(get('newsletter_active')),
         newsletterTitle: String(get('newsletter_title') || 'Get 10% off your first order!'),

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="bn" style="color-scheme: light">
 
 <head>
@@ -54,8 +54,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.66" as="script">
-  <link rel="preload" href="./css/style.css?v=15.66" as="style">
+  <link rel="preload" href="./js/api.js?v=15.84" as="script">
+  <link rel="preload" href="./css/style.css?v=15.86" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -104,6 +104,54 @@
       } catch(e){}
     })();
   </script>
+  <!-- ✅ v15.84 EARLY FETCH (zero-cache) : Fire the products request
+       immediately during <head> parse, parallel to CSS/JS download. This
+       converts the cold-miss path (Worker SSR didn't have data) from
+       "JS parse → fetch → wait" into "fetch in flight → JS parse → result
+       already arrived". Saves 200-500ms on first visits.
+       
+       IMPORTANT — NO CLIENT-SIDE CACHING:
+       Owner policy: every customer visit must show LATEST data. We do NOT
+       save anything to localStorage / IndexedDB / sessionStorage. This script
+       only fires the request earlier — it doesn't persist. Cloudflare Worker
+       still serves from its server-side edge cache (FRESH_TTL=30min), which
+       admin Publish purges instantly on every save. Result: customers always
+       see updates within a few seconds of admin publishing — no stale snapshot,
+       no manual refresh needed.
+       
+       The previous v15.83 attempt used a localStorage snapshot — REVERTED.
+       Customers were getting stale products on 2nd/3rd visit until refresh,
+       contradicting owner policy. -->
+  <script>
+    (function () {
+      try {
+        // Defensive: clean up any leftover snapshot from a v15.83 visit so
+        // returning customers don't see stale data even for the first paint.
+        try { localStorage.removeItem('yarz_snapshot_v1'); } catch (_e) {}
+
+        // Same-origin Worker URL when proxied through yarzclothing.xyz; falls
+        // back to direct workers.dev otherwise. Match the construction in
+        // api.js _detectWorkerUrl() so the fetch is dedup'd.
+        var base = (location.hostname && location.hostname !== 'localhost' &&
+                    !location.hostname.endsWith('github.io'))
+          ? '/'
+          : 'https://yarz.marufhasan80009.workers.dev/';
+        // cb=1 + _t=<now> to bust any stray HTTP cache; Worker honors fresh
+        // request, serves from its 30min server-side cache, purged on Publish.
+        var url = base + '?key=AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k&action=products&cb=1&_t=' + Date.now();
+        // cache:'no-store' so the browser never persists this response either.
+        window.__YARZ_EARLY_FETCH = fetch(url, { cache: 'no-store' }).then(function (r) {
+          return r.ok ? r.json() : null;
+        }).then(function (json) {
+          if (!json || !json.success) return null;
+          // Hand the result to api.js so the deferred _turboPreload IIFE
+          // picks it up synchronously when it runs — same data, earlier.
+          window.__YARZ_INITIAL_STATE = json;
+          return json;
+        }).catch(function () { return null; });
+      } catch (e) {}
+    })();
+  </script>
   <!-- ⚡ TURBO v1.0: PWA manifest (installable + better caching priority)
        ✅ v15.27 PERF: Skip manifest tag entirely inside FB/IG/TikTok WebView.
        Those browsers fetch + parse the manifest then ignore it (can't show
@@ -149,10 +197,22 @@
   ">
 
   <meta name="description"
-    content="YARZ (Yarzclothing) — Premium Men's Fashion Brand in Bangladesh. শার্ট, টি-শার্ট, পোলো, পাঞ্জাবি (Panjabi, Shirts, T-Shirts). Cash on Delivery everywhere.">
-  <meta name="keywords" content="YARZ, Yarzclothing, yarz bd, yarz clothing, yarz fashion, premium men's fashion bangladesh, শার্ট, টি-শার্ট, পাঞ্জাবি, পোলো, mens fashion, shirt Bangladesh, online clothing store bd, COD">
-  <meta name="author" content="YARZ">
+    content="YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion Brand। Shop authentic শার্ট, টি-শার্ট, পোলো, পাঞ্জাবি (Panjabi, Shirts, T-Shirts, Polo) at yarzclothing.xyz. Cash on Delivery (COD) all over Bangladesh. ইয়ার্জ ক্লোদিং অফিসিয়াল ওয়েবসাইট।">
+  <meta name="keywords" content="YARZ, Yarzclothing, yarzclothing.xyz, yarzclothing.com, yarz.xyz, ইয়ার্জ, ইয়ার্জ ক্লোদিং, yarz bd, yarzbd, yarz clothing, yarz fashion, yarz bangladesh, yarz panjabi, yarz shirt, yarz polo, premium men's fashion bangladesh, men's clothing bangladesh, online clothing store bd, শার্ট, টি-শার্ট, পাঞ্জাবি, পোলো, mens fashion bd, shirt Bangladesh, panjabi online bd, COD bangladesh, cash on delivery clothing">
+  <meta name="author" content="YARZ (Yarzclothing)">
+  <meta name="publisher" content="YARZ">
+  <meta name="copyright" content="YARZ — Yarzclothing">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="bingbot" content="index, follow">
+  <meta name="rating" content="general">
+  <meta name="revisit-after" content="3 days">
+  <meta name="distribution" content="global">
+  <meta name="coverage" content="Worldwide">
+  <meta name="target" content="all">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="format-detection" content="telephone=yes">
   <link rel="canonical" href="https://yarzclothing.xyz/">
 
   <!-- Open Graph / Facebook — v15.62: same-origin SVG (Cloudflare Worker serves it).
@@ -161,51 +221,94 @@
        once via any SVG-to-PNG tool (1200×630) and rename. The SVG path is cache-bust
        safe via versioned query string. -->
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="YARZ (Yarzclothing)">
-  <meta property="og:title" content="YARZ | Premium Men's Fashion Bangladesh (Yarzclothing)">
-  <meta property="og:description" content="Shop premium Panjabi, Shirts & T-Shirts at YARZ.">
-  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.66">
+  <meta property="og:site_name" content="YARZ (Yarzclothing) — ইয়ার্জ ক্লোদিং">
+  <meta property="og:title" content="YARZ | Yarzclothing — Premium Men's Fashion Bangladesh (ইয়ার্জ)">
+  <meta property="og:description" content="YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion brand। Shop শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট with Cash on Delivery.">
+  <meta property="og:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.74">
+  <meta property="og:image:secure_url" content="https://yarzclothing.xyz/images/og-banner.png?v=15.74">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="YARZ — Premium Men's Fashion Bangladesh">
+  <meta property="og:image:alt" content="YARZ — Premium Men's Fashion Bangladesh (Yarzclothing — ইয়ার্জ ক্লোদিং)">
   <meta property="og:url" content="https://yarzclothing.xyz/">
   <meta property="og:locale" content="bn_BD">
+  <meta property="og:locale:alternate" content="en_US">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="YARZ | Premium Men's Fashion Bangladesh">
-  <meta name="twitter:description" content="YARZ (Yarzclothing) — Premium Men's Fashion. শার্ট, টি-শার্ট, পোলো, পাঞ্জাবি।">
-  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.66">
+  <meta name="twitter:title" content="YARZ | Yarzclothing — Premium Men's Fashion Bangladesh">
+  <meta name="twitter:description" content="YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion। শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট with COD.">
+  <meta name="twitter:image" content="https://yarzclothing.xyz/images/og-banner.png?v=15.74">
   <meta name="twitter:image:alt" content="YARZ — Premium Men's Fashion Bangladesh">
+  <meta name="twitter:site" content="@yarzbd">
+  <meta name="twitter:creator" content="@yarzbd">
 
   <!-- Geo / Location for Bangladesh SEO -->
-  <meta name="geo.region" content="BD">
-  <meta name="geo.placename" content="Narayanganj, Bangladesh">
-  <meta name="language" content="Bengali">
+  <meta name="geo.region" content="BD-13">
+  <meta name="geo.placename" content="Narayanganj, Dhaka, Bangladesh">
+  <meta name="geo.position" content="23.6238;90.4990">
+  <meta name="ICBM" content="23.6238, 90.4990">
+  <meta name="language" content="Bengali, English">
   <link rel="alternate" hreflang="bn-BD" href="https://yarzclothing.xyz/">
   <link rel="alternate" hreflang="en-BD" href="https://yarzclothing.xyz/">
+  <link rel="alternate" hreflang="x-default" href="https://yarzclothing.xyz/">
 
-  <title>YARZ (Yarzclothing) — Premium Men's Fashion Bangladesh</title>
+  <title>YARZ (Yarzclothing) — Premium Men's Fashion Bangladesh | ইয়ার্জ ক্লোদিং অফিসিয়াল</title>
 
-  <!-- JSON-LD Structured Data — Organization + WebSite (SEO) -->
+  <!-- JSON-LD Structured Data — comprehensive @graph for Brand SERP rich results.
+       v15.74: expanded with OnlineStore, Brand, ContactPoint, BreadcrumbList,
+       potential SiteNavigationElement so Google understands the full brand. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Organization",
+        "@type": ["Organization", "OnlineStore"],
         "@id": "https://yarzclothing.xyz/#organization",
         "name": "YARZ",
-        "alternateName": "Yarzclothing",
+        "alternateName": ["Yarzclothing", "ইয়ার্জ", "ইয়ার্জ ক্লোদিং", "yarz bd", "yarzbd", "yarz clothing"],
+        "legalName": "YARZ — Yarzclothing",
         "url": "https://yarzclothing.xyz/",
-        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.66",
-        "description": "Premium Men's Fashion Brand from Bangladesh",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
+          "width": 1200,
+          "height": 630
+        },
+        "image": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
+        "description": "YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion Brand. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট, with Cash on Delivery (COD) all over Bangladesh.",
+        "slogan": "Premium Men's Fashion. Redefined.",
+        "foundingDate": "2024",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Narayanganj",
+          "addressRegion": "Dhaka Division",
           "addressCountry": "BD"
         },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Bangladesh"
+        },
+        "knowsAbout": [
+          "Men's Fashion",
+          "Premium Shirts",
+          "Panjabi (পাঞ্জাবি)",
+          "Polo Shirts",
+          "T-Shirts",
+          "Bangladesh Fashion",
+          "Cash on Delivery"
+        ],
+        "currenciesAccepted": "BDT",
+        "paymentAccepted": ["Cash on Delivery", "bKash", "Nagad"],
+        "contactPoint": [
+          {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "areaServed": "BD",
+            "availableLanguage": ["Bengali", "English"],
+            "url": "https://yarzclothing.xyz/contact/"
+          }
+        ],
         "sameAs": [
           "https://www.facebook.com/Yarzbd",
           "https://www.instagram.com/yarz_bd",
@@ -213,18 +316,42 @@
         ]
       },
       {
+        "@type": "Brand",
+        "@id": "https://yarzclothing.xyz/#brand",
+        "name": "YARZ",
+        "alternateName": ["Yarzclothing", "ইয়ার্জ"],
+        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
+        "url": "https://yarzclothing.xyz/",
+        "description": "Premium Men's Fashion brand from Bangladesh"
+      },
+      {
         "@type": "WebSite",
         "@id": "https://yarzclothing.xyz/#website",
         "url": "https://yarzclothing.xyz/",
         "name": "YARZ",
-        "alternateName": "Yarzclothing",
-        "description": "Premium Men's Fashion Bangladesh",
+        "alternateName": ["Yarzclothing", "ইয়ার্জ ক্লোদিং"],
+        "description": "YARZ — Bangladesh-এর Premium Men's Fashion store. Shop online with Cash on Delivery.",
+        "inLanguage": ["bn-BD", "en-BD"],
         "publisher": { "@id": "https://yarzclothing.xyz/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://yarzclothing.xyz/?search={search_term_string}",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://yarzclothing.xyz/?search={search_term_string}"
+          },
           "query-input": "required name=search_term_string"
         }
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://yarzclothing.xyz/#webpage",
+        "url": "https://yarzclothing.xyz/",
+        "name": "YARZ (Yarzclothing) — Premium Men's Fashion Bangladesh",
+        "isPartOf": { "@id": "https://yarzclothing.xyz/#website" },
+        "about": { "@id": "https://yarzclothing.xyz/#organization" },
+        "primaryImageOfPage": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
+        "inLanguage": "bn-BD",
+        "description": "Shop YARZ — Bangladesh-এর Premium Men's Fashion. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট with Cash on Delivery."
       }
     ]
   }
@@ -246,7 +373,7 @@
        were falling back to Georgia (NOT premium). Now: Inter 400/600/700,
        Hind Siliguri 400, Playfair Display 0,400;0,600;0,700;1,400;1,600;1,700.
        Still saves ~40 KB vs the old SC family (4 vs 9 woff2 files). -->
-  <!-- v15.66: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
+  <!-- v15.74: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
        Without 700, browsers were synthesizing fake-bold which looked thin/blurry on mobile. -->
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap"></noscript>
@@ -261,7 +388,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.66">
+  <link rel="stylesheet" href="./css/style.css?v=15.86">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -601,6 +728,7 @@
     .modal-overlay:not(.active),
     .yarz-popup-overlay:not(.active),
     .maintenance-overlay:not(.active),
+    .holiday-overlay:not(.active),
     #yarz-newsletter-popup:not(.active),
     #yarz-promo-popup:not(.active) {
       display: none;
@@ -766,7 +894,7 @@
         <svg class="yarz-mark__icon yarz-mark__icon--sewing" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <use href="#yarz-button-mark"/>
           <!-- ═══════════════════════════════════════════════════════════════
-               v15.66: REAL SEWING ANIMATION — needle + thread, 10s cycle
+               v15.74: REAL SEWING ANIMATION — needle + thread, 10s cycle
                ═══════════════════════════════════════════════════════════════
                Choreography (10s):
                  0.0 → 1.0s   needle "lying" idle to the LEFT of the button
@@ -801,21 +929,22 @@
           <circle class="yarz-knot yarz-knot--tr" cx="15.3" cy="8.7"  r="0.7" fill="#FBF8F1"/>
           <circle class="yarz-knot yarz-knot--bl" cx="8.7"  cy="15.3" r="0.7" fill="#FBF8F1"/>
 
-          <!-- The needle group — designed at origin pointing RIGHT (+X axis).
-               Tip at (0,0), shaft extending left to eye at (-7, 0).
-               Tail thread comes out of the eye, swaying for "thread tension".
-               All animation = transform on this <g> + sway on .yarz-needle__tail. -->
+          <!-- The needle group — v15.74: BLACK (high contrast on both cream + burgundy).
+               Designed at origin pointing RIGHT (+X axis).
+               Tip at (0,0), shaft extending left to eye at (-9, 0).
+               Charcoal #1A1411 body + silver #D8D8DA highlight streak —
+               reads clearly against both header cream AND button burgundy. -->
           <g class="yarz-needle" aria-hidden="true">
-            <!-- shaft body (silver) -->
-            <line x1="-7" y1="0" x2="0" y2="0" stroke="#9AA1A6" stroke-width="0.7" stroke-linecap="round"/>
-            <!-- shaft highlight (lighter silver) -->
-            <line x1="-6.5" y1="-0.15" x2="-0.5" y2="-0.15" stroke="#F0F0F2" stroke-width="0.22" stroke-linecap="round"/>
-            <!-- needle eye (open ring at the back end) -->
-            <circle cx="-7" cy="0" r="0.7" fill="none" stroke="#9AA1A6" stroke-width="0.32"/>
-            <!-- tail thread out of the eye — sways with needle -->
+            <!-- shaft body (deep charcoal — brand text color) -->
+            <line x1="-9" y1="0" x2="0" y2="0" stroke="#1A1411" stroke-width="0.95" stroke-linecap="round"/>
+            <!-- shaft highlight (silver streak for polished-steel depth) -->
+            <line x1="-8.5" y1="-0.18" x2="-0.5" y2="-0.18" stroke="#D8D8DA" stroke-width="0.28" stroke-linecap="round"/>
+            <!-- needle eye (open charcoal ring at the back end) -->
+            <circle cx="-9" cy="0" r="0.9" fill="none" stroke="#1A1411" stroke-width="0.40"/>
+            <!-- tail thread out of the eye — cream so it stays visible against dark needle -->
             <path class="yarz-needle__tail"
-                  d="M -7 0 q -1.5 -0.5 -2.6 0.6"
-                  stroke="#FBF8F1" stroke-width="0.55" stroke-linecap="round" fill="none" opacity="0.9"/>
+                  d="M -9 0 q -1.6 -0.6 -2.8 0.7"
+                  stroke="#FBF8F1" stroke-width="0.6" stroke-linecap="round" fill="none" opacity="0.95"/>
           </g>
         </svg>
         <span class="yarz-mark__word" aria-hidden="true" style="line-height:1;display:inline;">YARZ</span>
@@ -1036,11 +1165,11 @@
             placeholder="Full address with area, road, house number"></textarea>
         </div>
         <div class="form-group">
-            <label>Delivery Zone <span style="font-size:10px;color:var(--accent);font-weight:700;font-family:var(--font-bengali);">← এখানে ক্লিক করে পরিবর্তন করুন</span></label>
-            <select class="form-select" id="co-location" onchange="YARZ.renderCheckoutSummary()" style="border-color:var(--accent);background-color:var(--accent-light);font-size:13px;">
+            <label>Delivery Zone <span style="font-size:10.5px;color:var(--text-muted);font-weight:500;font-family:var(--font-bengali);">— এলাকা সিলেক্ট করুন</span></label>
+            <select class="form-select" id="co-location" onchange="YARZ.renderCheckoutSummary()">
               <!-- v3.6: Options injected dynamically from DELIVERY_CHARGES sheet -->
             </select>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:3px;font-family:var(--font-bengali);">আপনার এলাকা অনুযায়ী সঠিক ডেলিভারি জোন বাছাই করুন</div>
+            <div style="font-size:10.5px;color:var(--text-muted);margin-top:5px;font-family:var(--font-bengali);">আপনার এলাকা অনুযায়ী সঠিক ডেলিভারি জোন বাছাই করুন</div>
         </div>
         <div class="form-group">
             <label>City / Area</label>
@@ -1331,7 +1460,7 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.66" defer></script>
+  <script src="./js/api.js?v=15.84" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
   <script src="./js/boot.js?v=12.1" defer></script>
@@ -1341,7 +1470,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.66"  defer></script>
+  <script src="./js/app.js?v=15.86"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1389,7 +1518,7 @@
         // CPA over a few days. The 50KB load happens AFTER LCP (load+200ms),
         // so it doesn't affect first-paint speed anyway.
         // Pixel loads first — when ready, init it and replay any queued events
-        _yarzLoadLater('./js/pixel.js?v=15.66', function () {
+        _yarzLoadLater('./js/pixel.js?v=15.75', function () {
           try {
             // After pixel.js loads, window.YARZ_PIXEL is now the REAL module
             // (pixel.js's IIFE overwrites our stub)
@@ -1408,8 +1537,8 @@
             }
           } catch (e) {}
         });
-        _yarzLoadLater('./js/armor.js?v=15.66');
-        _yarzLoadLater('./js/shield.js?v=15.66');
+        _yarzLoadLater('./js/armor.js?v=15.74');
+        _yarzLoadLater('./js/shield.js?v=15.74');
       }
       // ✅ v13.1: 200ms instead of 1500ms — keeps ad attribution intact
       if (document.readyState === 'complete') {

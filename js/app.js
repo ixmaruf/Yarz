@@ -457,6 +457,10 @@ const YARZ = (() => {
     if (bottomShowcase) bottomShowcase.style.display = 'none';
     dyn.innerHTML = html;
     dyn.style.display = '';
+    // ✅ v15.80: Tag the dynamic wrapper with the current view name so CSS
+    //   can scope per-view styles (e.g. order success card polish) without
+    //   relying on inline-style attribute selectors which break easily.
+    try { dyn.setAttribute('data-view', viewName); } catch(_e) {}
     window.scrollTo(0, 0); // Instant scroll on navigation
 
     // v5.1: Initialize sticky buy bar if viewing a product
@@ -924,6 +928,42 @@ const YARZ = (() => {
     return size;
   }
 
+  // ===== ADMIN-CONTROLLED SIZE VISIBILITY =====
+  // Honors the per-size on/off toggles from the admin panel.
+  // For shirt-style products: keys sizeShirtS / M / L / XL / XXL / 3XL.
+  // For pant-style products:  keys sizePant28 / 30 / 32 / 34 / 36 / 38
+  // (the underlying internal key 'S','M',… is the same — only the displayed
+  // label differs, so we look up by category-aware mapping).
+  // Defaults to TRUE for every size when the controls object is missing,
+  // so the site never accidentally hides everything if API is slow/empty.
+  function isSizeVisible(internalSize, isPant) {
+    var c = state.controls || {};
+    if (isPant) {
+      var pantKeys = { S: 'sizePant28', M: 'sizePant30', L: 'sizePant32', XL: 'sizePant34', XXL: 'sizePant36', '3XL': 'sizePant38' };
+      var pk = pantKeys[internalSize];
+      return pk ? (c[pk] !== false) : true;
+    }
+    var shirtKeys = { S: 'sizeShirtS', M: 'sizeShirtM', L: 'sizeShirtL', XL: 'sizeShirtXL', XXL: 'sizeShirtXXL', '3XL': 'sizeShirt3XL' };
+    var sk = shirtKeys[internalSize];
+    return sk ? (c[sk] !== false) : true;
+  }
+
+  // Whether to fully hide out-of-stock sizes (admin toggle).
+  // ✅ Honors BOTH the legacy "OOS Hide" (product-level OOS hide) AND
+  // the new dedicated "Size OOS Hide" (per-size OOS strikethrough → gone).
+  function shouldHideOosSizes() {
+    var c = state.controls || {};
+    return !!(c.sizeOosHide || c.oosHide);
+  }
+
+  // Returns the filtered sizes array honoring admin per-size visibility.
+  // Use this instead of the hard-coded ['S','M','L','XL','XXL','3XL'] array.
+  function getVisibleSizes(category) {
+    var all = ['S','M','L','XL','XXL','3XL'];
+    var isPant = isPantCategory(category);
+    return all.filter(function(s) { return isSizeVisible(s, isPant); });
+  }
+
   // ===== BADGE CLASS =====
   function getBadgeClass(badge) {
     if (!badge) return '';
@@ -945,7 +985,6 @@ const YARZ = (() => {
     var salePrice = parseFloat(p.salePrice) || 0;
     var regPrice = parseFloat(p.regularPrice) || 0;
     var hasDiscount = parseFloat(p.discountPercent) > 0 && regPrice > salePrice;
-    var sizes = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
     var safeName = escHtml(p.name).replace(/'/g, "\\'");
     
     // v10.5 SUPER POWERFUL: Instant Image Loading for top row
@@ -996,8 +1035,12 @@ const YARZ = (() => {
     html += '</div>';
     html += '<div class="card-sizes">';
     var isPant = isPantCategory(p.category);
-    sizes.forEach(function (s) {
+    // ✅ v16: Admin-controlled per-size visibility + global OOS-size hide.
+    var cardSizes = getVisibleSizes(p.category);
+    var hideOosCard = shouldHideOosSizes();
+    cardSizes.forEach(function (s) {
       var avail = p.sizes && p.sizes[s];
+      if (!avail && hideOosCard) return; // admin opted to hide OOS sizes entirely
       var displaySize = isPant ? getPantSizeLabel(s) : s;
       html += '<span class="size-dot' + (avail ? ' available' : ' out') + '">' + displaySize + '</span>';
     });
@@ -1371,9 +1414,9 @@ const YARZ = (() => {
     overlay.onclick = function(e) { if (e.target === overlay) closeQuickView(); };
 
     var sizesHtml = '';
-    var sizes = ['S','M','L','XL','XXL','3XL'];
+    var sizes = getVisibleSizes(product.category);
     var isPant = isPantCategory(product.category);
-    var hideOos = !!(state.controls && state.controls.oosHide);
+    var hideOos = shouldHideOosSizes();
     sizes.forEach(function(s) {
       var avail = !!(product.sizes && product.sizes[s]);
       if (!avail && hideOos) return;
@@ -2593,6 +2636,7 @@ const YARZ = (() => {
     if (showShirt) {
       html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Shirt Sizes</div>';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
+        if (!isSizeVisible(s, false)) return; // ✅ v16: admin-disabled size hidden from filter
         html += '<label class="filter-radio"><input type="radio" name="filter_size" value="shirt_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
       });
     }
@@ -2600,6 +2644,7 @@ const YARZ = (() => {
     if (showPanjabi) {
       html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Panjabi Sizes</div>';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
+        if (!isSizeVisible(s, false)) return; // ✅ v16
         html += '<label class="filter-radio"><input type="radio" name="filter_size" value="panjabi_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
       });
     }
@@ -2607,6 +2652,7 @@ const YARZ = (() => {
     if (showPant) {
       html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Pant Sizes</div>';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
+        if (!isSizeVisible(s, true)) return; // ✅ v16: pant-side per-size toggle
         html += '<label class="filter-radio"><input type="radio" name="filter_size" value="pant_' + s + '" onchange="YARZ.applyFilters()"><span>' + getPantSizeLabel(s) + '</span></label>';
       });
     }
@@ -2614,6 +2660,7 @@ const YARZ = (() => {
     if (showOther) {
       html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">' + cat + ' Sizes</div>';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
+        if (!isSizeVisible(s, false)) return; // ✅ v16
         html += '<label class="filter-radio"><input type="radio" name="filter_size" value="other_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
       });
     }
@@ -2841,10 +2888,16 @@ const YARZ = (() => {
       }
       // If on product detail page, refresh disabled state of size buttons silently
       if (state.currentView === 'product' && state.currentProduct && state.currentProduct.name === product.name) {
-        var hideOosSizesLive = !!(state.controls && state.controls.oosHide);
+        var hideOosSizesLive = shouldHideOosSizes();
+        var isPantLive = isPantCategory(product.category);
         ['S','M','L','XL','XXL','3XL'].forEach(function (sz) {
           var btn = document.querySelector('#size-options .size-btn[data-size="'+sz+'"]');
           if (!btn) return;
+          // ✅ v16: If admin globally disabled this size, keep it removed permanently.
+          if (!isSizeVisible(sz, isPantLive)) {
+            btn.style.display = 'none';
+            return;
+          }
           var avail = parseInt(res['stock_'+sz]) || 0;
           if (avail <= 0) {
             // ✅ v11.8: When admin enabled "Hide OOS", remove the button entirely
@@ -2985,7 +3038,8 @@ const YARZ = (() => {
 
     var images = [product.image1, product.image2, product.image3, product.image4, product.image5, product.image6].filter(Boolean);
     var hasDiscount = parseFloat(product.discountPercent) > 0 && parseFloat(product.regularPrice) > parseFloat(product.salePrice);
-    var sizes = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
+    // ✅ v16: Honor admin-controlled per-size visibility on the product detail page.
+    var sizes = getVisibleSizes(product.category);
     var deliveryLocations = getDeliveryLocations();
     var safeName = escHtml(product.name).replace(/'/g, "\\'");
     var safeCat = escHtml(product.category || '').replace(/'/g, "\\'");
@@ -3094,7 +3148,10 @@ const YARZ = (() => {
     var isPant = isPantCategory(product.category);
     // ✅ v11.8: Hide-OOS-per-size — when admin toggle ON, completely skip
     // (don't render) sizes with 0 stock instead of showing them disabled.
-    var hideOosSizes = !!(state.controls && state.controls.oosHide);
+    // ✅ v16: Now honors the dedicated "Size OOS Hide" toggle as well as
+    // the legacy "OOS Hide" toggle. The `sizes` array is already filtered
+    // by admin per-size visibility (getVisibleSizes above).
+    var hideOosSizes = shouldHideOosSizes();
     sizes.forEach(function (s) {
       var disabled = !product.sizes || !product.sizes[s];
       if (disabled && hideOosSizes) return; // ✅ skip entirely → button gayeb
@@ -3480,6 +3537,62 @@ const YARZ = (() => {
       // Last resort: show the code so user can copy manually
       showToast('Coupon: ' + code, 'info');
     }
+  }
+
+  // ✅ v15.77: Generic clipboard helper used by Pay-Number copy buttons,
+  //   share links etc. Same dual-strategy as copyCoupon (Clipboard API +
+  //   textarea fallback) but parameterised — caller can pass any value
+  //   plus a human-readable label that shows up in the toast.
+  function copyToClipboard(text, label, btnEl) {
+    if (!text) return;
+    label = label || 'Text';
+    var pretty = label + ' copied';
+
+    function _onSuccess() {
+      try { showToast(pretty, 'success'); } catch (e) {}
+      // ✅ Visual flash on the originating button (if provided)
+      if (btnEl && btnEl.classList) {
+        btnEl.classList.add('copied');
+        var orig = btnEl.getAttribute('data-orig-label');
+        if (!orig) btnEl.setAttribute('data-orig-label', btnEl.textContent || '');
+        setTimeout(function () {
+          btnEl.classList.remove('copied');
+          var prev = btnEl.getAttribute('data-orig-label');
+          if (prev != null && btnEl.querySelector('.copy-label')) {
+            btnEl.querySelector('.copy-label').textContent = prev;
+          }
+        }, 1800);
+      }
+    }
+    function _onFallback() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.left = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) { _onSuccess(); }
+        else { try { showToast(label + ': ' + text, 'info'); } catch (e) {} }
+      } catch (e) {
+        try { showToast(label + ': ' + text, 'info'); } catch (_e) {}
+      }
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(_onSuccess).catch(_onFallback);
+        return;
+      }
+    } catch (e) {}
+    _onFallback();
   }
 
   // ===== CART =====
@@ -5011,12 +5124,27 @@ const YARZ = (() => {
       var paymentColor = paymentMethod.toLowerCase().includes('bkash') ? '#E2136E' : '#ED1C24';
       paymentInstructions = '<div style="background:linear-gradient(135deg,rgba(99,74,142,0.06),rgba(99,74,142,0.02));border:1.5px solid rgba(99,74,142,0.15);border-radius:12px;padding:18px;margin-bottom:24px;text-align:left;">' +
         '<h3 style="font-size:14px;font-weight:700;color:' + paymentColor + ';margin-bottom:10px;display:flex;align-items:center;gap:8px;">' +
-        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+        // ✅ v15.85: Use the brand wordmark badge instead of a generic shield icon.
+        '<span class="pm-badge ' + (paymentMethod.toLowerCase().includes('bkash') ? 'pm-badge--bkash' : 'pm-badge--nagad') + '" aria-hidden="true">' +
+          '<span class="pm-badge__name">' + (paymentMethod.toLowerCase().includes('bkash') ? 'bKash' : 'Nagad') + '</span>' +
+        '</span>' +
         escHtml(paymentMethod.toUpperCase()) + ' পেমেন্ট নির্দেশনা' +
         '</h3>' +
         '<ul style="font-size:12.5px;color:var(--text-secondary);margin:0;padding-left:18px;line-height:2;">' +
-        '<li>' + escHtml(paymentMethod.toUpperCase()) + ' নম্বর: <strong style="color:' + paymentColor + ';font-size:14px;letter-spacing:0.5px;">01601-743670</strong></li>' +
-        '<li>Send Money করুন — Amount: আপনার অর্ডার টোটাল</li>' +
+        // ✅ v15.77: Pay number now has an inline copy button so users can tap-to-copy
+        '<li style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">' +
+          escHtml(paymentMethod.toUpperCase()) + ' নম্বর: ' +
+          '<strong style="color:' + paymentColor + ';font-size:14px;letter-spacing:0.5px;">01601-743670</strong>' +
+          '<button type="button" class="pay-copy-btn pay-copy-btn--success" data-color="' + (paymentMethod.toLowerCase().includes('bkash') ? 'bkash' : 'nagad') + '" ' +
+            'onclick="YARZ.copyToClipboard(\'01601743670\', \'' + escHtml(paymentMethod) + ' number\', this)" ' +
+            'aria-label="Copy ' + escHtml(paymentMethod) + ' number" ' +
+            'style="margin-left:auto;">' +
+            '<svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+            '<span class="copy-label">Copy</span>' +
+          '</button>' +
+        '</li>' +
+        // ✅ v15.77: Amount text — clarified to "delivery charge only"
+        '<li>Send Money করুন — Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong></li>' +
         '<li>Reference এ আপনার ফোন নম্বর দিন</li>' +
         '<li>Order ID: <strong>' + escHtml(orderId) + '</strong></li>' +
         '</ul>' +
@@ -5750,14 +5878,34 @@ const YARZ = (() => {
       box.id = 'payment-info-box';
       box.className = 'payment-info-box bkash';
       box.innerHTML =
-        '<div class="pay-title" style="display:flex;align-items:center;gap:6px;">' +
-        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.93 7.82L16.48 2.37C15.65 1.54 14.35 1.54 13.52 2.37L2.37 13.52C1.54 14.35 1.54 15.65 2.37 16.48L7.82 21.93C8.65 22.76 9.95 22.76 10.78 21.93L21.93 10.78C22.76 9.95 22.76 8.65 21.93 7.82Z" fill="#E2136E"/><path d="M12 17.5C8.96 17.5 6.5 15.04 6.5 12C6.5 8.96 8.96 6.5 12 6.5C15.04 6.5 17.5 8.96 17.5 12C17.5 15.04 15.04 17.5 12 17.5ZM12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z" fill="white"/></svg>' +
+        '<div class="pay-title" style="display:flex;align-items:center;gap:8px;">' +
+        // ✅ v15.85: Brand-color wordmark badge — pink rounded square with the
+        //   "bKash" name in clean Inter typography. We deliberately use a
+        //   typographic mark (NOT a redraw of the trademarked origami-bird
+        //   logo) so we stay legally safe while customers still instantly
+        //   recognise the payment provider via the signature pink + name.
+        //   Same pattern Daraz, Pickaboo and most BD ecom sites use.
+        '<span class="pm-badge pm-badge--bkash" aria-label="bKash" role="img">' +
+          '<span class="pm-badge__name">bKash</span>' +
+        '</span>' +
         'bKash Payment Instructions' +
         '</div>' +
-        '<div class="pay-number">bKash: 01601-743670</div>' +
+        // ✅ v15.77: Pay-number row now has an inline Copy button so customers
+        //   can tap-to-copy the merchant number into bKash Send Money on mobile.
+        '<div class="pay-number-row">' +
+          '<div class="pay-number">bKash: <span class="pay-number-value">01601-743670</span></div>' +
+          '<button type="button" class="pay-copy-btn" data-color="bkash" ' +
+            'onclick="YARZ.copyToClipboard(\'01601743670\', \'bKash number\', this)" ' +
+            'aria-label="Copy bKash number">' +
+            '<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+            '<span class="copy-label">Copy</span>' +
+          '</button>' +
+        '</div>' +
         '<div class="pay-instruction">' +
         '1. আপনার bKash থেকে Send Money করুন<br>' +
-        '2. Amount: আপনার অর্ডার টোটাল<br>' +
+        // ✅ v15.77: Amount line now clearly says "delivery charge only" — the merchant
+        //   collects only the courier fee for verification; the rest is paid on delivery.
+        '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>' +
         '3. Reference: আপনার ফোন নম্বর<br>' +
         '4. Transaction ID টি নিচের বক্সে দিন' +
         '</div>' +
@@ -5769,14 +5917,29 @@ const YARZ = (() => {
       box.id = 'payment-info-box';
       box.className = 'payment-info-box nagad';
       box.innerHTML =
-        '<div class="pay-title" style="display:flex;align-items:center;gap:6px;">' +
-        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#ED1C24"/><path d="M16.5 15.5C16.5 15.5 15 17 12 17C9 17 7.5 15.5 7.5 15.5" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="10" r="1.5" fill="white"/><circle cx="15" cy="10" r="1.5" fill="white"/></svg>' +
+        '<div class="pay-title" style="display:flex;align-items:center;gap:8px;">' +
+        // ✅ v15.85: Brand-color wordmark badge — orange-to-red gradient
+        //   rounded square with the "Nagad" name in white. Typographic mark
+        //   only — no redraw of the trademarked C-flame + runner logo.
+        '<span class="pm-badge pm-badge--nagad" aria-label="Nagad" role="img">' +
+          '<span class="pm-badge__name">Nagad</span>' +
+        '</span>' +
         'Nagad Payment Instructions' +
         '</div>' +
-        '<div class="pay-number">Nagad: 01601-743670</div>' +
+        // ✅ v15.77: Pay-number row + Copy button (Nagad)
+        '<div class="pay-number-row">' +
+          '<div class="pay-number">Nagad: <span class="pay-number-value">01601-743670</span></div>' +
+          '<button type="button" class="pay-copy-btn" data-color="nagad" ' +
+            'onclick="YARZ.copyToClipboard(\'01601743670\', \'Nagad number\', this)" ' +
+            'aria-label="Copy Nagad number">' +
+            '<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+            '<span class="copy-label">Copy</span>' +
+          '</button>' +
+        '</div>' +
         '<div class="pay-instruction">' +
         '1. আপনার Nagad থেকে Send Money করুন<br>' +
-        '2. Amount: আপনার অর্ডার টোটাল<br>' +
+        // ✅ v15.77: Amount line — delivery charge only
+        '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>' +
         '3. Reference: আপনার ফোন নম্বর<br>' +
         '4. Transaction ID টি নিচের বক্সে দিন' +
         '</div>' +
@@ -6348,6 +6511,15 @@ const YARZ = (() => {
           return; // No further DOM updates needed
         }
 
+        // ── v15.74: Holiday mode flip-check (admin can toggle ON mid-session)
+        // Maintenance wins if both — guard ensures we don't double-overlay. ──
+        if (controls.holidayMode
+            && !document.querySelector('.holiday-overlay')
+            && !document.querySelector('.maintenance-overlay')) {
+          try { _showHolidayMode(controls); } catch(e){}
+          return;
+        }
+
         // ── Re-apply visual side-effects (mirrors init-time apply) ──
         // Announcement bar
         try {
@@ -6585,6 +6757,13 @@ const YARZ = (() => {
       // ── Maintenance Mode ──
       if (controls.maintenanceMode) {
         _showMaintenanceMode();
+        return; // Stop further loading
+      }
+
+      // ── v15.74: Holiday / Vacation Mode (storefront only — homepage init() runs here)
+      // Maintenance wins if both are ON. ──
+      if (controls.holidayMode) {
+        _showHolidayMode(controls);
         return; // Stop further loading
       }
 
@@ -7371,6 +7550,381 @@ const YARZ = (() => {
     if (main) main.style.display = 'none';
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // v15.74 — HOLIDAY / VACATION MODE UI
+  // ═══════════════════════════════════════════════════════════════════
+  // Different from maintenance: cream + burgundy premium look. Customer
+  // sees this when courier is paused (Eid / Puja / festival / inventory)
+  // and cannot place orders. WhatsApp CTA for urgent inquiries.
+  // ═══════════════════════════════════════════════════════════════════
+  function _showHolidayMode(controls) {
+    if (document.querySelector('.holiday-overlay')) return;
+
+    // Reason → preset Bengali copy + label + icon. Custom message (if set)
+    // renders ABOVE the preset paragraph as user-controlled lead text.
+    var REASONS = {
+      eid: {
+        chip: 'ঈদের ছুটি · EID HOLIDAY',
+        headline: 'ঈদের ছুটিতে সাময়িকভাবে বন্ধ',
+        sub: 'Closed for the Eid holiday',
+        body: 'ঈদের ছুটি উপলক্ষে YARZ-এর কুরিয়ার ও প্রসেসিং টিম সাময়িকভাবে বিরতিতে। এই সময়টায় অর্ডার নেওয়া সাময়িক বন্ধ আছে, যাতে আপনার প্রতিটি অর্ডার ছুটির পর সর্বোচ্চ যত্নে প্যাক ও ডেলিভারি দেওয়া যায়। ছুটি শেষেই পুরোদমে অর্ডার নেওয়া শুরু হবে।',
+        bodyEn: 'Our team and courier partners are on a brief Eid pause — orders resume right after the holiday.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+      },
+      puja: {
+        chip: 'পূজার ছুটি · PUJA BREAK',
+        headline: 'পূজার ছুটিতে সাময়িকভাবে বন্ধ',
+        sub: 'Closed for Puja',
+        body: 'উৎসবের কয়েকটি দিন YARZ-এর ফুলফিলমেন্ট সেন্টার বন্ধ থাকবে, তাই অর্ডার নেওয়া সাময়িক বন্ধ আছে। আপনার অর্ডারের কোয়ালিটি ও টাইমলি ডেলিভারি — দুটোই আমাদের কাছে সমান গুরুত্বপূর্ণ, তাই উৎসব শেষেই আবার রেগুলার সার্ভিস চালু হবে।',
+        bodyEn: 'Our fulfilment centre is closed for the festival — regular service resumes right after.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M2 12h6M16 12h6M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24"/></svg>'
+      },
+      festival: {
+        chip: 'উৎসব ছুটি · FESTIVAL BREAK',
+        headline: 'উৎসব উপলক্ষে সাময়িকভাবে বন্ধ',
+        sub: 'Closed for the festival',
+        body: 'উৎসবের ছুটি উপলক্ষে YARZ সাময়িকভাবে বিরতিতে — তাই এই মুহূর্তে অর্ডার নেওয়া সাময়িক বন্ধ আছে। ছুটি শেষে আপনার অর্ডারটি আরও দ্রুত ও পরিচ্ছন্নভাবে পৌঁছে দিতেই এই ছোট্ট প্রস্তুতি।',
+        bodyEn: 'A short festival pause — orders resume soon.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      },
+      inventory: {
+        chip: 'রিস্টক · INVENTORY',
+        headline: 'নতুন কালেকশনের প্রস্তুতিতে',
+        sub: 'Briefly closed for restock',
+        body: 'নতুন কালেকশন গুছিয়ে তোলা ও স্টক যাচাইয়ের জন্য YARZ সাময়িকভাবে বিরতিতে — তাই এই মুহূর্তে অর্ডার নেওয়া সাময়িক বন্ধ আছে। আমরা চাই আপনি যা অর্ডার করবেন, ঠিক সেটাই নিখুঁত অবস্থায় হাতে পান। রিস্টক শেষ হলেই আরও সমৃদ্ধ একটি সংগ্রহ নিয়ে ফিরে আসছি।',
+        bodyEn: 'Briefly paused for a fresh restock — back soon with a richer collection.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
+      },
+      custom: {
+        chip: 'সাময়িক বিরতি · BRIEF PAUSE',
+        headline: 'সাময়িকভাবে অর্ডার নেওয়া বন্ধ',
+        sub: 'Temporarily closed',
+        body: 'YARZ এই মুহূর্তে একটি সংক্ষিপ্ত বিরতিতে; এই সময়ে অর্ডার নেওয়া সাময়িক বন্ধ আছে। আপনার পরবর্তী অর্ডারটি যেন আরও দ্রুত ও পরিচ্ছন্নভাবে পৌঁছায়, তা নিশ্চিত করতেই এই ছোট্ট প্রস্তুতি। খুব শিগগিরই আবার পুরোদমে চালু হচ্ছি।',
+        bodyEn: 'A brief pause — orders resume very soon.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+      },
+      personal: {
+        // v15.74: "Personal" — admin types the entire message; design stays.
+        // If custom_message is empty, this short fallback line shows.
+        chip: 'ব্যক্তিগত কারণ · PERSONAL',
+        headline: 'সাময়িকভাবে বন্ধ আছে',
+        sub: 'Temporarily closed',
+        body: 'ব্যক্তিগত কারণে YARZ সাময়িকভাবে বিরতিতে — খুব শিগগিরই আবার ফিরে আসছি।',
+        bodyEn: 'Briefly closed for personal reasons — back very soon.',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+      }
+    };
+
+    var reasonKey = (controls && controls.holidayReason) || 'custom';
+    var reason = REASONS[reasonKey] || REASONS.custom;
+
+    // Bengali date formatter — accepts "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm".
+    // v15.74: Returns BD-time formatted string like "১২ অক্টোবর ২০২৫, সন্ধ্যা ৭টা".
+    function _fmtBnDate(s) {
+      if (!s) return '';
+      var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
+      if (!m) return '';
+      var months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+      var bnDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+      var toBn = function(n){ return String(n).split('').map(function(d){ return bnDigits[+d] || d; }).join(''); };
+      var y = m[1], mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+      if (!y || !mo || !d || mo < 1 || mo > 12) return '';
+      var out = toBn(d) + ' ' + months[mo - 1] + ' ' + toBn(y);
+      // Time portion (if present)
+      if (m[4] !== undefined && m[5] !== undefined) {
+        var h = parseInt(m[4], 10), mm = parseInt(m[5], 10);
+        // Bengali day-part labels
+        var part = h < 5 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকাল' : h < 22 ? 'সন্ধ্যা' : 'রাত';
+        var h12 = h % 12 || 12;
+        out += ', ' + part + ' ' + toBn(h12) + (mm ? ':' + toBn(String(mm).padStart(2,'0')) : '') + 'টা';
+      }
+      return out;
+    }
+
+    // v15.74: Parse "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm" as Asia/Dhaka wall-clock,
+    // return UTC epoch ms. Visitor's local TZ doesn't enter the math.
+    function _parseTargetMs(s) {
+      if (!s) return NaN;
+      var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
+      if (!m) return NaN;
+      var y = +m[1], mo = +m[2], d = +m[3];
+      var hh = m[4] !== undefined ? +m[4] : 0;
+      var mm = m[5] !== undefined ? +m[5] : 0;
+      // Asia/Dhaka is UTC+6, no DST
+      return Date.UTC(y, mo - 1, d, hh - 6, mm, 0, 0);
+    }
+
+    // Bengali digit converter
+    function _toBn(n) {
+      var BN = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+      return String(n).replace(/\d/g, function(d){ return BN[+d]; });
+    }
+    function _pad2(n) { return String(n).padStart ? String(n).padStart(2,'0') : (n<10?'0'+n:''+n); }
+
+    // WhatsApp link — prefer admin-configured number, fall back to default.
+    function _normalizeWa(input) {
+      if (!input) return 'https://wa.me/8801601743670';
+      var s = String(input).trim();
+      if (/^https?:\/\//i.test(s)) return s;
+      var digits = s.replace(/[^0-9]/g, '');
+      if (digits.length >= 8) return 'https://wa.me/' + digits;
+      return 'https://wa.me/8801601743670';
+    }
+    var waUrl = _normalizeWa(controls && controls.socialLinks && controls.socialLinks.whatsapp);
+
+    // Phone-call fallback (extract digits from wa.me URL)
+    var waDigits = (waUrl.match(/(\d{8,})/) || [, ''])[1];
+    var telUrl = waDigits ? 'tel:+' + waDigits : '';
+
+    // Custom message — escape HTML, allow line breaks. Renders ABOVE the preset.
+    // v15.74: For reason='personal', the custom message REPLACES the preset body
+    // entirely — admin types whatever they want, design stays the same.
+    function _esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }); }
+    var customHtml = '';
+    var custom = (controls && controls.holidayCustomMessage) || '';
+    var hasCustom = custom && custom.trim();
+    var personalMode = (reasonKey === 'personal' && hasCustom);
+    if (hasCustom) {
+      // Personal mode: render the admin message AS the body (no preset paragraph below).
+      // Other reasons: render custom as bold lead text ABOVE the preset paragraph.
+      var leadStyle = personalMode
+        ? 'font-size:15px;line-height:1.95;color:rgba(26,20,17,0.85);font-weight:400;'
+        : 'font-weight:500;color:rgba(26,20,17,0.92);';
+      customHtml = '<p class="holiday-overlay__body" lang="bn" style="' + leadStyle + '">'
+                 + _esc(custom).replace(/\n/g, '<br>')
+                 + '</p>';
+    }
+
+    // v15.74: Build countdown block (replaces the old static return-date chip).
+    // If admin set a target date+time → render countdown segments + metadata.
+    // If no target → render nothing (overlay degrades cleanly).
+    var targetMs = _parseTargetMs(controls && controls.holidayReturnDate);
+    var hasTarget = isFinite(targetMs);
+    var bnDateMeta = hasTarget ? _fmtBnDate(controls.holidayReturnDate) : '';
+    var countdownHtml = '';
+    if (hasTarget) {
+      countdownHtml =
+        '<div class="holiday-overlay__countdown" role="timer" lang="bn">' +
+          '<div class="holiday-overlay__countdown-row">' +
+            '<div class="holiday-overlay__seg holiday-overlay__seg--d"><span class="holiday-overlay__num" data-seg="d">--</span><span class="holiday-overlay__lbl">দিন</span></div>' +
+            '<div class="holiday-overlay__seg holiday-overlay__seg--h"><span class="holiday-overlay__num" data-seg="h">--</span><span class="holiday-overlay__lbl">ঘণ্টা</span></div>' +
+            '<div class="holiday-overlay__seg holiday-overlay__seg--m"><span class="holiday-overlay__num" data-seg="m">--</span><span class="holiday-overlay__lbl">মিনিট</span></div>' +
+            '<div class="holiday-overlay__seg holiday-overlay__seg--s"><span class="holiday-overlay__num" data-seg="s">--</span><span class="holiday-overlay__lbl">সেকেন্ড</span></div>' +
+          '</div>' +
+          (bnDateMeta ? '<div class="holiday-overlay__countdown-meta">— ফিরছি ' + _esc(bnDateMeta) + ' —</div>' : '') +
+          '<span class="holiday-overlay__sr" aria-live="polite" data-sr-summary>আবার চালু হবে — সময় গণনা চলছে।</span>' +
+        '</div>';
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'holiday-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'holiday-overlay-title');
+    overlay.setAttribute('aria-describedby', 'holiday-overlay-desc');
+    overlay.setAttribute('tabindex', '-1');
+
+    overlay.innerHTML =
+      '<div class="holiday-overlay__card">' +
+        // YARZ wordmark lockup (stacked, light variant — wordmark already in cream/burgundy by default in CSS)
+        '<div class="yarz-mark yarz-mark--stacked" aria-hidden="true">' +
+          '<svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+            '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
+            '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+          '</svg>' +
+          '<span class="yarz-mark__word">YARZ</span>' +
+        '</div>' +
+        countdownHtml + // v15.74: countdown sits BETWEEN wordmark and reason chip
+        '<div class="holiday-overlay__chip">' + reason.icon + '<span>' + _esc(reason.chip) + '</span></div>' +
+        '<h2 id="holiday-overlay-title" lang="bn">' +
+          _esc(reason.headline) +
+          '<span class="holiday-overlay__sub" lang="en">' + _esc(reason.sub) + '</span>' +
+        '</h2>' +
+        '<div id="holiday-overlay-desc">' +
+          customHtml +
+          // v15.74: For reason='personal' with admin message, hide the preset body entirely.
+          (personalMode ? '' :
+            '<p class="holiday-overlay__body" lang="bn">' + _esc(reason.body) + '</p>' +
+            '<p class="holiday-overlay__body holiday-overlay__body--en" lang="en">' + _esc(reason.bodyEn) + '</p>'
+          ) +
+        '</div>' +
+        '<hr class="holiday-overlay__rule"/>' +
+        '<a href="' + _esc(waUrl) + '" target="_blank" rel="noopener" class="holiday-overlay__cta" aria-label="Contact YARZ on WhatsApp">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a1.1 1.1 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>' +
+          '<span>WhatsApp এ যোগাযোগ করুন</span>' +
+        '</a>' +
+        '<span class="holiday-overlay__cta-sub">' +
+          'জরুরি প্রয়োজনে · For urgent inquiries' +
+          (telUrl ? ' · <a href="' + _esc(telUrl) + '">কল করুন</a>' : '') +
+        '</span>' +
+        '<span class="holiday-overlay__footer" lang="bn">আপনার কার্ট সংরক্ষিত আছে — ফিরে এসে দেখা হবে।</span>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    // ── v15.74: Countdown ticker (self-scheduling setTimeout aligned to wall clock) ──
+    if (hasTarget) {
+      var cdRoot = overlay.querySelector('.holiday-overlay__countdown');
+      var segs = {
+        d: overlay.querySelector('[data-seg="d"]'),
+        h: overlay.querySelector('[data-seg="h"]'),
+        m: overlay.querySelector('[data-seg="m"]'),
+        s: overlay.querySelector('[data-seg="s"]')
+      };
+      var srSummary = overlay.querySelector('[data-sr-summary]');
+      // v15.74: seconds segment is dropped purely via CSS @media now (no JS toggle).
+
+      var last = { d: -1, h: -1, m: -1, s: -1 };
+      var expired = false;
+
+      function _setNum(el, val) {
+        if (!el) return;
+        var current = el.textContent;
+        var next = _toBn(_pad2(val));
+        if (current === next) return;
+        // v15.74: animation classes go on the .yarz-overlay__num element directly
+        // (CSS targets .holiday-overlay__num.is-entering — fixes the never-firing bug).
+        el.classList.remove('is-entering');
+        el.textContent = next;
+        // Force reflow so re-applying the class restarts the animation.
+        // eslint-disable-next-line no-unused-expressions
+        void el.offsetWidth;
+        el.classList.add('is-entering');
+        setTimeout(function(){ if (el) el.classList.remove('is-entering'); }, 240);
+      }
+
+      function _renderExpired() {
+        if (expired) return;
+        expired = true;
+        // v15.74: when timer hits zero, also rewrite the headline / chip / body
+        // so the messaging is consistent (was: countdown said "we're back" but
+        // body still said "closed" — contradictory).
+        var card = overlay.querySelector('.holiday-overlay__card');
+        var titleEl = overlay.querySelector('#holiday-overlay-title');
+        var descEl  = overlay.querySelector('#holiday-overlay-desc');
+        var chipEl  = overlay.querySelector('.holiday-overlay__chip');
+        if (titleEl) titleEl.innerHTML = 'আবার চালু হচ্ছি<span class="holiday-overlay__sub" lang="en">We&rsquo;re reopening</span>';
+        if (descEl) {
+          descEl.innerHTML =
+            '<p class="holiday-overlay__body" lang="bn">কাউন্টডাউন শেষ হয়েছে — আমরা শীঘ্রই অর্ডার নেওয়া শুরু করছি। ' +
+            'পেজটি একবার রিফ্রেশ করুন, তারপর আপনার অর্ডার সম্পন্ন করুন।</p>' +
+            '<p class="holiday-overlay__body holiday-overlay__body--en" lang="en">Countdown complete — refresh the page to continue your order.</p>';
+        }
+        if (chipEl) {
+          chipEl.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' +
+            '<span>আবার চালু হচ্ছি · BACK ONLINE</span>';
+        }
+        if (cdRoot) {
+          cdRoot.innerHTML =
+            '<div class="holiday-overlay__back" role="status">' +
+              '<span class="holiday-overlay__back-msg" lang="bn">পেজটি রিফ্রেশ করুন · Refresh to continue</span>' +
+              '<button type="button" class="holiday-overlay__back-btn" onclick="location.reload()" aria-label="Refresh page">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+                '<span>রিফ্রেশ করুন</span>' +
+              '</button>' +
+            '</div>';
+        }
+      }
+
+      function _tick() {
+        var now = Date.now();
+        var diff = targetMs - now;
+        if (diff <= 0) {
+          _renderExpired();
+          return; // stop scheduling
+        }
+        var totalSec = Math.floor(diff / 1000);
+        var s = totalSec % 60;
+        var m = Math.floor(totalSec / 60) % 60;
+        var h = Math.floor(totalSec / 3600) % 24;
+        var d = Math.floor(totalSec / 86400);
+
+        // v15.74: capture rollover BEFORE we mutate `last` (was: SR check ran
+        // after assignments → always false → SR text never refreshed).
+        var dRollover = (d !== last.d);
+        var hRollover = (h !== last.h);
+
+        if (dRollover) { _setNum(segs.d, d); last.d = d; }
+        if (hRollover) { _setNum(segs.h, h); last.h = h; }
+        if (m !== last.m) { _setNum(segs.m, m); last.m = m; }
+        if (s !== last.s) { _setNum(segs.s, s); last.s = s; }
+
+        // SR summary updates only on day/hour rollover (using captured values)
+        if (srSummary && (dRollover || hRollover)) {
+          srSummary.textContent = _toBn(d) + ' দিন ' + _toBn(h) + ' ঘণ্টা পরে আবার চালু হবে।';
+        }
+
+        // Urgent state under 24h
+        if (cdRoot) {
+          if (d === 0) cdRoot.classList.add('holiday-overlay__countdown--urgent');
+          else cdRoot.classList.remove('holiday-overlay__countdown--urgent');
+        }
+
+        // Schedule next tick aligned to next wall-clock second (drift correction)
+        var delay = 1000 - (now % 1000);
+        overlay._timerId = setTimeout(_tick, delay);
+      }
+
+      // Past-target on first paint — collapse countdown to "back shortly" line
+      if (targetMs <= Date.now()) {
+        _renderExpired();
+      } else {
+        _tick();
+      }
+
+      // Pause when tab hidden, resume when visible
+      function _onVis() {
+        if (document.visibilityState === 'hidden') {
+          if (overlay._timerId) { clearTimeout(overlay._timerId); overlay._timerId = null; }
+        } else if (!expired) {
+          if (overlay._timerId) clearTimeout(overlay._timerId);
+          _tick();
+        }
+      }
+      document.addEventListener('visibilitychange', _onVis);
+      overlay._visHandler = _onVis;
+
+      // Cleanup on pagehide (bfcache-safe; do not use 'unload')
+      window.addEventListener('pagehide', function(){
+        if (overlay._timerId) { clearTimeout(overlay._timerId); overlay._timerId = null; }
+        if (overlay._visHandler) document.removeEventListener('visibilitychange', overlay._visHandler);
+      }, { once: true });
+    }
+
+    // Hide main content + header/footer to prevent any leak.
+    var main = document.getElementById('main-content');
+    if (main) main.style.display = 'none';
+
+    // Mark background as inert so SR + tab order skip it.
+    ['#main-content', '.site-header', '.site-footer', '.cart-drawer', '#filter-drawer'].forEach(function(sel){
+      var el = document.querySelector(sel);
+      if (el) { el.setAttribute('aria-hidden','true'); try { el.setAttribute('inert',''); } catch(e){} }
+    });
+
+    // Force-close cart drawer if open (so it doesn't ghost above the overlay)
+    document.body.classList.remove('cart-open');
+
+    // Focus the dialog (announce to SR users on mid-session flip).
+    requestAnimationFrame(function(){ try { overlay.focus(); } catch(e){} });
+
+    // Esc / backdrop dismiss — DISABLED. Customer must not dismiss.
+    overlay.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
+    });
+
+    // Minimal focus trap — only one focusable element (the WhatsApp CTA).
+    var cta = overlay.querySelector('.holiday-overlay__cta');
+    overlay.addEventListener('keydown', function(e){
+      if (e.key === 'Tab' && cta) { e.preventDefault(); cta.focus(); }
+    });
+  }
+
   // ===== SOCIAL ICON LIBRARY =====
   var SOCIAL_SVG = {
     facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
@@ -7601,6 +8155,7 @@ const YARZ = (() => {
     switchImage: switchImage,
     addToCart: addToCart,
     copyCoupon: copyCoupon,
+    copyToClipboard: copyToClipboard,
     removeFromCart: removeFromCart,
     updateCartItemQty: updateCartItemQty,
     toggleCart: toggleCart,

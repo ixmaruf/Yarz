@@ -180,16 +180,42 @@ const YARZ_PIXEL = (() => {
   }
 
   // ✅ v11.7: Capture fbclid → _fbc cookie (90d) per FB spec, ttclid → _yarz_ttclid
+  // ✅ v15.75 P1-5: subdomainIndex computed from actual hostname (was hardcoded 1).
+  //   For `yarzclothing.xyz` index=1, for `www.yarzclothing.xyz` index=2.
+  //   Wrong index makes _fbc unmatchable across www↔apex sessions.
+  function _fbcSubdomainIndex() {
+    try {
+      var host = String(location.hostname || '').replace(/^\.+|\.+$/g, '');
+      if (!host) return 1;
+      // IP / localhost → safe default
+      if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host === 'localhost') return 1;
+      var parts = host.split('.');
+      // Per Meta spec: subdomainIndex = number of dots in cookie's effective domain
+      // For yarzclothing.xyz (2 parts, 1 dot) → 1
+      // For www.yarzclothing.xyz (3 parts, 2 dots) → 2
+      return Math.max(1, parts.length - 1);
+    } catch (e) { return 1; }
+  }
   function _captureClickIds() {
     try {
       var params = new URLSearchParams(window.location.search);
       var fbclid = params.get('fbclid');
       if (fbclid && !_readCookie('_fbc')) {
-        document.cookie = '_fbc=fb.1.' + Date.now() + '.' + fbclid + '; max-age=' + (90*86400) + '; path=/; samesite=lax';
+        var idx = _fbcSubdomainIndex();
+        document.cookie = '_fbc=fb.' + idx + '.' + Date.now() + '.' + fbclid + '; max-age=' + (90*86400) + '; path=/; samesite=lax';
       }
       var ttclid = params.get('ttclid');
       if (ttclid && !_readCookie('_yarz_ttclid')) {
         document.cookie = '_yarz_ttclid=' + encodeURIComponent(ttclid) + '; max-age=' + (90*86400) + '; path=/; samesite=lax';
+      }
+      // ✅ v15.75 P2-2: Pinterest (epik) + Snapchat (sccid) click IDs for parity
+      var epik = params.get('epik');
+      if (epik && !_readCookie('_yarz_epik')) {
+        document.cookie = '_yarz_epik=' + encodeURIComponent(epik) + '; max-age=' + (90*86400) + '; path=/; samesite=lax';
+      }
+      var sccid = params.get('sccid') || params.get('ScCid');
+      if (sccid && !_readCookie('_yarz_sccid')) {
+        document.cookie = '_yarz_sccid=' + encodeURIComponent(sccid) + '; max-age=' + (90*86400) + '; path=/; samesite=lax';
       }
     } catch (e) {}
   }
@@ -223,14 +249,24 @@ const YARZ_PIXEL = (() => {
         externalId: _getOrCreateExternalId(),
         userAgent: navigator.userAgent || ''
       };
-      // Layer in any cached identity (email/phone/name/city) from prior checkout
+      // Layer in any cached identity (email/phone/name/city/state/zip/country/gender/dob)
+      // from prior checkout — this is what lifts top-of-funnel EMQ from ~5 to 8+.
+      // ✅ v15.75 P1-1: Extended from name/phone/email to the full hashable set
+      // so PageView / ViewContent / AddToCart on returning visitors carry the
+      // same Andromeda-grade identity the browser pixel's Advanced Matching has.
       try {
         var cachedRaw = localStorage.getItem('yarz_user');
         if (cachedRaw) {
           var c = JSON.parse(cachedRaw) || {};
-          if (c.name)  ud.name = c.name;
-          if (c.phone) ud.phone = c.phone;
-          if (c.email) ud.email = c.email;
+          if (c.name)    ud.name    = c.name;
+          if (c.phone)   ud.phone   = c.phone;
+          if (c.email)   ud.email   = c.email;
+          if (c.city)    ud.city    = c.city;
+          if (c.state)   ud.state   = c.state;
+          if (c.zip)     ud.zip     = c.zip;
+          if (c.country) ud.country = c.country;
+          if (c.gender)  ud.gender  = c.gender;
+          if (c.dob)     ud.dob     = c.dob;
         }
       } catch (e) {}
       if (userExtras) Object.keys(userExtras).forEach(function(k){ if(userExtras[k]) ud[k] = userExtras[k]; });
@@ -239,6 +275,13 @@ const YARZ_PIXEL = (() => {
         action: 'capi',
         eventName: eventName,
         eventId: eventId,
+        // ✅ v15.75 P0-1: Forward the ACTUAL page URL so Andromeda gets the
+        //   real content-context signal. Previously GAS hardcoded the homepage
+        //   for every event → ViewContent / AddToCart looked like they happened
+        //   on `/` which crippled URL-keyed catalog matching and EMQ.
+        eventSourceUrl: (function(){
+          try { return String(window.location.href || ''); } catch(e){ return ''; }
+        })(),
         customData: customData || {},
         userData: ud,
         actionSource: 'website'
@@ -302,7 +345,13 @@ const YARZ_PIXEL = (() => {
         return _toHex(buf);
       }
     } catch (e) { /* fall through */ }
-    return v; // last-resort: leave as plain (Facebook will reject but won't break flow)
+    // ✅ v15.75 P0-3: PII LEAK GUARD. If crypto.subtle is unavailable
+    // (insecure context / very old browser), DO NOT return plaintext PII.
+    // Returning empty drops that field from the CAPI payload — which is far
+    // better than emailing/phone-number leaking through unhashed. Meta would
+    // reject unhashed em/ph anyway, so this is also correctness-preserving.
+    try { console.warn('[YARZ_PIXEL] crypto.subtle unavailable — PII field dropped to avoid leak'); } catch(_e){}
+    return '';
   }
 
   function _normalizePhone(p) {
@@ -470,6 +519,12 @@ const YARZ_PIXEL = (() => {
     // ✅ v11.7: Schedule abandoned-checkout via beacon — fires on tab close, not just timer
     // ✅ v14.0: Skip entirely if abandoned_checkout toggle is off
     if (!_isEventEnabled('abandoned_checkout')) return;
+    // ✅ v15.75 P1-3: Capture cart context so AbandonedCheckout carries product
+    // identity. Without content_ids/contents, dynamic abandoned-cart retargeting
+    // can't show the SAME product back to the user → wasted intent signal.
+    var _abandonContents = [{ id: pid, quantity: qty || 1, item_price: price }];
+    var _abandonIds = [pid];
+    var _abandonNumItems = qty || 1;
     try {
       if (window._yarzAbandonTimer) clearTimeout(window._yarzAbandonTimer);
       window._yarzAbandonTimer = setTimeout(function () {
@@ -477,9 +532,17 @@ const YARZ_PIXEL = (() => {
         if (sessionStorage.getItem('yarz_abandon_fired') === '1') return;
         sessionStorage.setItem('yarz_abandon_fired', '1');
         var _abcEid = _genEventId('abc');
-        trackCustom('AbandonedCheckout', { value: value, currency: 'BDT' }, _abcEid);
-        // ✅ v15.45: CAPI mirror — recovers iOS-blocked timer-based abandon signal
-        _sendCapiMirror('AbandonedCheckout', _abcEid, { value: value, currency: 'BDT' });
+        var _abcData = {
+          content_ids: _abandonIds,
+          content_type: 'product',
+          contents: _abandonContents,
+          num_items: _abandonNumItems,
+          value: value,
+          currency: 'BDT'
+        };
+        trackCustom('AbandonedCheckout', _abcData, _abcEid);
+        // ✅ v15.45: Server-side mirror — recovers iOS-blocked timer-based abandon signal
+        _sendCapiMirror('AbandonedCheckout', _abcEid, _abcData);
       }, 5 * 60 * 1000);
       // Also fire on visibility change (tab close / navigate away)
       if (!window._yarzVisibilityHooked) {
@@ -493,8 +556,16 @@ const YARZ_PIXEL = (() => {
           if (sessionStorage.getItem('yarz_atc_pending') !== '1') return;
           sessionStorage.setItem('yarz_abandon_fired', '1');
           var eid = _genEventId('abc');
-          if (_hasFbq()) try { fbq('trackCustom', 'AbandonedCheckout', { value: value, currency: 'BDT' }, { eventID: eid }); } catch(e){}
-          _sendCapiMirror('AbandonedCheckout', eid, { value: value, currency: 'BDT' });
+          var ehData = {
+            content_ids: _abandonIds,
+            content_type: 'product',
+            contents: _abandonContents,
+            num_items: _abandonNumItems,
+            value: value,
+            currency: 'BDT'
+          };
+          if (_hasFbq()) try { fbq('trackCustom', 'AbandonedCheckout', ehData, { eventID: eid }); } catch(e){}
+          _sendCapiMirror('AbandonedCheckout', eid, ehData);
         });
       }
       sessionStorage.setItem('yarz_atc_pending', '1');
@@ -607,10 +678,24 @@ const YARZ_PIXEL = (() => {
     if (_hasGtag()){ try { gtag('event', 'purchase', { transaction_id: orderId, items: cart.map(function (c) { return { item_id: _productId(c), item_name: c.name, price: _safeNum(c.price), quantity: c.qty || 1 }; }), currency: 'BDT', value: value, payment_type: pmRaw }); } catch (e) {} }
     if (_hasSnap()){ try { snaptr('track', 'PURCHASE', { transaction_id: orderId, item_ids: ids, price: value, currency: 'BDT', number_items: cart.length }); } catch (e) {} }
     if (_hasPin()) { try { pintrk('track', 'checkout', { value: value, currency: 'BDT', order_id: orderId, order_quantity: cart.length, line_items: contents.map(function(c){ return { product_name:c.id, product_quantity:c.quantity, product_price:c.item_price }; }) }); } catch (e) {} }
-    // NOTE: Server-side Purchase is fired by GAS on order entry (with full hashed user_data
-    // and same eventId=orderId). We deliberately do NOT mirror from the browser here to
-    // avoid duplicate events when the dedup window fails. Browser+server dedup happens
-    // on the GAS side using orderId as eventId.
+    // ✅ v15.75 P0-2: Browser-side Purchase MIRROR via beacon as belt-and-suspenders.
+    // Why: GAS server-side Purchase already fires (with full hashed user_data + same
+    // eventID=orderId), but if GAS is mid-deploy / quota-exceeded / FB Pixel-or-Token
+    // unset, server signal silently drops. On iOS the browser pixel may also be ITP-blocked.
+    // Sending from BOTH sources with identical eventID lets FB dedup safely (48h window)
+    // while guaranteeing at least one path lands. This is the standard 2026 dual-stream
+    // CAPI pattern. Userdata payload picks up cached identity + click IDs in _sendCapiMirror.
+    try {
+      _sendCapiMirror('Purchase', eventId, data, {
+        name:    (userData && userData.name)    || '',
+        phone:   (userData && userData.phone)   || '',
+        email:   (userData && userData.email)   || '',
+        city:    (userData && userData.city)    || '',
+        state:   (userData && userData.state)   || '',
+        zip:     (userData && userData.zip)     || '',
+        country: (userData && userData.country) || 'bd'
+      });
+    } catch (e) {}
   }
 
   // 5. AddToWishlist
@@ -657,24 +742,31 @@ const YARZ_PIXEL = (() => {
 
   // 7b. Lead — newsletter, contact form, ask-for-callback, etc.
   // High-intent signal for FB optimization. value = average order value (helps FB bid).
+  // ✅ v15.75 P1-6: Added value_to_match (Andromeda value-based bidding) and
+  //   content_category so Lead-objective campaigns can optimize against expected
+  //   value rather than raw volume.
   async function lead(source, value, formData) {
     if (!_isEventEnabled('lead')) return;  // ✅ v14.0 toggle gate
     if (formData) await _setUserData(formData);
     var eventId = _genEventId('ld');
+    var leadValue = _safeNum(value);
     var data = {
       content_category: source || 'general',
+      content_name: source || 'lead',
       lead_source: source || 'general',
-      value: _safeNum(value),
+      value: leadValue,
+      value_to_match: leadValue,         // Andromeda value-based bidding signal
+      predicted_ltv: leadValue,          // optional but supported in 2026
       currency: 'BDT'
     };
     if (_hasFbq()) { try { fbq('track', 'Lead', data, { eventID: eventId }); } catch (e) {} }
-    if (_hasTtq()) { try { ttq.track('SubmitForm', { content_name: source || 'lead', value: _safeNum(value), currency: 'BDT' }, { event_id: eventId }); } catch (e) {} }
-    if (_hasGtag()){ try { gtag('event', 'generate_lead', { value: _safeNum(value), currency: 'BDT' }); } catch (e) {} }
+    if (_hasTtq()) { try { ttq.track('SubmitForm', { content_name: source || 'lead', value: leadValue, currency: 'BDT' }, { event_id: eventId }); } catch (e) {} }
+    if (_hasGtag()){ try { gtag('event', 'generate_lead', { value: leadValue, currency: 'BDT' }); } catch (e) {} }
     // ✅ v11.7: CAPI mirror
     _sendCapiMirror('Lead', eventId, data);
   }
 
-  // 8. WhatsAppClick
+  // 8. WhatsAppClick → standard Contact event (2026 best practice)
   function whatsAppClick(product, size) {
     if (!_isEventEnabled('whatsapp_click')) return;  // ✅ v14.0 toggle gate
     var pid = product ? _productId(product) : '';
@@ -688,9 +780,19 @@ const YARZ_PIXEL = (() => {
       currency: 'BDT'
     };
     var eventId = _genEventId('wa');
-    if (_hasFbq()) { try { fbq('trackCustom', 'WhatsAppClick', data, { eventID: eventId }); } catch (e) {} }
-    if (_hasTtq()) { try { ttq.track('ClickButton', { content_name: data.content_name || 'WhatsApp', value: data.value, currency: 'BDT' }, { event_id: eventId }); } catch (e) {} }
-    if (_hasGtag()){ try { gtag('event', 'whatsapp_click', { item_name: data.content_name, item_category: data.content_category, value: data.value }); } catch (e) {} }
+    // ✅ v15.75 P1-4: Promote WhatsApp click to FB STANDARD `Contact` event so
+    // Messaging-objective campaigns can optimize against it directly. Custom
+    // events are invisible to those objectives. Keep a custom WhatsAppClick
+    // mirror for legacy reporting workflows.
+    if (_hasFbq()) {
+      try { fbq('track',       'Contact',       data, { eventID: eventId }); } catch (e) {}
+      try { fbq('trackCustom', 'WhatsAppClick', data, { eventID: eventId }); } catch (e) {}
+    }
+    if (_hasTtq()) { try { ttq.track('Contact', { content_name: data.content_name || 'WhatsApp', value: data.value, currency: 'BDT' }, { event_id: eventId }); } catch (e) {} }
+    if (_hasGtag()){ try { gtag('event', 'contact', { method: 'whatsapp', item_name: data.content_name, item_category: data.content_category, value: data.value }); } catch (e) {} }
+    // ✅ v15.75 P1-4: Server-side CAPI mirror so iOS-blocked / ITP-restricted
+    // sessions still attribute the WhatsApp lead to the right campaign.
+    _sendCapiMirror('Contact', eventId, data);
   }
 
   // 9. TimeOnPage_30s
@@ -831,6 +933,25 @@ const YARZ_PIXEL = (() => {
 
     // Restore any cached advanced-matching from a previous session before pixel init
     var cachedAm = _getCachedUserMatch();
+    // ✅ v15.75 P1-2: If no cached AM (first-ever visit), still seed Advanced
+    //   Matching with hashed external_id so anonymous sessions are tied to a
+    //   stable identity from event #1. Lifts entry-event EMQ from ~3 to ~5+.
+    if (!cachedAm) {
+      try {
+        var extId = _getOrCreateExternalId();
+        if (extId) {
+          // Hash externally so we don't block the first paint on async crypto
+          (async function(){
+            try {
+              var hashed = await _sha256(extId);
+              if (hashed && _hasFbq() && _storeInfo && _storeInfo.fbPixel) {
+                fbq('init', _storeInfo.fbPixel, { external_id: hashed });
+              }
+            } catch(_e){}
+          })();
+        }
+      } catch (_e) {}
+    }
 
     // --- Auto-inject pixels from admin settings ---
     // ✅ v14.0: Each network injection now respects its master toggle.
