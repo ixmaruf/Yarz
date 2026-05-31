@@ -141,13 +141,22 @@ const YARZ_API = (() => {
           return data || (function() {
             // Early fetch returned null (network error / 5xx) — fall back
             // to a fresh request so we still try once before giving up.
-            var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&cb=1&_t=' + Date.now();
+            // ✅ v15.97 CACHE-SLOT UNIFY: NO `cb=1` param. `cb=1` forked the
+            // edge cache into `?action=products&cb=1` — a slot the Worker
+            // NEVER prewarms/purges (it warms `?action=products`), so every
+            // customer hit was a cold GAS upstream fetch (2-3s). Without cb,
+            // the request normalizes to the SAME warm, prewarmed slot →
+            // ~50ms edge HIT. `_t` is still stripped by buildCacheKey so it
+            // only busts intermediate HTTP caches, never forks the edge slot.
+            var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&_t=' + Date.now();
             return fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
           })();
         });
       } else {
         // Fallback: fire fetch now
-        var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&cb=1&_t=' + Date.now();
+        // ✅ v15.97 CACHE-SLOT UNIFY: dropped `cb=1` (see note above) so this
+        // hits the prewarmed edge slot instead of a perpetually-cold one.
+        var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&_t=' + Date.now();
         fetchPromise = fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
       }
       return fetchPromise
@@ -227,7 +236,7 @@ const YARZ_API = (() => {
           console.warn('TURBO CF fallback, trying Sheets API:', e);
           var sheetUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' +
             SHEET_ID + '/values:batchGet?ranges=' +
-            encodeURIComponent('INVENTORY!A1:AW') + '&ranges=' +
+            encodeURIComponent('INVENTORY!A1:AY') + '&ranges=' +
             encodeURIComponent('SETTINGS!A:B') +
             '&key=' + GOOGLE_API_KEY +
             '&valueRenderOption=UNFORMATTED_VALUE';
@@ -272,7 +281,9 @@ const YARZ_API = (() => {
                   sizes:{S:lS,M:lM,L:lL,XL:lXL,XXL:lXXL,'3XL':l3},
                   inStock:(lS>0||lM>0||lL>0||lXL>0||lXXL>0||l3>0),
                   status:st, couponActive:String(r[42]||''),
-                  couponCode:String(r[43]||''), couponDisc:parseFloat(r[44])||0
+                  couponCode:String(r[43]||''), couponDisc:parseFloat(r[44])||0,
+                  hiddenSizes:String(r[49]||''),
+                  sizeType:String(r[50]||'')
                 });
               }
               var storeInfo = {};
@@ -427,45 +438,30 @@ const YARZ_API = (() => {
 
   function getCached(key, allowStale, action) {
     const ttl = _ttlFor(action || '');
-    // ✅ v3.9: Try in-memory first (instant — no JSON parse, no disk I/O)
+    // ✅ v15.98 ZERO-CACHE HARDENING: Memory-only. We NEVER read store data
+    // from localStorage anymore. Owner policy: every visit (new or returning)
+    // MUST show live data from the Cloudflare Worker edge — a customer must
+    // never be served products/prices/stock that were persisted on their
+    // device on a previous visit. memCache lives only for the CURRENT page
+    // session (wiped on refresh/navigation), so it just avoids duplicate
+    // fetches within one page view — it can never serve cross-visit stale data.
+    // The old localStorage read path was dead under TTL=0 but is removed
+    // outright so no future TTL edit can ever resurrect device-persisted data.
     const memItem = memCache[key];
     if (memItem) {
       const age = Date.now() - memItem.time;
       if (age <= ttl.fresh) return { data: memItem.data, fresh: true };
       if (allowStale && age <= ttl.stale) return { data: memItem.data, fresh: false };
     }
-    try {
-      const lsKey = 'yarz_api_cache_' + key.split('action=')[1];
-      const itemStr = localStorage.getItem(lsKey);
-      if (itemStr) {
-        const item = JSON.parse(itemStr);
-        const age = Date.now() - item.time;
-        if (age <= ttl.fresh) {
-          memCache[key] = item; // promote to memory
-          return { data: item.data, fresh: true };
-        } else if (allowStale && age <= ttl.stale) {
-          memCache[key] = item;
-          return { data: item.data, fresh: false };
-        } else {
-          localStorage.removeItem(lsKey);
-        }
-      }
-    } catch (e) { }
     return null;
   }
 
   function setCache(key, data) {
-    // ✅ v15.8 FIX: Honor zero-cache mandate. When all TTLs are 0, do NOT
-    // write to localStorage — just keep an in-memory copy for the current
-    // page session (gone on navigation/refresh, which is what customer wants).
-    const item = { data, time: Date.now() };
-    memCache[key] = item;
-    if (CONFIG.CACHE_TTL > 0 || CONFIG.PRODUCT_CACHE_TTL > 0 || CONFIG.SETTINGS_CACHE_TTL > 0) {
-      try {
-        const lsKey = 'yarz_api_cache_' + key.split('action=')[1];
-        localStorage.setItem(lsKey, JSON.stringify(item));
-      } catch (e) { /* quota exceeded — memory cache still works */ }
-    }
+    // ✅ v15.98 ZERO-CACHE HARDENING: Memory-only, unconditionally. Never write
+    // store data to localStorage/IndexedDB — speed comes entirely from the
+    // Cloudflare Worker edge cache (purged on every admin Publish), never from
+    // device persistence. memCache is per-page-session only.
+    memCache[key] = { data, time: Date.now() };
   }
 
   function clearCache() {

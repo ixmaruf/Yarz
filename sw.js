@@ -1,4 +1,4 @@
-﻿/* ════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    YARZ TURBO Service Worker v2.0
    ════════════════════════════════════════════════════════════════════
    Strategy matrix:
@@ -14,26 +14,27 @@
      3) Product images NEVER re-downloaded once cached
    ════════════════════════════════════════════════════════════════════ */
 
-const VERSION       = 'yarz-turbo-v15.86-2026-05-27';
+const VERSION       = 'yarz-turbo-v16.2-2026-05-31';
 const STATIC_CACHE  = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
-const IMAGE_CACHE   = `${VERSION}-images`;
 const API_CACHE     = `${VERSION}-api`;
 
 // Critical assets to pre-cache on install
 // v13.0: pixel.js, armor.js, shield.js are now lazy-loaded post-LCP, so they're
 // fetched on-demand by the page (still cached via fetch handler).
+// ✅ v15.97 CLEANUP: Removed the versioned JS/CSS entries (api.js, app.js,
+// boot.js, turbo*, style.css). The page requests those with a `?v=` query
+// (e.g. /js/api.js?v=15.97), but install stored them under a different
+// `?_v=` busted key — so the precached copies NEVER matched a real request.
+// Net effect was a wasted DOUBLE download on first visit (page fetched them
+// anyway) for zero benefit. The runtime fetch handler (cacheFirst) already
+// caches each versioned asset under its REAL url on first load, so repeat
+// visits stay just as fast. We keep only the assets the browser requests
+// WITHOUT a version query — these benefit from precache + power the offline
+// navigation fallback (caches.match('/index.html') / '/404.html').
 const PRECACHE = [
   '/',
   '/index.html',
-  '/css/style.css',
-  '/js/boot.js',
-  '/js/turbo-core.js',
-  '/js/image-turbo.js',
-  '/js/api.js',
-  '/js/api-turbo.js',
-  '/js/app.js',
-  '/js/turbo.js',
   '/manifest.webmanifest',
   '/404.html'
 ];
@@ -44,11 +45,18 @@ const PRECACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      // Use Request objects with cache:'reload' to bypass HTTP cache during install
+      // ✅ v15.97 FIX: Store each entry under its CLEAN url — the exact key the
+      // page/navigation will request — while still using cache:'reload' to
+      // bypass the browser HTTP cache during the install fetch. Previously we
+      // did `cache.add('/index.html?_v=' + VERSION)`, which stored the response
+      // under the busted key; a later `caches.match('/index.html')` could never
+      // find it, so the offline fallback silently failed. Fetching with reload
+      // then cache.put under the clean url fixes both freshness AND matchability.
       return Promise.allSettled(
         PRECACHE.map(url => {
-          const cacheBustUrl = url.includes('?') ? url + '&_v=' + VERSION : url + '?_v=' + VERSION;
-          return cache.add(new Request(cacheBustUrl, { cache: 'reload' })).catch(() => null);
+          return fetch(new Request(url, { cache: 'reload' }))
+            .then(res => (res && res.ok) ? cache.put(url, res) : null)
+            .catch(() => null);
         })
       );
     }).then(() => self.skipWaiting())
@@ -118,15 +126,6 @@ function isHTML(req) {
          (req.headers.get('accept') || '').includes('text/html');
 }
 
-// Fetch with timeout
-function fetchWithTimeout(req, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(req).then(r => { clearTimeout(t); resolve(r); })
-              .catch(err => { clearTimeout(t); reject(err); });
-  });
-}
-
 // ──────────────────────────────────────────────────────────────────
 // STRATEGIES
 // ──────────────────────────────────────────────────────────────────
@@ -155,29 +154,6 @@ async function staleWhileRevalidate(req, cacheName) {
     return res;
   }).catch(() => cached);
   return cached || network;
-}
-
-// Network-First with fast timeout (for HTML & API)
-async function networkFirst(req, cacheName, timeoutMs) {
-  const cache = await caches.open(cacheName);
-  try {
-    // ⚡ Force browser to bypass HTTP cache for HTML/API to prevent the "2 day old data" issue
-    const fetchReq = new Request(req, { cache: 'no-cache' });
-    const res = await fetchWithTimeout(fetchReq, timeoutMs);
-    if (res && res.ok && req.method === 'GET') {
-      cache.put(req, res.clone()).catch(()=>{});
-    }
-    return res;
-  } catch (e) {
-    const cached = await cache.match(req);
-    if (cached) return cached;
-    // Final fallback for HTML navigation
-    if (isHTML(req)) {
-      const fallback = await caches.match('/index.html') || await caches.match('/404.html');
-      if (fallback) return fallback;
-    }
-    return new Response('Offline', { status: 503 });
-  }
 }
 
 // ──────────────────────────────────────────────────────────────────

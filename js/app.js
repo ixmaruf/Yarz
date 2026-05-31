@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    YARZ — Main Application v3.1 (2026-05-03)
    State Management, Cart, User, UI Components, Navigation
    Global Control Sync: Maintenance Mode, Announcement
@@ -958,10 +958,77 @@ const YARZ = (() => {
 
   // Returns the filtered sizes array honoring admin per-size visibility.
   // Use this instead of the hard-coded ['S','M','L','XL','XXL','3XL'] array.
-  function getVisibleSizes(category) {
+  // ✅ v15.94: Optional `product` arg — when provided, ALSO filters out any
+  // sizes the admin hid for THIS specific product (product.hiddenSizes, a
+  // comma-separated list like "S,XXL" set via the Bulk Editor). This is
+  // independent of the global per-size visibility toggles: a size is shown
+  // only if BOTH the global toggle allows it AND it isn't in the product's
+  // hidden list. Internal size codes ('S','M',… / pant uses same codes).
+  function getVisibleSizes(category, product) {
+    // ✅ v16.1 ONE-SIZE: products flagged sizeless (caps, watches, blankets…)
+    // have no S/M/L/XL/XXL/3XL selector. Return an empty list so the size
+    // picker renders nothing; the rest of the flow auto-selects the canonical
+    // "ONE" token. isOneSize() reads the "__ONESIZE__" sentinel stored in the
+    // product's hiddenSizes cell (no new sheet column needed).
+    if (isOneSize(product)) return [];
     var all = ['S','M','L','XL','XXL','3XL'];
-    var isPant = isPantCategory(category);
-    return all.filter(function(s) { return isSizeVisible(s, isPant); });
+    // ✅ v16.2: respect the per-product Size Type override for the global
+    // per-size visibility toggle (pant toggles vs shirt toggles).
+    var isPant = _effectiveIsPant(category, product);
+    var hidden = _parseHiddenSizes(product);
+    return all.filter(function(s) {
+      if (hidden[s]) return false;          // per-product hide
+      return isSizeVisible(s, isPant);       // global toggle
+    });
+  }
+
+  // ✅ v16.2: Decide whether to show PANT labels (28-38) or SHIRT labels
+  // (S-3XL) for a product. A per-product Size Type override (sheet column
+  // AY) wins; "" or "auto" falls back to the legacy category-name detection.
+  // This lets the owner force the right labels for custom categories the
+  // auto-detect can't recognize (e.g. "Joggers", a Bengali category name).
+  function _productSizeType(product) {
+    return product ? String(product.sizeType || '').trim().toLowerCase() : '';
+  }
+  function _effectiveIsPant(category, product) {
+    var st = _productSizeType(product);
+    if (st === 'pant')  return true;
+    if (st === 'shirt') return false;
+    return isPantCategory(category); // 'auto'/'' → legacy category detection
+  }
+
+  // ✅ v16.1: True when a product is a "One Size / No Size" item. The admin
+  // stores the sentinel "__ONESIZE__" in the product's hiddenSizes field when
+  // the "One Size" toggle is on. Such products keep their stock in the M slot
+  // (stockM / sizes.M) and are ordered with size code "ONE".
+  var ONE_SIZE_FLAG = '__ONESIZE__';
+  var ONE_SIZE_CODE = 'ONE';
+  function isOneSize(product) {
+    if (!product) return false;
+    return String(product.hiddenSizes || '').trim().toUpperCase() === ONE_SIZE_FLAG;
+  }
+  // Stock available for a one-size product (kept in the M slot).
+  function oneSizeStock(product) {
+    if (!product) return 0;
+    if (product.sizes && typeof product.sizes === 'object') {
+      return parseInt(product.sizes.M, 10) || 0;
+    }
+    return parseInt(product.stockM || product.stock_M, 10) || 0;
+  }
+
+  // ✅ v15.94: Parse a product's per-product hidden-size list into a lookup
+  // map keyed by uppercase internal size code. Accepts the raw comma string
+  // (e.g. "s, XXL ") and normalizes. Returns {} when nothing is hidden.
+  function _parseHiddenSizes(product) {
+    var map = {};
+    if (!product) return map;
+    var raw = product.hiddenSizes;
+    if (!raw) return map;
+    String(raw).split(',').forEach(function(s){
+      var k = String(s).trim().toUpperCase();
+      if (k) map[k] = true;
+    });
+    return map;
   }
 
   // ===== BADGE CLASS =====
@@ -1034,9 +1101,9 @@ const YARZ = (() => {
     if (hasDiscount) html += '<span class="discount-tag">-' + Math.round(p.discountPercent) + '%</span>';
     html += '</div>';
     html += '<div class="card-sizes">';
-    var isPant = isPantCategory(p.category);
+    var isPant = _effectiveIsPant(p.category, p);
     // ✅ v16: Admin-controlled per-size visibility + global OOS-size hide.
-    var cardSizes = getVisibleSizes(p.category);
+    var cardSizes = getVisibleSizes(p.category, p);
     var hideOosCard = shouldHideOosSizes();
     cardSizes.forEach(function (s) {
       var avail = p.sizes && p.sizes[s];
@@ -1414,8 +1481,8 @@ const YARZ = (() => {
     overlay.onclick = function(e) { if (e.target === overlay) closeQuickView(); };
 
     var sizesHtml = '';
-    var sizes = getVisibleSizes(product.category);
-    var isPant = isPantCategory(product.category);
+    var sizes = getVisibleSizes(product.category, product);
+    var isPant = _effectiveIsPant(product.category, product);
     var hideOos = shouldHideOosSizes();
     sizes.forEach(function(s) {
       var avail = !!(product.sizes && product.sizes[s]);
@@ -1861,7 +1928,7 @@ const YARZ = (() => {
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-newsletter-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_newsletter_dismissed\',\'1\')">✕</button>' +
         '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
           '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
-            '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+            '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
             '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
             '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
             '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
@@ -1999,6 +2066,48 @@ const YARZ = (() => {
     // admin saves whenever the user picked any of those colors. Admin owns
     // their store; whatever they save is what we apply.
 
+    // ✅ v15.87: COLOR CLASH SAFETY NET ─────────────────────────────────────
+    // Admin can manually pick any combination of colors. If they pick a
+    // background AND a text color that have insufficient contrast (e.g.
+    // cream text on cream bg, or charcoal heading on charcoal footer),
+    // the text would fade into the background — a classic "where did my
+    // header go?" bug the owner described. These helpers compute relative
+    // luminance + WCAG contrast and auto-flip text to the readable pole
+    // when admin's pick fails the AA threshold.
+    // ───────────────────────────────────────────────────────────────────────
+    function _hexToRgb(hex) {
+      var h = String(hex || '').trim().replace('#','');
+      if (h.length === 3) h = h.split('').map(function(c){ return c+c; }).join('');
+      if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+      return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+    }
+    function _relLuminance(rgb) {
+      if (!rgb) return null;
+      var f = function(c){ c/=255; return c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); };
+      return 0.2126*f(rgb.r) + 0.7152*f(rgb.g) + 0.0722*f(rgb.b);
+    }
+    function _contrastRatio(hexA, hexB) {
+      var la = _relLuminance(_hexToRgb(hexA));
+      var lb = _relLuminance(_hexToRgb(hexB));
+      if (la === null || lb === null) return null;
+      var hi = Math.max(la, lb), lo = Math.min(la, lb);
+      return (hi + 0.05) / (lo + 0.05);
+    }
+    // Pick a readable text color for a given bg. Returns the admin's pick
+    // if it passes AA (≥4.5:1); otherwise returns the closest readable
+    // dark or cream alternative. Never silently changes a color that's fine.
+    function _safeText(adminPick, bgHex, opts) {
+      var darkAlt  = (opts && opts.dark)  || '#1A1411';
+      var creamAlt = (opts && opts.cream) || '#FBF8F1';
+      var aaMin = 4.5;
+      var ratio = _contrastRatio(adminPick, bgHex);
+      if (ratio !== null && ratio >= aaMin) return adminPick;
+      // Pick whichever fallback has higher contrast against the bg.
+      var rDark  = _contrastRatio(darkAlt,  bgHex) || 0;
+      var rCream = _contrastRatio(creamAlt, bgHex) || 0;
+      return rDark >= rCream ? darkAlt : creamAlt;
+    }
+
     // 1. Theme Palette overrides — v11.3 expanded
     //    Variable names match css/style.css EXACTLY
     if (controls.themePrimary) {
@@ -2022,9 +2131,16 @@ const YARZ = (() => {
       root.style.setProperty('--bg-secondary', controls.themeCardBg);
     }
     if (controls.themeText) {
+      // ✅ v15.87: Auto-correct if admin's text color would be unreadable
+      // against their chosen body background. Cream-on-cream / black-on-black
+      // saves silently lose the entire page text — this prevents that.
+      var _bgForText = controls.themeBg || '#FBF8F1';
+      var _safeBodyText = _safeText(controls.themeText, _bgForText);
       // Match style.css which uses --text-primary
-      root.style.setProperty('--text-primary', controls.themeText);
-      root.style.setProperty('--text-main', controls.themeText); // legacy alias
+      root.style.setProperty('--text-primary', _safeBodyText);
+      root.style.setProperty('--text-main', _safeBodyText); // legacy alias
+      // Header / nav / wordmark also read --text-primary, so this single
+      // override keeps header text readable on the chosen body bg.
     }
     if (controls.themeBorder) {
       root.style.setProperty('--border-color', controls.themeBorder);
@@ -2038,6 +2154,12 @@ const YARZ = (() => {
       root.style.setProperty('--price-color', controls.themeSalePrice);
     }
     if (controls.themeFooterBg) {
+      // ✅ v15.89 (per owner spec): Footer text is now FULLY DECOUPLED from
+      // theme palette logic. Only --footer-bg follows admin's chosen color;
+      // the heading/link/text colors are hardcoded pure white in CSS with
+      // !important and stay white across every preset. No auto-contrast,
+      // no luminance math, no variable linkage. Owner explicitly asked
+      // for "white text always, no link-up with anything."
       root.style.setProperty('--footer-bg', controls.themeFooterBg);
     }
 
@@ -2633,6 +2755,27 @@ const YARZ = (() => {
     var showPant = cat === '' || isPantCategory(cat);
     var showOther = cat !== '' && !showShirt && !showPanjabi && !showPant;
 
+    // ✅ v16.2: If the current (custom-named) category's products are actually
+    // pant-typed via the per-product Size Type override (e.g. category
+    // "Joggers" with Size Type = Pant), show the Pant size group with 28-38
+    // labels instead of a generic S/M/L "Other" group. We peek at the loaded
+    // products for this category and check their effective pant-ness.
+    var otherIsPant = false;
+    if (showOther) {
+      try {
+        var catProds = (state.products || []).filter(function(p) {
+          var pc = (p.category || '').trim().toLowerCase();
+          return pc === cat && !isOneSize(p);
+        });
+        // Treat the group as Pant only if products exist AND every sized one
+        // is pant-typed (avoids mixing 28-38 with S-M-L in one group).
+        if (catProds.length && catProds.every(function(p){ return _effectiveIsPant(p.category, p); })) {
+          otherIsPant = true;
+        }
+      } catch (e) {}
+    }
+    if (otherIsPant) { showOther = false; showPant = true; }
+
     if (showShirt) {
       html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Shirt Sizes</div>';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
@@ -2707,15 +2850,27 @@ const YARZ = (() => {
         var s = parts[1];
         
         filtered = filtered.filter(function(p) {
+          // ✅ v16.1 ONE-SIZE: sizeless products (caps/watches) have no real
+          // S/M/L size, so they must never match a specific size filter — even
+          // though their stock lives in the M slot. Exclude them outright so
+          // the "Other Sizes" group can't show a phantom M match or make them
+          // vanish under S/L/XL/etc.
+          if (isOneSize(p)) return false;
           if (!p.sizes || !p.sizes[s] || p.sizes[s] === '0' || p.sizes[s] === 0 || p.sizes[s] === false) return false;
           var pc = (p.category || '').toLowerCase();
-          if (type === 'shirt') return pc.indexOf('shirt') !== -1;
+          // ✅ v16.2: honor the per-product Size Type override so a custom-named
+          // pant (e.g. "Joggers" with Size Type = Pant) is matched by the Pant
+          // filter group, and never wrongly matched by Shirt/Panjabi groups.
+          var pIsPant = _effectiveIsPant(pc, p);
+          if (type === 'pant')    return pIsPant;
+          if (pIsPant) return false; // a pant-typed product can't match shirt/panjabi/other
+          if (type === 'shirt')   return pc.indexOf('shirt') !== -1;
           if (type === 'panjabi') return pc.indexOf('panjabi') !== -1;
-          if (type === 'pant') return isPantCategory(pc);
           return true; // for 'other'
         });
       } else {
         filtered = filtered.filter(function(p) {
+          if (isOneSize(p)) return false; // ✅ v16.1: exclude sizeless from size filter
           return p.sizes && p.sizes[val] && p.sizes[val] !== '0' && p.sizes[val] !== 0 && p.sizes[val] !== false;
         });
       }
@@ -2823,6 +2978,9 @@ const YARZ = (() => {
 
   function _getEffectiveStock(product, size) {
     if (!product || !size) return 0;
+    // ✅ v16.1 ONE-SIZE: the "ONE" token maps to the M stock slot where
+    // sizeless products keep their single quantity.
+    if (size === ONE_SIZE_CODE) size = 'M';
     
     function parseStock(val) {
       if (val === undefined || val === null || val === '') return null;
@@ -2889,7 +3047,7 @@ const YARZ = (() => {
       // If on product detail page, refresh disabled state of size buttons silently
       if (state.currentView === 'product' && state.currentProduct && state.currentProduct.name === product.name) {
         var hideOosSizesLive = shouldHideOosSizes();
-        var isPantLive = isPantCategory(product.category);
+        var isPantLive = _effectiveIsPant(product.category, product);
         ['S','M','L','XL','XXL','3XL'].forEach(function (sz) {
           var btn = document.querySelector('#size-options .size-btn[data-size="'+sz+'"]');
           if (!btn) return;
@@ -2953,6 +3111,11 @@ const YARZ = (() => {
     state.currentProduct = product;
     selectedSize = '';
     selectedQty = 1;
+
+    // ✅ v16.1 ONE-SIZE: sizeless products have no size picker, so auto-select
+    // the canonical "ONE" token immediately. This keeps the add-to-cart /
+    // buy-now size gate satisfied without the customer choosing anything.
+    if (isOneSize(product)) selectedSize = ONE_SIZE_CODE;
 
     // ✅ v11: Track recently viewed (for the bottom-of-homepage "Recently Viewed" section)
     try { _addRecent(product.name); } catch(e) {}
@@ -3039,7 +3202,7 @@ const YARZ = (() => {
     var images = [product.image1, product.image2, product.image3, product.image4, product.image5, product.image6].filter(Boolean);
     var hasDiscount = parseFloat(product.discountPercent) > 0 && parseFloat(product.regularPrice) > parseFloat(product.salePrice);
     // ✅ v16: Honor admin-controlled per-size visibility on the product detail page.
-    var sizes = getVisibleSizes(product.category);
+    var sizes = getVisibleSizes(product.category, product);
     var deliveryLocations = getDeliveryLocations();
     var safeName = escHtml(product.name).replace(/'/g, "\\'");
     var safeCat = escHtml(product.category || '').replace(/'/g, "\\'");
@@ -3104,7 +3267,10 @@ const YARZ = (() => {
     if (hasDiscount) html += '<span class="pd-discount">-' + Math.round(product.discountPercent) + '% OFF</span>';
     html += '</div>';
 
-    if (product.couponActive === 'Yes' && product.couponCode && parseFloat(product.couponDisc) > 0) {
+    // ✅ v15.92: Lowercase compare so admin's accidental "yes"/"YES" in the
+    // sheet still shows the pill correctly. PDP intentionally hides for
+    // 'hidden' (secret coupon) — only 'yes' (public) renders the pill.
+    if (String(product.couponActive || '').toLowerCase() === 'yes' && product.couponCode && parseFloat(product.couponDisc) > 0) {
       // ✅ v14.2: Premium ticket — clearer "COUPON CODE" labelling + Bengali helper.
       //   Class names preserved (`coupon-pill`, `.copied`) so copyCoupon() still works.
       var safeCouponCode = escHtml(product.couponCode).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -3144,8 +3310,13 @@ const YARZ = (() => {
     }
 
     // Sizes
+    // ✅ v16.1 ONE-SIZE: skip the entire size picker for sizeless products.
+    // getVisibleSizes() returns [] for them; we render no Size block at all so
+    // the customer just picks quantity. selectedSize is auto-set to "ONE" in
+    // openProduct() so add-to-cart / buy-now work without a manual pick.
+    if (!isOneSize(product)) {
     html += '<div class="pd-sizes"><div class="label">Size</div><div class="size-options" id="size-options">';
-    var isPant = isPantCategory(product.category);
+    var isPant = _effectiveIsPant(product.category, product);
     // ✅ v11.8: Hide-OOS-per-size — when admin toggle ON, completely skip
     // (don't render) sizes with 0 stock instead of showing them disabled.
     // ✅ v16: Now honors the dedicated "Size OOS Hide" toggle as well as
@@ -3159,6 +3330,7 @@ const YARZ = (() => {
       html += '<button class="size-btn" data-size="' + s + '"' + (disabled ? ' disabled' : '') + ' onclick="YARZ.selectSize(\'' + s + '\')">' + displaySize + '</button>';
     });
     html += '</div></div>';
+    }
 
     // Size chart
     if (product.sizeChart) {
@@ -3315,6 +3487,12 @@ const YARZ = (() => {
       desc.style.webkitLineClamp = '2';
       btn.innerHTML = 'Read More <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.3s"><path d="m6 9 6 6 6-6"/></svg>';
     }
+  }
+
+  // ✅ v16.1 ONE-SIZE: display helper — show "One Size" instead of the raw
+  // "ONE" token wherever a size label is printed (cart, checkout, etc.).
+  function _sizeLabel(size) {
+    return (String(size).toUpperCase() === ONE_SIZE_CODE) ? 'One Size' : size;
   }
 
   function selectSize(s) {
@@ -3602,6 +3780,9 @@ const YARZ = (() => {
     var q = qty || selectedQty;
 
     if (!p) return;
+    // ✅ v16.1 ONE-SIZE: sizeless products carry no size — force the canonical
+    // "ONE" token so the size gate below is satisfied automatically.
+    if (isOneSize(p)) s = ONE_SIZE_CODE;
     if (!s) { showToast('Please select a size', 'warning'); return; }
 
     // ✅ v4.2: Final live-stock guard before adding to cart
@@ -3634,14 +3815,27 @@ const YARZ = (() => {
         // ✅ v3.8: Default location IDs → Narayanganj-based
         deliveryDhaka: parseFloat(p.deliveryDhaka) || getDeliveryCharge('inside_narayanganj'),
         deliveryOutside: parseFloat(p.deliveryOutside) || getDeliveryCharge('outside_narayanganj'),
-        couponActive: p.couponActive || 'No',
-        couponCode: p.couponCode || '',
+        // ✅ v15.92: Canonicalize couponActive at cart-ingestion so every
+        // downstream check (PDP pill, applyCoupon, discount calculations)
+        // sees a consistent capitalized value. Without this, an admin who
+        // typed lowercase "hidden" or "yes" in the sheet (allowed because
+        // INVENTORY!AQ uses setAllowInvalid=true) caused the "ghost
+        // discount" bug — applyCoupon (lowercase compare) said ✅ Applied
+        // but the actual subtotal calculation (strict 'Yes'/'Hidden')
+        // never subtracted, so the customer was charged full price.
+        couponActive: (function(v){
+          var s = String(v || '').trim().toLowerCase();
+          if (s === 'yes')    return 'Yes';
+          if (s === 'hidden') return 'Hidden';
+          return 'No';
+        })(p.couponActive),
+        couponCode: String(p.couponCode || '').trim(),
         couponDisc: parseFloat(p.couponDisc) || 0,
       });
     }
 
     saveCart();
-    showToast(p.name + ' (' + s + ') added to cart');
+    showToast(p.name + ' (' + _sizeLabel(s) + ') added to cart');
     // ✅ v15.6: Skip drawer render if admin disabled it — saves DOM thrash
     if (!(state.controls && state.controls.cartDrawer === false)) {
       renderCartDrawer();
@@ -3746,11 +3940,11 @@ const YARZ = (() => {
     } else {
       cartHtml = freeShipBannerHtml + state.cart.map(function (item) {
         var safeKey = escHtml(item.key).replace(/'/g, "\\'");
-        return '<div class="cart-item">' +
+        return '<div class="cart-item" data-cart-key="' + escHtml(item.key) + '">' +
           '<div class="cart-item-img"><img src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" onerror="this.style.display=\'none\'"></div>' +
           '<div class="cart-item-info">' +
           '<div class="cart-item-name">' + escHtml(item.name) + '</div>' +
-          '<div class="cart-item-meta">Size: ' + item.size + ' &middot; Qty: ' + item.qty + '</div>' +
+          '<div class="cart-item-meta">Size: ' + _sizeLabel(item.size) + ' &middot; Qty: ' + item.qty + '</div>' +
           '<div class="cart-item-price">' + formatPrice(item.price * item.qty) + '</div>' +
           '<div class="cart-item-remove" style="color: #d32f2f; font-weight: bold; font-size: 11.5px; margin-top: 2px;" onclick="YARZ.removeFromCart(\'' + safeKey + '\')">Remove</div>' +
           '</div></div>';
@@ -3845,6 +4039,35 @@ const YARZ = (() => {
 
   // ===== BUY NOW =====
   function buyNow() {
+    // ✅ v15.96: Duplicate-in-cart guard. Customers often leave an item in
+    // the cart, return later, re-select the SAME product + SAME size, and
+    // hit Buy Now again — silently adding a second line / bumping the qty
+    // without realising the item was already there. To prevent confusion:
+    //   • If this exact product+size is ALREADY in the cart → DON'T add
+    //     again. Open the cart drawer instead and highlight the existing
+    //     line so the customer sees "you already have this" and can decide.
+    //   • If it's NOT in the cart yet → behave exactly as before (add +
+    //     go straight to checkout).
+    var p = state.currentProduct;
+    var s = selectedSize;
+    // ✅ v16.1 ONE-SIZE: ensure the canonical token so the duplicate-in-cart
+    // key matches what addToCart() will use for a sizeless product.
+    if (p && isOneSize(p)) s = ONE_SIZE_CODE;
+    // Only treat it as "already in cart" when a real, selectable size is
+    // chosen. If no size is selected, fall through to addToCart() which shows
+    // the proper "Please select a size" warning (single source of truth).
+    if (p && s) {
+      var key = p.name + '_' + s;
+      var existing = (state.cart || []).find(function (i) { return i.key === key; });
+      if (existing) {
+        // Already in cart → open drawer, highlight it, inform the customer.
+        toggleCart(true);
+        _highlightCartItem(key);
+        showToast('এই সাইজটি আগে থেকেই আপনার কার্টে আছে — চেক করে নিন।', 'info');
+        return;
+      }
+    }
+
     // ✅ v15.47 FIX: Detect whether addToCart actually succeeded (size
     // selected, in-stock, under cap) BEFORE opening checkout. Previously
     // a no-size click on Buy Now would toast the warning and then still
@@ -3859,6 +4082,31 @@ const YARZ = (() => {
     if (afterLen === beforeLen && afterQty === beforeQty) return;
     toggleCart(false);
     openCheckout();
+  }
+
+  // ✅ v15.96: Briefly highlight a cart line (by its key) so the customer's
+  // eye lands on the item that's already in the cart. Opens the drawer first
+  // (caller does), then scrolls + pulses the matching .cart-item.
+  function _highlightCartItem(key) {
+    try {
+      // Wait a tick so renderCartDrawer() (triggered by toggleCart) has
+      // painted the rows before we look for the node.
+      setTimeout(function () {
+        var rows = document.querySelectorAll('#cart-body .cart-item');
+        if (!rows || !rows.length) return;
+        var safeKey = String(key);
+        var target = null;
+        rows.forEach(function (row) {
+          if (row.getAttribute('data-cart-key') === safeKey) target = row;
+        });
+        // Fallback: if data-key not present, match the first row (defensive)
+        if (!target) target = rows[0];
+        if (!target) return;
+        target.classList.add('cart-item--flash');
+        try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+        setTimeout(function () { target.classList.remove('cart-item--flash'); }, 2400);
+      }, 120);
+    } catch (e) {}
   }
 
   // ===== CHECKOUT =====
@@ -3915,7 +4163,7 @@ const YARZ = (() => {
           state.cart.forEach(function(c, idx){
             var sub = (c.price || 0) * (c.qty || 1);
             total += sub;
-            lines.push((idx+1) + '. ' + c.name + ' (' + (c.size || '-') + ') × ' + c.qty + ' = ৳' + sub);
+            lines.push((idx+1) + '. ' + c.name + ' (' + (_sizeLabel(c.size) || '-') + ') × ' + c.qty + ' = ৳' + sub);
           });
           lines.push('');
           lines.push('*Subtotal: ৳' + total + '*');
@@ -4027,7 +4275,15 @@ const YARZ = (() => {
     if (couponInput) couponInput.value = '';
     var couponMsg = $('#co-coupon-msg');
     if (couponMsg) couponMsg.innerHTML = '';
-    var hasCoupon = state.cart.some(function(item) { return item.couponActive === 'Yes' && item.couponCode; });
+    // ✅ v15.92: Show coupon input at checkout if ANY cart item has a coupon
+    // marked Yes (public) OR Hidden (secret). Hidden mode means the field
+    // appears so customers who received a private code (e.g. via FB Live)
+    // can still redeem it at checkout, but the storefront PDP never
+    // advertised the discount.
+    var hasCoupon = state.cart.some(function(item) {
+      var act = String(item.couponActive || '').toLowerCase();
+      return (act === 'yes' || act === 'hidden') && item.couponCode;
+    });
     var couponSec = $('#checkout-coupon-section');
     if (couponSec) couponSec.style.display = hasCoupon ? 'block' : 'none';
 
@@ -4335,9 +4591,29 @@ const YARZ = (() => {
     var subtotal = 0;
     state.cart.forEach(function (item) {
       subtotal += item.price * item.qty;
-      html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;">' +
-        '<span>' + escHtml(item.name) + ' (' + item.size + ') x' + item.qty + '</span>' +
-        '<span>' + formatPrice(item.price * item.qty) + '</span></div>';
+      // ✅ v15.93: Premium order-summary row with product thumbnail.
+      // Adds a 48px image on the left so customers can visually confirm
+      // the item before submitting (matches Shopify / WooCommerce
+      // checkout patterns). Falls back gracefully when image is missing.
+      var imgSrc = item.image || '';
+      var imgHtml = imgSrc
+        ? '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(item.name) + '" loading="lazy" '
+          + 'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" '
+          + 'style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg-secondary);border:1px solid var(--border-light);">'
+          + '<span style="display:none;width:48px;height:48px;border-radius:8px;background:var(--bg-secondary);align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border-light);">'
+            + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
+          + '</span>'
+        : '<span style="display:flex;width:48px;height:48px;border-radius:8px;background:var(--bg-secondary);align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border-light);">'
+          + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
+          + '</span>';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12px;">'
+        +    imgHtml
+        +    '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">'
+        +      '<div style="font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(item.name) + '</div>'
+        +      '<div style="font-size:11px;color:var(--text-muted);">Size: ' + escHtml(_sizeLabel(item.size)) + ' · Qty: ' + item.qty + '</div>'
+        +    '</div>'
+        +    '<div style="font-weight:600;color:var(--text-primary);white-space:nowrap;">' + formatPrice(item.price * item.qty) + '</div>'
+        +  '</div>';
     });
     el.innerHTML = html;
     
@@ -4441,9 +4717,15 @@ const YARZ = (() => {
       return;
     }
 
-    // Check if code matches any product in cart
+    // ✅ v15.92: Check if code matches any product in cart whose coupon
+    // status is "Yes" (public) OR "Hidden" (secret/private). The Hidden
+    // mode lets admin set a coupon that does NOT show on the product
+    // page but is still redeemable at checkout — perfect for live-stream
+    // giveaways, VIP / influencer codes, and private discounts.
     var matchedItem = state.cart.find(function(item) {
-      return item.couponActive === 'Yes' && (item.couponCode || '').toUpperCase() === code;
+      var act = String(item.couponActive || '').toLowerCase();
+      var isRedeemable = (act === 'yes' || act === 'hidden');
+      return isRedeemable && (item.couponCode || '').toUpperCase() === code;
     });
 
     if (matchedItem) {
@@ -4461,10 +4743,31 @@ const YARZ = (() => {
     }
   }
 
+  // ✅ v15.93: Safely set the Place Order button label WITHOUT destroying
+  // the animated truck markup. The button now contains child elements
+  // (.po-default, .po-success, .po-truck, .po-box, .po-lines). Using
+  // btn.textContent = '...' would wipe ALL of them and permanently break
+  // the animation on the next order. This helper only updates the visible
+  // .po-default span's text, leaving the structure intact.
+  function _setCheckoutBtnLabel(btn, label) {
+    if (!btn) return;
+    var def = btn.querySelector('.po-default');
+    if (def) {
+      def.textContent = label;
+    } else {
+      // Fallback for any non-animated build (defensive)
+      btn.textContent = label;
+    }
+  }
+
   function closeCheckout() {
     var modal = $('#checkout-modal');
     if (modal) modal.classList.remove('active');
     document.body.classList.remove('checkout-open');
+    // ✅ v15.93: Reset the Place Order truck animation so the next time
+    // the customer opens checkout, the button starts in its default state.
+    var __pob = $('#checkout-submit-btn');
+    if (__pob) __pob.classList.remove('animate');
     // ✅ v15.46: Stamp the close time so toggleCart(true) can tell whether
     // the same click that closed checkout should ALSO try to re-open it
     // (in cartDrawer===false mode). Without this, clicking the cart icon
@@ -4668,12 +4971,12 @@ const YARZ = (() => {
           var item = state.cart[i];
           totalQty += item.qty;
           var itemPrice = item.price;
-          if (state.appliedCoupon && item.couponActive === 'Yes' && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
+          if (state.appliedCoupon && (function(a){a=String(a||'').toLowerCase();return a==='yes'||a==='hidden';})(item.couponActive) && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
              var discountAmt = (itemPrice * state.appliedCoupon.discountPct) / 100;
              itemPrice = itemPrice - discountAmt;
           }
           subtotal += (itemPrice * item.qty);
-          productNames.push(item.name + ' (' + item.size + ') x' + item.qty);
+          productNames.push(item.name + ' (' + _sizeLabel(item.size) + ') x' + item.qty);
         }
         
         var locationField = ($('#co-location') || {}).value || 'inside_narayanganj';
@@ -4741,6 +5044,13 @@ const YARZ = (() => {
         yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
         newYesBtn.addEventListener('click', function() {
           confirmModal.classList.remove('active');
+          // ✅ v15.93: Kick off the truck delivery animation on the
+          // Place Order button. The animation runs ~9s and finishes on
+          // its own — submitOrder will close the checkout modal once
+          // the backend responds, so the truck reaches its destination
+          // visually before the success modal/toast takes over.
+          var __pob2 = $('#checkout-submit-btn');
+          if (__pob2) __pob2.classList.add('animate');
           processOrderSubmission(name, phone, email, address, location, city, payment, trxid, orderSig);
         });
       }
@@ -4820,7 +5130,7 @@ const YARZ = (() => {
     localStorage.setItem('yarz_last_order_sig', orderSig);
     localStorage.setItem('yarz_last_order_sig_time', Date.now());
 
-    if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+    if (btn) { btn.disabled = true; _setCheckoutBtnLabel(btn, 'Submitting...'); }
 
     // Generate Device Fingerprint for cross-browser tracking privacy
     var sw = window.screen.width || 0;
@@ -4838,7 +5148,7 @@ const YARZ = (() => {
       var itemPrice = item.price;
       
       // Apply coupon if valid for this item (global cart level is fine for now based on matched coupon)
-      if (state.appliedCoupon && item.couponActive === 'Yes' && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
+      if (state.appliedCoupon && (function(a){a=String(a||'').toLowerCase();return a==='yes'||a==='hidden';})(item.couponActive) && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
         var discountAmt = (itemPrice * state.appliedCoupon.discountPct) / 100;
         itemPrice = itemPrice - discountAmt;
       }
@@ -4959,7 +5269,7 @@ const YARZ = (() => {
       var newLocalOrders = state.cart.map(function(item, idx) {
         var deliveryCharge = idx === 0 ? checkoutDeliveryCharge : 0;
         var itemPrice = item.price;
-        if (state.appliedCoupon && item.couponActive === 'Yes' && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
+        if (state.appliedCoupon && (function(a){a=String(a||'').toLowerCase();return a==='yes'||a==='hidden';})(item.couponActive) && (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
           itemPrice = itemPrice - (itemPrice * state.appliedCoupon.discountPct / 100);
         }
         return {
@@ -5017,7 +5327,7 @@ const YARZ = (() => {
     // Set rate limit cooldown
     localStorage.setItem('yarz_last_order_time', Date.now().toString());
     
-    if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+    if (btn) { btn.disabled = false; _setCheckoutBtnLabel(btn, 'Place Order'); }
 
     // 5. Fire API in background using Promise without blocking the UI
     if (YARZ_API.isConfigured()) {
@@ -5058,7 +5368,7 @@ const YARZ = (() => {
       try { showToast('অর্ডার সাবমিট করতে সমস্যা: ' + (orderErr.message || 'unknown'), 'error'); } catch(_) {}
     } finally {
       // ✅ v15.8 FIX: ALWAYS reset the button — no matter what happens above.
-      if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+      if (btn) { btn.disabled = false; _setCheckoutBtnLabel(btn, 'Place Order'); }
       // ✅ v15.35: clear the order-in-flight lock used by submitOrder to keep
       // the button disabled and to suppress background SWR re-renders during
       // checkout.
@@ -5158,14 +5468,14 @@ const YARZ = (() => {
     var html = '<div style="max-width:480px;margin:48px auto;text-align:center;padding:0 24px;">' +
       '<div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px;">' +
       '<svg viewBox="0 0 24 24" style="width:48px;height:48px;" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+      '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
       '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
       '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
       '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
       '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
       '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
       '</svg>' +
-      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:14px;font-weight:600;letter-spacing:0.26em;color:#6E1F2A;text-transform:uppercase;border-bottom:1px solid rgba(110,31,42,0.4);padding-bottom:6px;">YARZ</span>' +
+      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:14px;font-weight:600;letter-spacing:0.26em;color:#ff004c;text-transform:uppercase;border-bottom:1px solid rgba(255, 0, 76,0.4);padding-bottom:6px;">YARZ</span>' +
       '</div>' +
       '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 24px rgba(16,185,129,0.35);">' + ICONS.check + '</div>' +
       '<h2 style="font-family:var(--font-serif);font-size:22px;font-weight:600;margin-bottom:12px;color:var(--ink-1);">ধন্যবাদ!</h2>' +
@@ -5188,7 +5498,7 @@ const YARZ = (() => {
   // Helper for fake success (Honeypot & Blacklist)
   function simulateFakeSuccess(name, phone, address, payment) {
     var btn = $('#checkout-submit-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+    if (btn) { btn.disabled = true; _setCheckoutBtnLabel(btn, 'Submitting...'); }
     setTimeout(function() {
       state.cart = [];
       saveCart();
@@ -5196,7 +5506,7 @@ const YARZ = (() => {
       var fakeOrderId = 'YARZ-WEB-' + Date.now().toString().slice(-6) + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
       var mockResults = [{ total: 0 }];
       showOrderSuccess(fakeOrderId, mockResults, payment);
-      if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+      if (btn) { btn.disabled = false; _setCheckoutBtnLabel(btn, 'Place Order'); }
     }, 1500);
   }
 
@@ -5349,7 +5659,13 @@ const YARZ = (() => {
       renderOrderResults(localOrders, container);
     }
 
-    var handleResults = function(apiOrders) {
+    var handleResults = function(apiOrders, apiSucceeded) {
+      // ✅ v15.95: apiSucceeded distinguishes a genuine API response (which
+      // may legitimately be empty because the admin deleted an order) from a
+      // failed/fallback/not-configured call (empty only because the request
+      // didn't reach the server). Admin-delete → Cancelled detection runs
+      // ONLY when apiSucceeded === true, so a transient network blip or the
+      // 10s background poll can never false-cancel a live order.
       // ✅ v10.9 SUPER POWERFUL: Cross-Device / Cross-Browser Smart Sync!
       // Removed Device Fingerprinting. Now if a customer searches their phone number 
       // from ANY device or browser (iPhone, Safari, FB Browser, Chrome), we instantly 
@@ -5392,9 +5708,41 @@ const YARZ = (() => {
               if (ao.activity && lo.activity !== ao.activity) { lo.activity = ao.activity; localChanged = true; }
               // Adopt the backend orderId so future matches stay reliable
               if (ao.orderId && lo.orderId !== ao.orderId) { lo.orderId = ao.orderId; localChanged = true; }
+              // ✅ v15.95: Stamp that this order WAS seen on the server. Used
+              // below to distinguish an admin-deleted order (seen before,
+              // gone now → Cancelled) from a just-placed order that hasn't
+              // synced yet (never seen → keep Pending, no false-cancel).
+              if (!lo._seenOnServer) { lo._seenOnServer = true; localChanged = true; }
             }
           });
         });
+        // ✅ v15.95: Detect admin-deleted orders. If a local record was
+        // previously confirmed on the server (_seenOnServer) but is now
+        // absent from the live API response, the admin deleted it → show
+        // it as Cancelled so the customer gets a clear status + WhatsApp CTA
+        // instead of a stale "Pending". Skip records already terminal.
+        // GUARDED by apiSucceeded — never runs on a failed/empty-fallback
+        // call, which would otherwise false-cancel every order on a blip.
+        if (apiSucceeded) {
+          allLocal.forEach(function(lo) {
+            if (!lo._seenOnServer) return;
+            var st = String(lo.status || '').toLowerCase().replace(/\s+/g,'');
+            if (st === 'cancelled' || st === 'canceled' || st === 'returned' || st === 'delivered') return;
+            var stillThere = secureApiOrders.some(function(ao) {
+              var matchById  = (ao.orderId && lo.orderId && ao.orderId === lo.orderId);
+              var phoneMatch = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");
+              var matchByMeta = phoneMatch &&
+                                ((ao.product || ao.productName) === (lo.product || lo.productName)) &&
+                                (String(ao.size||'') === String(lo.size||''));
+              return matchById || matchByMeta;
+            });
+            if (!stillThere) {
+              lo.status = 'Cancelled';
+              lo._cancelledByAdmin = true;
+              localChanged = true;
+            }
+          });
+        }
         if (localChanged) {
           localStorage.setItem('yarz_my_orders', JSON.stringify(allLocal));
         }
@@ -5433,7 +5781,7 @@ const YARZ = (() => {
     };
 
     if (!YARZ_API.isConfigured()) {
-      handleResults([]);
+      handleResults([], false); // ✅ v15.95: not a real API success → skip delete-detection
       return;
     }
 
@@ -5441,17 +5789,17 @@ const YARZ = (() => {
     //    cache so the admin's status change reaches the customer instantly.
     YARZ_API.getOrdersByPhone(phone, true).then(function (result) {
       if (result.fallback) {
-        handleResults([]);
+        handleResults([], false); // ✅ v15.95: fallback (request failed) → skip delete-detection
         return;
       }
       // Apps Script returns { success, data: [...] } — normalize to .orders
       var rows = result.orders || result.data || [];
-      handleResults(rows);
+      handleResults(rows, true); // ✅ v15.95: genuine API success → delete-detection allowed
     }).catch(function (err) {
       console.error('Track error:', err);
       // Fallback to local on error
       if (localOrders.length > 0) {
-        handleResults([]);
+        handleResults([], false); // ✅ v15.95: network error → skip delete-detection
       } else {
         container.innerHTML = '<div class="text-center mt-24" style="color:var(--danger);font-size:13px;">Error loading orders. Please try again.</div>';
         if (btn) { btn.disabled = false; btn.textContent = 'Search Orders'; }
@@ -5500,7 +5848,105 @@ const YARZ = (() => {
     } catch(e) { return String(input); }
   }
 
+  // ✅ v15.95: Build a premium order-tracking timeline for the customer.
+  // Maps the raw order status (from the sheet / admin panel) to a 5-stage
+  // visual stepper: Confirmed → Processing → Picked Up → In Transit →
+  // Delivered. Cancelled / Returned render a dedicated red banner with a
+  // WhatsApp CTA instead of the stepper. Pure inline styles + the .yarz-*
+  // classes defined in style.css, so it works the moment the card mounts.
+  function _buildOrderTimeline(o, waUrl) {
+    var raw = String(o.status || 'Pending').toLowerCase().replace(/\s+/g, '');
+    var updated = _fmtBdDate(o.updated || o.date || o.orderDate || '');
+
+    // ── Cancelled / Returned → banner (no stepper) ──
+    if (raw === 'cancelled' || raw === 'canceled' || raw === 'returned') {
+      var isReturn = (raw === 'returned');
+      var bannerTitle = isReturn ? 'অর্ডারটি রিটার্ন করা হয়েছে' : 'অর্ডারটি বাতিল করা হয়েছে';
+      var bannerText = isReturn
+        ? 'আপনার অর্ডারটি রিটার্ন হিসেবে প্রসেস করা হয়েছে। বিস্তারিত তথ্য জানতে আমাদের সাথে WhatsApp-এ যোগাযোগ করুন।'
+        : 'আপনার অর্ডারটি বাতিল করা হয়েছে। সম্পূর্ণ তথ্য জানতে বা পুনরায় অর্ডার করতে আমাদের সাথে WhatsApp-এ যোগাযোগ করুন।';
+      var waMsg = encodeURIComponent('আমার অর্ডার #' + (o.orderId || o.orderID || '') + ' সম্পর্কে জানতে চাই।');
+      var waFull = waUrl + (waUrl.indexOf('?') > -1 ? '&' : '?') + 'text=' + waMsg;
+      var waSvg = '<svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a1.1 1.1 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>';
+      return '<div class="yarz-track yarz-track--cancel">' +
+        '<div class="yarz-cancel-box">' +
+          '<div class="yarz-cancel-box__icon">' + _icon(isReturn ? 'rotate' : 'xCircle', 24) + '</div>' +
+          '<div class="yarz-cancel-box__title">' + bannerTitle + '</div>' +
+          '<div class="yarz-cancel-box__text">' + bannerText + '</div>' +
+          '<a href="' + escHtml(waFull) + '" target="_blank" rel="noopener" class="yarz-cancel-box__wa">' +
+            waSvg + '<span>WhatsApp এ যোগাযোগ করুন</span>' +
+          '</a>' +
+        '</div>' +
+      '</div>';
+    }
+
+    // ── Normal flow → 5-stage stepper ──
+    // Map every possible status to a stage index (0..4). `raw` has already
+    // been lowercased AND had spaces stripped, so keys here are space-free.
+    var stageIndex = {
+      pending: 0, confirmed: 0,
+      processing: 1, packaging: 1,
+      pickedup: 2,
+      shipped: 3, intransit: 3, outfordelivery: 3,
+      delivered: 4, completed: 4
+    };
+    var current = stageIndex.hasOwnProperty(raw) ? stageIndex[raw] : 0;
+
+    var steps = [
+      { icon: 'check', name: 'Order Confirmed', desc: 'আপনার অর্ডারটি গ্রহণ ও কনফার্ম করা হয়েছে।' },
+      { icon: 'cog',   name: 'Processing',      desc: 'প্রোডাক্ট প্যাকেজিং করা হচ্ছে।' },
+      { icon: 'box',   name: 'Picked Up',       desc: 'অর্ডারটি কুরিয়ারে হস্তান্তর করা হয়েছে।' },
+      { icon: 'truck', name: 'In Transit',      desc: 'অর্ডারটি আপনার ঠিকানার পথে রয়েছে।' },
+      { icon: 'pkgIn', name: 'Delivered',       desc: 'অর্ডারটি সফলভাবে পৌঁছে দেওয়া হয়েছে।' }
+    ];
+
+    var isComplete = (current >= 4);
+    var headChip = isComplete
+      ? '<span class="yarz-track__chip yarz-track__chip--done">' + _icon('check', 11) + '<span>Completed</span></span>'
+      : '<span class="yarz-track__chip yarz-track__chip--progress">' + _icon('truck', 11) + '<span>In Progress</span></span>';
+
+    var rows = '';
+    steps.forEach(function (s, i) {
+      var cls = '';
+      if (i < current) cls = 'yarz-step--done';
+      else if (i === current) cls = (isComplete ? 'yarz-step--done' : 'yarz-step--current');
+      // Completed-step dots show a check; pending/current keep their own icon.
+      var dotIcon = (i < current || (isComplete)) ? _icon('check', 16) : _icon(s.icon, 16);
+      // Only show a timestamp on steps already reached (done + current).
+      var timeHtml = (i <= current) ? '<span class="yarz-step__time">' + escHtml(updated) + '</span>' : '';
+      rows += '<div class="yarz-step ' + cls + '">' +
+        '<div class="yarz-step__dot">' + dotIcon + '</div>' +
+        '<div class="yarz-step__body">' +
+          '<div class="yarz-step__row">' +
+            '<span class="yarz-step__name">' + s.name + '</span>' +
+            timeHtml +
+          '</div>' +
+          '<div class="yarz-step__desc">' + s.desc + '</div>' +
+        '</div>' +
+      '</div>';
+    });
+
+    return '<div class="yarz-track">' +
+      '<div class="yarz-track__head">' +
+        '<span class="yarz-track__title">Order Timeline</span>' +
+        headChip +
+      '</div>' +
+      rows +
+    '</div>';
+  }
+
   function renderOrderResults(orders, container) {
+    // ✅ v15.95: Resolve the store WhatsApp number once for all order cards
+    // (used by the Cancelled/Returned banner CTA + the card footer help line).
+    var _waNum = '';
+    try {
+      _waNum = (state.controls && state.controls.liveChat && state.controls.liveChat.whatsappNumber) ||
+               (state.controls && state.controls.socialLinks && state.controls.socialLinks.whatsapp) || '';
+    } catch (e) {}
+    var _waDigits = String(_waNum).replace(/[^0-9]/g, '');
+    if (_waDigits.length < 8) _waDigits = '8801601743670';
+    var trackWaUrl = 'https://wa.me/' + _waDigits;
+
     var html = '<div style="margin-top:16px;">' +
       '<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-family:var(--font-bengali);">মোট ' + orders.length + ' টি অর্ডার পাওয়া গেছে</p>';
 
@@ -5555,7 +6001,7 @@ const YARZ = (() => {
           statusBadge = '<span style="display:inline-flex;align-items:center;gap:5px;color:#DC2626;background:rgba(220,38,38,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.04em;">' + _icon('xCircle', 11) + '<span>Cancelled</span></span>';
           break;
         default:
-          statusText = rawStatus;
+          statusText = escHtml(rawStatus);
           statusBadge = '<span style="color:var(--text-muted);background:var(--surface-1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;">' + escHtml(rawStatus) + '</span>';
       }
 
@@ -5577,7 +6023,7 @@ const YARZ = (() => {
       // Product name (clickable)
       if (prodName) {
         html += '<div style="font-size:13px;font-weight:600;margin-bottom:8px;cursor:pointer;" onclick="YARZ.openProduct(\'' + safeName + '\')"><span style="color:var(--accent);text-decoration:underline;text-decoration-color:rgba(99,74,142,0.3);text-underline-offset:3px;transition:all 0.2s;">' +
-          prodName + '</span>' + (o.size ? ' <span style="color:var(--text-muted);font-weight:400;">(' + escHtml(o.size) + ')</span>' : '') +
+          prodName + '</span>' + (o.size ? ' <span style="color:var(--text-muted);font-weight:400;">(' + escHtml(_sizeLabel(o.size)) + ')</span>' : '') +
           (qty > 1 ? ' <span style="color:var(--text-muted);font-weight:400;">x' + qty + '</span>' : '') + ' <span style="font-size:11px;color:var(--accent);opacity:0.7;">→</span></div>';
       }
 
@@ -5605,10 +6051,26 @@ const YARZ = (() => {
       }
       html += '</div>';
 
-      // ✅ v4.3: Customer can NO longer cancel/remove orders after placing them
-      html += '<div style="text-align:right;">';
-      html += '<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-bengali);">অর্ডার বাতিল করতে হলে আমাদের কল করুন</span>';
-      html += '</div></div>';
+      // ✅ v15.95: Premium real-time order tracking timeline. Shows the
+      // customer exactly where their order is (Confirmed → Processing →
+      // Picked Up → In Transit → Delivered) or a Cancelled/Returned banner
+      // with a WhatsApp CTA. Driven by the live status synced from admin.
+      html += _buildOrderTimeline(o, trackWaUrl);
+
+      // ✅ v15.95: Footer help line — for non-terminal orders, point the
+      // customer to WhatsApp for any change/cancel request (customers can no
+      // longer self-cancel). Cancelled/Returned already show their own CTA.
+      var _fstatus = String(o.status || '').toLowerCase().replace(/\s+/g, '');
+      var _isTerminal = (_fstatus === 'cancelled' || _fstatus === 'canceled' || _fstatus === 'returned' || _fstatus === 'delivered');
+      if (!_isTerminal) {
+        html += '<div style="text-align:center;margin-top:12px;">' +
+          '<a href="' + escHtml(trackWaUrl) + '?text=' + encodeURIComponent('আমার অর্ডার #' + (o.orderId || o.orderID || '') + ' সম্পর্কে জানতে চাই।') + '" target="_blank" rel="noopener" ' +
+            'style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);text-decoration:none;font-family:var(--font-bengali);">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a1.1 1.1 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>' +
+            '<span>কোনো পরিবর্তন বা বাতিল করতে WhatsApp করুন</span>' +
+          '</a></div>';
+      }
+      html += '</div>';
     });
 
     html += '</div>';
@@ -6814,8 +7276,14 @@ const YARZ = (() => {
         if (metaDesc) metaDesc.content = sTag;
       }
       if (sLogo) {
+        // ✅ v15.89: Preserve the animated YARZ brand mark.
+        // Previously this innerHTML-replaced the entire .brand-logo with a
+        // plain <img>, destroying the threads + needle + knot SVG animation
+        // that lives inside it. The owner's brand mark IS the logo — admin's
+        // "store_logo" / "brand_logo_url" setting only applies on
+        // non-branded fallback (logoEl missing the .yarz-mark animation).
         var logoEl = document.querySelector('.brand-logo');
-        if (logoEl) {
+        if (logoEl && !logoEl.classList.contains('yarz-mark')) {
           logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(sLogo)) + '" alt="' + escHtml(sName || 'Logo') + '" style="max-height:32px;">';
         }
       }
@@ -6882,8 +7350,12 @@ const YARZ = (() => {
 
       // ── Website Logo (from admin settings) ──
       if (controls.websiteLogoUrl) {
+        // ✅ v15.89: Same protection as the store_logo branch above.
+        // The animated YARZ brand mark (.brand-logo.yarz-mark) is preserved;
+        // admin's website_logo_url only applies if the .brand-logo element
+        // is NOT the YARZ animated mark (e.g. a future generic build).
         var logoEl = document.querySelector('.brand-logo');
-        if (logoEl) {
+        if (logoEl && !logoEl.classList.contains('yarz-mark')) {
           logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(controls.websiteLogoUrl)) + '" alt="' + escHtml(controls.raw.store_name || 'Logo') + '" style="max-height:32px;">';
         }
       }
@@ -7059,7 +7531,7 @@ const YARZ = (() => {
               '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\')">&times;</button>' +
               '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
                 '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
-                  '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+                  '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
                   '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
                   '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
                   '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
@@ -7528,7 +8000,7 @@ const YARZ = (() => {
       '</div>' +
       '<div class="maintenance-logo yarz-mark yarz-mark--stacked yarz-mark--inverse" style="display:inline-flex;align-items:center;flex-direction:column;gap:14px;margin-bottom:24px;">' +
       '<svg viewBox="0 0 24 24" style="width:64px;height:64px;" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+      '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
       '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
       '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
       '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
@@ -7729,7 +8201,7 @@ const YARZ = (() => {
         // YARZ wordmark lockup (stacked, light variant — wordmark already in cream/burgundy by default in CSS)
         '<div class="yarz-mark yarz-mark--stacked" aria-hidden="true">' +
           '<svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true">' +
-            '<circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>' +
+            '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
             '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
             '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
             '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
@@ -7766,6 +8238,17 @@ const YARZ = (() => {
 
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
+    // ✅ v15.85: Hide storefront chrome behind the overlay so customers
+    // don't see the dark footer or stale page content peeking through.
+    // (Was the bug in the user's screenshot — overlay was hidden by the
+    // FOUC `:not(.active)` rule and only the footer was visible.)
+    try {
+      var _mainEl = document.getElementById('main-content');
+      if (_mainEl) _mainEl.style.display = 'none';
+      document.querySelectorAll('.site-footer, .site-header, .floating-whatsapp-btn, #yarz-bottom-nav, .mobile-bottom-nav').forEach(function(el){
+        el.style.display = 'none';
+      });
+    } catch(e) {}
 
     // ── v15.74: Countdown ticker (self-scheduling setTimeout aligned to wall clock) ──
     if (hasTarget) {

@@ -98,42 +98,19 @@
     }
   }
 
-  // ─── 2. EARLY READ from IndexedDB (parallel to script loading) ──
-  const DB_NAME = 'yarz_turbo';
-  const STORE   = 'cache';
-
-  function readCached(key) {
-    return new Promise((resolve) => {
-      if (!window.indexedDB) return resolve(null);
-      try {
-        const req = indexedDB.open(DB_NAME, 2);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'key' });
-          if (!db.objectStoreNames.contains('meta'))  db.createObjectStore('meta',  { keyPath: 'key' });
-        };
-        req.onsuccess = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(STORE)) return resolve(null);
-          const tx  = db.transaction(STORE, 'readonly');
-          const gr  = tx.objectStore(STORE).get(key);
-          gr.onsuccess = () => resolve(gr.result || null);
-          gr.onerror   = () => resolve(null);
-        };
-        req.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 800); // safety timeout
-      } catch (e) { resolve(null); }
-    });
-  }
-
-  // Expose for app to consume
-  window.__YARZ_CACHE_PRELOAD = {
-    products:   readCached('products'),
-    categories: readCached('categories'),
-    banners:    readCached('banners'),
-    settings:   readCached('site-settings'),
-    featured:   readCached('featured')
-  };
+  // ─── 2. (REMOVED v15.97) EARLY IndexedDB PRELOAD ───────────────
+  // Previously this block opened IndexedDB 5× on every page load to read
+  // cached products/categories/banners/settings/featured. But the site runs
+  // in ZERO-CACHE MODE (owner policy: customers must ALWAYS get live data
+  // from the Cloudflare Worker edge, never a client-side snapshot). Those
+  // reads ALWAYS returned null (turbo-core never writes to IDB) and nothing
+  // ever consumed `window.__YARZ_CACHE_PRELOAD` — so it was pure dead weight
+  // that spun up an IndexedDB connection on the critical path for no benefit.
+  // Removed entirely. Real-time speed now comes from:
+  //   1. Cloudflare Worker Edge SSR injecting __YARZ_INITIAL_STATE (0 round-trips)
+  //   2. Inline <head> early-fetch firing the products request in parallel
+  //   3. Worker server-side edge cache (FRESH_TTL=30min, purged on Publish)
+  // No customer-side persistence at any layer. ALWAYS LIVE.
 
   // ─── 3. SKELETON RENDER (instant feedback) ──────────────────────
   function showSkeleton() {
@@ -146,7 +123,7 @@
       <div class="yarz-skeleton-wrap" aria-hidden="true">
         <div class="yarz-skel-stamp">
           <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
-            <circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/>
+            <circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>
             <circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>
             <circle cx="8.7" cy="8.7" r="2" fill="#FBF8F1"/>
             <circle cx="15.3" cy="8.7" r="2" fill="#FBF8F1"/>

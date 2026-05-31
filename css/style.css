@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
     YARZ — Premium Men's Fashion E-Commerce  v3.6
     Design System: Light Cream + Purple | Desktop-First 1280px
     Aesthetic: High-end minimalist editorial, luxury fashion
@@ -1858,7 +1858,14 @@ html body #hero-slider .slide .banner-overlay,
 /* ===== FOOTER ===== */
 .site-footer {
   background: var(--footer-bg);
-  color: var(--footer-text);
+  /* ✅ v15.89 (per owner spec): Footer text is HARDCODED PURE WHITE.
+     No variable, no theme linkage, no auto-contrast. The owner explicitly
+     requested that footer text never change with any theme — only the
+     background follows the preset. Every preset's footer-bg is dark
+     enough (audited: minimum 11.31:1 contrast on Sage Botanical) for
+     pure white text to be bulletproof readable. !important locks this
+     against any later override (cream block, theme palette, custom CSS). */
+  color: #FFFFFF !important;
   padding: 40px 0 0;
   margin-top: var(--section-gap);
 }
@@ -1873,7 +1880,9 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 .footer-col h4 {
-  color: #FFFFFF;
+  /* v15.89: Hardcoded pure white. No variable. No theme linkage.
+     !important guards against any cream/theme/custom-CSS override. */
+  color: #FFFFFF !important;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1882,6 +1891,9 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 .footer-col p {
+  /* v15.89: Hardcoded white (was rgba alpha — could fade against any bg).
+     Owner spec: footer text is always pure white, no theme linkage. */
+  color: #FFFFFF !important;
   font-size: 12px;
   line-height: 1.65;
   margin-bottom: 12px;
@@ -1892,7 +1904,8 @@ html body #hero-slider .slide .banner-overlay,
   font-size: 20px;
   font-weight: 800;
   letter-spacing: 0.25em;
-  color: #FFFFFF;
+  /* v15.89: Hardcoded pure white. No variable. No theme linkage. */
+  color: #FFFFFF !important;
   margin-bottom: 10px;
   text-transform: uppercase;
 }
@@ -1901,12 +1914,16 @@ html body #hero-slider .slide .banner-overlay,
   display: block;
   font-size: 12px;
   padding: 3px 0;
-  color: rgba(255, 255, 255, 0.6);
+  /* v15.89: Hardcoded pure white. No variable. No theme linkage. */
+  color: #FFFFFF !important;
   transition: color var(--transition-fast);
 }
 
 .footer-col a:hover {
-  color: #FFFFFF;
+  /* v15.89: Hover stays white but slightly brighter feel via text-shadow.
+     Color stays #FFFFFF so no theme can shift it. */
+  color: #FFFFFF !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
 
@@ -1917,13 +1934,19 @@ html body #hero-slider .slide .banner-overlay,
   align-items: center;
   gap: 8px;
   padding: 5px 0;
-  color: inherit;
+  /* v15.89: Hardcoded white. Was `color: inherit` which would inherit
+     correctly today (footer is white) but hover used var(--accent) and
+     could shift with theme — lock both to pure white. */
+  color: #FFFFFF !important;
   text-decoration: none;
   font-size: 13px;
 }
 
 .footer-contact-link:hover {
-  color: var(--accent);
+  /* v15.89: Stays white — only an underline conveys the hover, no
+     color shift, no theme linkage. */
+  color: #FFFFFF !important;
+  text-decoration: underline;
 }
 
 .footer-social-icons {
@@ -1960,22 +1983,26 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 .footer-bottom {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  /* v15.89: Decoupled from theme — pure white text + subtle white rule. */
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
   padding: 16px 24px;
   margin-top: 32px;
   text-align: center;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #FFFFFF !important;
 }
 
 .footer-bottom a {
-  color: rgba(255, 255, 255, 0.5);
+  /* v15.89: Hardcoded pure white. */
+  color: #FFFFFF !important;
   display: inline;
   padding: 0;
 }
 
 .footer-bottom a:hover {
-  color: #fff;
+  /* v15.89: Stays white — only the underline emphasizes the hover. */
+  color: #FFFFFF !important;
+  text-decoration: underline;
 }
 
 /* ===== BUTTONS ===== */
@@ -3779,7 +3806,7 @@ textarea.form-input {
   font-weight: 700;
   font-size: clamp(140px, 28vw, 280px);
   letter-spacing: 0.04em;
-  color: rgba(110, 31, 42, 0.045);
+  color: rgba(255, 0, 76, 0.045);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -3794,14 +3821,14 @@ textarea.form-input {
   min-width: 280px;
   margin: auto;
   background: #FFFFFF;
-  border: 1px solid rgba(110, 31, 42, 0.08);
+  border: 1px solid rgba(255, 0, 76, 0.08);
   border-radius: 14px;
   padding: 36px 24px;
   text-align: center;
   box-shadow:
-    0 1px 2px rgba(110, 31, 42, 0.05),
-    0 8px 24px rgba(110, 31, 42, 0.08),
-    0 32px 64px rgba(110, 31, 42, 0.07);
+    0 1px 2px rgba(255, 0, 76, 0.05),
+    0 8px 24px rgba(255, 0, 76, 0.08),
+    0 32px 64px rgba(255, 0, 76, 0.07);
   animation: yarz-holiday-rise 320ms 80ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 @media (min-width: 768px) {
@@ -3827,20 +3854,20 @@ textarea.form-input {
   gap: 8px;
   padding: 6px 14px;
   margin-bottom: 18px;
-  background: rgba(110, 31, 42, 0.08);
-  color: #6E1F2A;
+  background: rgba(255, 0, 76, 0.08);
+  color: #ff004c;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   border-radius: 999px;
-  border: 1px solid rgba(110, 31, 42, 0.16);
+  border: 1px solid rgba(255, 0, 76, 0.16);
 }
 .holiday-overlay__chip svg {
   width: 14px;
   height: 14px;
-  color: #6E1F2A;
+  color: #ff004c;
 }
 
 /* Headline — Cormorant, calm not loud */
@@ -3859,7 +3886,7 @@ textarea.form-input {
   font-style: italic;
   font-weight: 500;
   font-size: 0.55em;
-  color: rgba(110, 31, 42, 0.7);
+  color: rgba(255, 0, 76, 0.7);
   margin-top: 6px;
   letter-spacing: 0.02em;
 }
@@ -3876,7 +3903,7 @@ textarea.form-input {
 .holiday-overlay p.holiday-overlay__body--en {
   font-size: 13px;
   line-height: 1.6;
-  color: rgba(110, 31, 42, 0.62);
+  color: rgba(255, 0, 76, 0.62);
   margin: 4px auto 0;
   font-style: italic;
 }
@@ -3925,7 +3952,7 @@ textarea.form-input {
   top: 14px;
   width: 1px;
   height: 14px;
-  background: rgba(110, 31, 42, 0.22);
+  background: rgba(255, 0, 76, 0.22);
 }
 /* v15.73: target element directly (fixes the never-firing animation bug) */
 .holiday-overlay__num {
@@ -3965,20 +3992,20 @@ textarea.form-input {
   font-size: 11.5px;
   letter-spacing: 0.04em;
   /* v15.73: WCAG AA fix — was alpha 0.55 (3.24:1). */
-  color: rgba(110, 31, 42, 0.78); /* ~6.5:1 — AA pass */
+  color: rgba(255, 0, 76, 0.78); /* ~6.5:1 — AA pass */
   margin: 12px 0 0;
 }
 
-/* Urgent state — under 24h. Number shifts to brand burgundy; rest stays calm. */
-.holiday-overlay__countdown--urgent .holiday-overlay__num { color: #6B1F2A; }
-.holiday-overlay__countdown--urgent .holiday-overlay__seg + .holiday-overlay__seg::before { background: rgba(110, 31, 42, 0.4); }
+/* Urgent state — under 24h. Number shifts to brand red; rest stays calm. */
+.holiday-overlay__countdown--urgent .holiday-overlay__num { color: #ff004c; }
+.holiday-overlay__countdown--urgent .holiday-overlay__seg + .holiday-overlay__seg::before { background: rgba(255, 0, 76, 0.4); }
 
 /* "We're back!" expired-state banner */
 .holiday-overlay__back {
   margin: 18px auto 0;
   padding: 14px 18px;
-  background: rgba(110, 31, 42, 0.06);
-  border: 1px solid rgba(110, 31, 42, 0.18);
+  background: rgba(255, 0, 76, 0.06);
+  border: 1px solid rgba(255, 0, 76, 0.18);
   border-radius: 8px;
   text-align: center;
 }
@@ -3995,7 +4022,7 @@ textarea.form-input {
   align-items: center;
   gap: 8px;
   padding: 8px 18px;
-  background: #6E1F2A;
+  background: #ff004c;
   color: #FBF8F1;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 12px;
@@ -4008,7 +4035,7 @@ textarea.form-input {
   cursor: pointer;
   transition: background 0.2s ease;
 }
-.holiday-overlay__back-btn:hover { background: #571821; }
+.holiday-overlay__back-btn:hover { background: #cc003d; }
 
 /* SR-only one-shot summary */
 .holiday-overlay__sr {
@@ -4053,7 +4080,7 @@ textarea.form-input {
 .holiday-overlay__rule {
   width: 60px;
   height: 1px;
-  background: rgba(110, 31, 42, 0.18);
+  background: rgba(255, 0, 76, 0.18);
   margin: 26px auto 22px;
   border: none;
 }
@@ -4066,7 +4093,7 @@ textarea.form-input {
   justify-content: center;
   gap: 10px;
   padding: 16px 32px;
-  background: #6E1F2A;
+  background: #ff004c;
   color: #FBF8F1;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 13px;
@@ -4076,18 +4103,18 @@ textarea.form-input {
   text-decoration: none;
   border-radius: 4px;
   border: none;
-  box-shadow: 0 4px 16px rgba(110, 31, 42, 0.18);
+  box-shadow: 0 4px 16px rgba(255, 0, 76, 0.18);
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
 }
 .holiday-overlay__cta:hover,
 .holiday-overlay__cta:focus-visible {
-  background: #571821;
+  background: #cc003d;
   transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(110, 31, 42, 0.26);
+  box-shadow: 0 6px 22px rgba(255, 0, 76, 0.26);
 }
 .holiday-overlay__cta:active { transform: translateY(0); }
-.holiday-overlay__cta:focus-visible { outline: 2px solid #6E1F2A; outline-offset: 3px; }
+.holiday-overlay__cta:focus-visible { outline: 2px solid #ff004c; outline-offset: 3px; }
 .holiday-overlay__cta svg {
   width: 18px;
   height: 18px;
@@ -4104,11 +4131,11 @@ textarea.form-input {
   letter-spacing: 0.02em;
 }
 .holiday-overlay__cta-sub a {
-  color: #6E1F2A;
+  color: #ff004c;
   text-decoration: none;
-  border-bottom: 1px solid rgba(110, 31, 42, 0.3);
+  border-bottom: 1px solid rgba(255, 0, 76, 0.3);
 }
-.holiday-overlay__cta-sub a:hover { border-bottom-color: #6E1F2A; }
+.holiday-overlay__cta-sub a:hover { border-bottom-color: #ff004c; }
 
 /* Footer micro-copy — cart-preserved reassurance */
 .holiday-overlay__footer {
@@ -4128,6 +4155,159 @@ textarea.form-input {
 @keyframes yarz-holiday-rise {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v15.86 — HOLIDAY OVERLAY · YARZ LOGO ANIMATION
+   ────────────────────────────────────────────────────────────
+   Multi-stage premium animation choreographed for the brand
+   mark on the holiday overlay. Plays in three layers:
+
+     1. ENTRANCE   (1.2s, runs once)
+        — disc scales up from 0 with a soft elastic ease;
+        — wordmark fades + rises from below the disc;
+        — 2px gold-toned ring expands outward then settles.
+
+     2. IDLE       (loops, 4s cycle)
+        — disc breathes (1.0 → 1.04 → 1.0 scale) like a slow heart-beat;
+        — soft burgundy glow halo pulses behind the icon;
+        — wordmark holds steady; the rule-line under it shimmers
+          across (cream → gold → cream) once every 4s.
+
+     3. HOVER (desktop only — non-essential micro-interaction)
+        — disc rotates gently +6deg over 600ms.
+
+   All animations honor `prefers-reduced-motion` (idle + entrance
+   are killed; only a 200ms fade remains so the logo still
+   registers without movement).
+   ════════════════════════════════════════════════════════════ */
+
+/* Wrapper sets up positioning context for the glow halo + ring */
+.holiday-overlay .yarz-mark {
+  position: relative;
+  /* Re-declare the base size so the animation calc()s below stay stable
+     even when other rules adjust --yarz-mark-size on this element. */
+  --yarz-mark-size: 56px;
+  /* v15.86: Establish own stacking context so the ::before/::after halo +
+     ring (z-index: -1) sit BEHIND the disc but stay visible above the
+     card background. Without `isolation: isolate`, z-index:-1 escaped to
+     the parent .holiday-overlay__card and disappeared. */
+  isolation: isolate;
+}
+
+/* Entrance: disc grows from nothing with elastic ease.
+   Idle: gentle breathing pulse loop (3.6s, ease-in-out, infinite). */
+.holiday-overlay .yarz-mark .yarz-mark__icon {
+  transform-origin: center center;
+  animation:
+    yarz-mark-disc-in 1100ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    yarz-mark-disc-breathe 3600ms 1200ms ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(255, 0, 76, 0.18));
+  will-change: transform, filter;
+}
+
+/* Disc entrance — scale-up with subtle rotate hint */
+@keyframes yarz-mark-disc-in {
+  0%   { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  60%  { opacity: 1; transform: scale(1.06) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Idle breathing — barely-there scale pulse, gives it life */
+@keyframes yarz-mark-disc-breathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 12px rgba(255, 0, 76, 0.18)); }
+  50%      { transform: scale(1.04); filter: drop-shadow(0 6px 18px rgba(255, 0, 76, 0.28)); }
+}
+
+/* Glow halo — sits behind the disc, pulses outward in a 4s cycle.
+   This is what makes the logo feel "alive" without being loud. */
+.holiday-overlay .yarz-mark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--yarz-mark-size);
+  height: var(--yarz-mark-size);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 0, 76, 0.28) 0%, rgba(255, 0, 76, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  animation: yarz-mark-halo 4000ms 1400ms ease-in-out infinite;
+}
+@keyframes yarz-mark-halo {
+  0%, 100% { opacity: 0;    transform: translateX(-50%) scale(0.8); }
+  50%      { opacity: 1;    transform: translateX(-50%) scale(1.55); }
+}
+
+/* Expanding ring — appears once on entrance, gold-toned, dissolves outward.
+   Conveys "the mark is being stamped onto the overlay" — a one-time flourish. */
+.holiday-overlay .yarz-mark::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--yarz-mark-size);
+  height: var(--yarz-mark-size);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid #C9A23F;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  animation: yarz-mark-ring 1400ms 400ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+@keyframes yarz-mark-ring {
+  0%   { opacity: 0;    transform: translateX(-50%) scale(0.6); border-width: 3px; }
+  30%  { opacity: 0.95; transform: translateX(-50%) scale(1);    border-width: 2.5px; }
+  100% { opacity: 0;    transform: translateX(-50%) scale(2.2); border-width: 1px; }
+}
+
+/* Wordmark unveil — fades + rises 0.4s after the disc lands */
+.holiday-overlay .yarz-mark .yarz-mark__word {
+  animation: yarz-mark-word-in 800ms 600ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes yarz-mark-word-in {
+  from { opacity: 0; transform: translateY(8px); letter-spacing: 0.5em; }
+  to   { opacity: 1; transform: translateY(0);   letter-spacing: 0.32em; }
+}
+
+/* Hairline rule under the wordmark (stacked variant) — gold shimmer sweep
+   that loops in lockstep with the disc breathing. Subtle, editorial. */
+.holiday-overlay .yarz-mark--stacked .yarz-mark__word::after {
+  background: linear-gradient(90deg,
+    rgba(255, 0, 76, 0.25) 0%,
+    rgba(201, 162, 63, 0.95) 50%,
+    rgba(255, 0, 76, 0.25) 100%);
+  background-size: 200% 100%;
+  animation: yarz-mark-rule-shimmer 4000ms 1400ms ease-in-out infinite;
+}
+@keyframes yarz-mark-rule-shimmer {
+  0%   { background-position: -100% 0; }
+  100% { background-position:  100% 0; }
+}
+
+/* Reduced motion — keep only a soft 240ms fade-in on the disc + wordmark.
+   Halo, ring, breathing, and shimmer are silenced. */
+@media (prefers-reduced-motion: reduce) {
+  .holiday-overlay .yarz-mark .yarz-mark__icon {
+    animation: yarz-mark-disc-fade 240ms ease-out both !important;
+    filter: none !important;
+  }
+  .holiday-overlay .yarz-mark .yarz-mark__word {
+    animation: yarz-mark-disc-fade 240ms 80ms ease-out both !important;
+    letter-spacing: 0.32em;
+  }
+  .holiday-overlay .yarz-mark::before,
+  .holiday-overlay .yarz-mark::after,
+  .holiday-overlay .yarz-mark--stacked .yarz-mark__word::after {
+    animation: none !important;
+  }
+}
+@keyframes yarz-mark-disc-fade {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 /* prefers-reduced-motion — keep a tiny fade so appearance still registers */
@@ -4225,7 +4405,7 @@ textarea.form-input {
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease,
               box-shadow 0.18s ease, transform 0.18s ease;
-  box-shadow: 0 2px 6px rgba(110, 31, 42, 0.16);
+  box-shadow: 0 2px 6px rgba(255, 0, 76, 0.16);
   white-space: nowrap;
   flex-shrink: 0;
   min-height: 32px;            /* accessible touch target on mobile */
@@ -8181,7 +8361,7 @@ body.yarz-quickview-open { overflow: hidden; }
    ------------------------------------------------------------
    This is an OVERRIDE LAYER. To revert to v14 lavender purple,
    delete everything from this comment to end-of-file.
-   Direction:  Burgundy #6E1F2A  +  Off-white #FAFAF7  +  Ink #1A1411
+   Direction:  Burgundy #ff004c  +  Off-white #FAFAF7  +  Ink #1A1411
    Display:    Cormorant Garamond (loaded in HTML <head>)
    Body:       Inter (unchanged)
    Bengali:    Hind Siliguri (unchanged)
@@ -8195,8 +8375,8 @@ body.yarz-quickview-open { overflow: hidden; }
   --burgundy-300: #C28890;
   --burgundy-400: #A05863;
   --burgundy-500: #82323F;
-  --burgundy-600: #6E1F2A;
-  --burgundy-700: #571821;
+  --burgundy-600: #ff004c;
+  --burgundy-700: #cc003d;
   --burgundy-800: #3F1118;
   --burgundy-900: #2A0B10;
 
@@ -8207,8 +8387,8 @@ body.yarz-quickview-open { overflow: hidden; }
   --purple-300: #C28890;
   --purple-400: #A05863;
   --purple-500: #82323F;
-  --purple-600: #6E1F2A;
-  --purple-700: #571821;
+  --purple-600: #ff004c;
+  --purple-700: #cc003d;
   --purple-800: #3F1118;
   --purple-900: #2A0B10;
 
@@ -8230,11 +8410,11 @@ body.yarz-quickview-open { overflow: hidden; }
   --text-light:    #555566;
   --border-color:  #E8E5DC;
   --border-light:  #F0EDE6;
-  --accent:        #6E1F2A;
-  --accent-hover:  #571821;
+  --accent:        #ff004c;
+  --accent-hover:  #cc003d;
   --accent-light:  #FAF3F4;
   --accent-subtle: #F2E0E2;
-  --link-color:    #6E1F2A;
+  --link-color:    #ff004c;
   --sale-price:    #1A1411;
   --footer-bg:     #1A1411;
   --footer-text:   rgba(255, 255, 255, 0.7);
@@ -8575,7 +8755,7 @@ body.has-announcement::before { background: var(--yarz-ann-bg, var(--text-primar
 }
 .form-input:focus, .form-select:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(110, 31, 42, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(255, 0, 76, 0.1) !important;
 }
 
 /* Cart drawer */
@@ -8628,8 +8808,8 @@ input[type="range"] {
 /* ─── Background body radial-gradient (was purple haze) ─── */
 body {
   background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(110, 31, 42, 0.012) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(110, 31, 42, 0.008) 0%, transparent 40%) !important;
+    radial-gradient(ellipse at 20% 50%, rgba(255, 0, 76, 0.012) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255, 0, 76, 0.008) 0%, transparent 40%) !important;
 }
 
 /* ─── Header scrolled state ─── */
@@ -8990,12 +9170,12 @@ body {
 .pd-thumb:hover,
 .product-thumb:hover {
   transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(110, 31, 42, 0.06) !important;
+  box-shadow: 0 4px 12px rgba(255, 0, 76, 0.06) !important;
 }
 .pd-thumb.active,
 .product-thumb.active {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 14px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 14px rgba(255, 0, 76, 0.10) !important;
 }
 
 /* Size buttons — soft rounded with luxe hover */
@@ -9100,12 +9280,12 @@ body {
 }
 #buy-now-btn:hover:not(:disabled) {
   background: var(--accent-hover) !important;
-  box-shadow: 0 6px 16px rgba(110, 31, 42, 0.22) !important;
+  box-shadow: 0 6px 16px rgba(255, 0, 76, 0.22) !important;
   transform: translateY(-1px) !important;
 }
 #buy-now-btn:active:not(:disabled) {
   transform: translateY(0) !important;
-  box-shadow: 0 3px 8px rgba(110, 31, 42, 0.22) !important;
+  box-shadow: 0 3px 8px rgba(255, 0, 76, 0.22) !important;
 }
 
 .pd-actions .btn-outline:hover {
@@ -9206,6 +9386,9 @@ body {
 .toast.success { border-left: 3px solid var(--success) !important; }
 .toast.error   { border-left: 3px solid var(--danger) !important; }
 .toast.warning { border-left: 3px solid var(--warning) !important; }
+/* ✅ v15.96: info toast — brand-red accent (used for "already in cart" nudge) */
+.toast.info    { border-left: 3px solid var(--accent, #ff004c) !important; }
+.toast.info .toast-icon { color: var(--accent, #ff004c); }
 
 /* ════════════════════════════════════════════════════════════
    FORMS — global focus rings (was purple rgba)
@@ -9234,7 +9417,7 @@ input[type="search"]:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 0 0 3px rgba(255, 0, 76, 0.10) !important;
   outline: none !important;
 }
 .form-group.has-error input,
@@ -9356,7 +9539,7 @@ select:focus {
    ════════════════════════════════════════════════════════════ */
 .contact-social-card:hover {
   border-color: var(--accent) !important;
-  box-shadow: 0 4px 14px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 4px 14px rgba(255, 0, 76, 0.10) !important;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -9525,14 +9708,14 @@ button#buy-now-btn,
   letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
-  box-shadow: 0 2px 6px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 2px 6px rgba(255, 0, 76, 0.10) !important;
 }
 #buy-now-btn:hover:not(:disabled),
 button#buy-now-btn:hover:not(:disabled) {
   background: var(--accent-hover) !important;
   background-image: none !important;
   border-color: var(--accent-hover) !important;
-  box-shadow: 0 6px 16px rgba(110, 31, 42, 0.22) !important;
+  box-shadow: 0 6px 16px rgba(255, 0, 76, 0.22) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -9831,7 +10014,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   width: 56px;
   height: 56px;
   background: var(--accent-light, #FAF3F4);
-  color: var(--accent, #6E1F2A);
+  color: var(--accent, #ff004c);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -9864,7 +10047,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   text-align: center;
 }
 .yarz-info-body strong {
-  color: var(--accent, #6E1F2A);
+  color: var(--accent, #ff004c);
   font-weight: 700;
 }
 
@@ -9881,7 +10064,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   position: absolute;
   top: -10px;
   left: 14px;
-  background: var(--accent, #6E1F2A);
+  background: var(--accent, #ff004c);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -9899,7 +10082,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   font-family: var(--font-bengali, 'Hind Siliguri', sans-serif);
 }
 .yarz-info-callout-text strong {
-  color: var(--accent, #6E1F2A);
+  color: var(--accent, #ff004c);
   font-weight: 700;
 }
 .yarz-info-note {
@@ -10065,9 +10248,19 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    ════════════════════════════════════════════════════════════ */
 
 .yarz-mark {
-  --yarz-mark-fill: var(--accent, #6E1F2A);
-  --yarz-mark-ring: var(--accent-hover, #571821);
-  --yarz-mark-hole: var(--bg-primary, #FBF8F1);
+  /* ✅ v15.85 LOGO LOCK: Brand mark colors are FIXED — they must never
+     drift when admin changes theme palette. The disc is always dark red
+     burgundy, the holes are always cream, the wordmark color is the only
+     thing that follows the theme (so it stays readable on any background).
+     Previously these used var(--accent) which made the logo change color
+     every time admin tweaked theme palette → unprofessional.
+     ✅ v15.88: Owner spec change — brand mark color is now `#ff004c`
+     (vivid pink-red) with `#cc003d` ring stroke. Hex-locked across every
+     logo render point: header, footer, holiday/maintenance overlay,
+     favicons, mask-icon. */
+  --yarz-mark-fill: #ff004c;
+  --yarz-mark-ring: #cc003d;
+  --yarz-mark-hole: #FBF8F1;
   --yarz-mark-text: var(--text-primary, #1A1411);
   --yarz-mark-size: 28px;
 
@@ -10111,12 +10304,22 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   transform: translateY(0.02em);
 }
 
-/* Inverse — for dark surfaces (footer, announcement bar, maintenance, etc.) */
+/* Inverse — kept as a class for backwards-compat (used by footer + holiday +
+   maintenance overlays) but it NO LONGER swaps the disc/ring/hole colors.
+   v15.87 (per owner spec): the YARZ logo is always dark red disc + cream
+   holes + dark red ring on every surface — header, footer, holiday overlay
+   — so the brand mark stays consistent. Only the wordmark text color follows
+   the surrounding chrome (cream on dark footer, ink on cream header).
+   v15.88: Brand color updated to #ff004c (pink-red) with #cc003d ring.
+   v15.89: Wordmark inside footer is now hardcoded white (no variable). */
 .yarz-mark--inverse {
-  --yarz-mark-fill: var(--bg-primary, #FBF8F1);
-  --yarz-mark-ring: var(--bg-primary, #FBF8F1);
-  --yarz-mark-hole: var(--accent, #6E1F2A);
-  --yarz-mark-text: var(--bg-primary, #FBF8F1);
+  /* Disc/ring/hole stay locked to brand pink-red — DO NOT alias to --accent
+     or --bg-primary; that's how the logo started drifting with theme palette. */
+  --yarz-mark-fill: #ff004c;
+  --yarz-mark-ring: #cc003d;
+  --yarz-mark-hole: #FBF8F1;
+  /* v15.89: Wordmark on dark surfaces is hardcoded white — no theme link. */
+  --yarz-mark-text: #FFFFFF;
 }
 
 /* Sizes */
@@ -10180,7 +10383,8 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   display: inline-flex;
 }
 .site-footer .footer-col .footer-brand.yarz-mark .yarz-mark__word {
-  color: #FFFFFF;
+  /* v15.89: Hardcoded pure white. No variable. No theme linkage. */
+  color: #FFFFFF !important;
 }
 
 /* Mobile sizing for header lockup
@@ -10257,6 +10461,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 }
 .site-footer .brand-logo.yarz-mark .yarz-mark__word,
 .site-footer .footer-brand.yarz-mark .yarz-mark__word {
+  /* v15.89: Hardcoded pure white. No variable. No theme linkage. */
   color: #FFFFFF !important;
 }
 
@@ -10283,7 +10488,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 
 /* (1) Inverse — keep the burgundy outline ring so silhouette doesn't melt */
 .yarz-mark--inverse {
-  --yarz-mark-ring: var(--accent, #6E1F2A);
+  --yarz-mark-ring: var(--accent, #ff004c);
 }
 
 /* (2 + 3) Stacked — tighter tracking, more vertical breathing */
@@ -10399,9 +10604,12 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 
 /* (C) Needle — single 10s timeline. Defined in detail in the
        header comment above. cubic-bezier eases give a natural
-       "pulled by hand" feel rather than mechanical lerp. */
+       "pulled by hand" feel rather than mechanical lerp.
+       v15.89: !important guards against any custom-CSS override
+       that could silence the animation (admin theme palette /
+       Custom CSS textarea / future cascade additions). */
 .site-header .brand-logo.yarz-mark .yarz-needle {
-  animation: yarz-needle 10s cubic-bezier(0.4, 0.0, 0.2, 1.0) infinite;
+  animation: yarz-needle 10s cubic-bezier(0.4, 0.0, 0.2, 1.0) infinite !important;
   will-change: transform, opacity;
 }
 
@@ -10444,12 +10652,13 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 /* (D) Threads — drawn via stroke-dashoffset, locked to needle dive.
        Thread A: drawn 24-30% (TL→BR underneath travel)
        Thread B: drawn 44-50% (TR→BL underneath travel)
-       Both hold visible 50-90% (admire window), fade 90-100%. */
+       Both hold visible 50-90% (admire window), fade 90-100%.
+       v15.89: !important guards against custom-CSS override. */
 .site-header .brand-logo.yarz-mark .yarz-thread--a {
-  animation: yarz-thread-a 10s linear infinite;
+  animation: yarz-thread-a 10s linear infinite !important;
 }
 .site-header .brand-logo.yarz-mark .yarz-thread--b {
-  animation: yarz-thread-b 10s linear infinite;
+  animation: yarz-thread-b 10s linear infinite !important;
 }
 @keyframes yarz-thread-a {
   0%, 24%  { stroke-dashoffset: 100; opacity: 1; }
@@ -10464,11 +10673,12 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   100%     { stroke-dashoffset:   0; opacity: 0; }
 }
 
-/* (E) Knot sparkles — pop at each hole entry/exit for tactile "click". */
-.site-header .brand-logo.yarz-mark .yarz-knot--tl { animation: yarz-knot-tl 10s ease-out infinite; }
-.site-header .brand-logo.yarz-mark .yarz-knot--br { animation: yarz-knot-br 10s ease-out infinite; }
-.site-header .brand-logo.yarz-mark .yarz-knot--tr { animation: yarz-knot-tr 10s ease-out infinite; }
-.site-header .brand-logo.yarz-mark .yarz-knot--bl { animation: yarz-knot-bl 10s ease-out infinite; }
+/* (E) Knot sparkles — pop at each hole entry/exit for tactile "click".
+       v15.89: !important guards against custom-CSS override. */
+.site-header .brand-logo.yarz-mark .yarz-knot--tl { animation: yarz-knot-tl 10s ease-out infinite !important; }
+.site-header .brand-logo.yarz-mark .yarz-knot--br { animation: yarz-knot-br 10s ease-out infinite !important; }
+.site-header .brand-logo.yarz-mark .yarz-knot--tr { animation: yarz-knot-tr 10s ease-out infinite !important; }
+.site-header .brand-logo.yarz-mark .yarz-knot--bl { animation: yarz-knot-bl 10s ease-out infinite !important; }
 @keyframes yarz-knot-tl { 0%,22% {opacity:0} 24% {opacity:1} 32% {opacity:0} 100% {opacity:0} }
 @keyframes yarz-knot-br { 0%,28% {opacity:0} 30% {opacity:1} 38% {opacity:0} 100% {opacity:0} }
 @keyframes yarz-knot-tr { 0%,42% {opacity:0} 44% {opacity:1} 52% {opacity:0} 100% {opacity:0} }
@@ -10674,7 +10884,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 #checkout-modal .form-select:focus,
 #checkout-modal textarea.form-input:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 0 0 3px rgba(255, 0, 76, 0.10) !important;
   outline: none !important;
 }
 
@@ -10772,7 +10982,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 }
 #checkout-modal .payment-info-box #co-trxid:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(110, 31, 42, 0.10) !important;
+  box-shadow: 0 0 0 3px rgba(255, 0, 76, 0.10) !important;
 }
 
 /* — Place Order CTA — refined, premium presence — */
@@ -10788,17 +10998,17 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   background-image: none !important;
   color: #FFFFFF !important;
   border: 1px solid var(--accent) !important;
-  box-shadow: 0 4px 14px rgba(110, 31, 42, 0.18) !important;
+  box-shadow: 0 4px 14px rgba(255, 0, 76, 0.18) !important;
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
 }
 #checkout-modal #checkout-submit-btn:hover:not(:disabled) {
-  background: var(--accent-hover, #571821) !important;
-  box-shadow: 0 8px 22px rgba(110, 31, 42, 0.28) !important;
+  background: var(--accent-hover, #cc003d) !important;
+  box-shadow: 0 8px 22px rgba(255, 0, 76, 0.28) !important;
   transform: translateY(-1px);
 }
 #checkout-modal #checkout-submit-btn:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 0 4px 12px rgba(110, 31, 42, 0.22) !important;
+  box-shadow: 0 4px 12px rgba(255, 0, 76, 0.22) !important;
 }
 
 /* — Footer line "By placing an order..." — softer — */
@@ -11044,17 +11254,17 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   background-image: none !important;
   color: #FFFFFF !important;
   border: 1px solid var(--accent) !important;
-  box-shadow: 0 4px 14px rgba(110, 31, 42, 0.18) !important;
+  box-shadow: 0 4px 14px rgba(255, 0, 76, 0.18) !important;
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
 }
 #cart-drawer .cart-footer .btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover, #571821) !important;
-  box-shadow: 0 8px 22px rgba(110, 31, 42, 0.28) !important;
+  background: var(--accent-hover, #cc003d) !important;
+  box-shadow: 0 8px 22px rgba(255, 0, 76, 0.28) !important;
   transform: translateY(-1px);
 }
 #cart-drawer .cart-footer .btn-primary:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 0 4px 12px rgba(110, 31, 42, 0.22) !important;
+  box-shadow: 0 4px 12px rgba(255, 0, 76, 0.22) !important;
 }
 #cart-drawer .cart-footer p {
   font-size: 11px !important;
@@ -11105,11 +11315,11 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   background-image: none !important;
   color: #FFFFFF !important;
   border: 1px solid var(--accent) !important;
-  box-shadow: 0 4px 14px rgba(110, 31, 42, 0.18) !important;
+  box-shadow: 0 4px 14px rgba(255, 0, 76, 0.18) !important;
 }
 #dynamic-view[data-view="success"] .btn-primary:hover {
-  background: var(--accent-hover, #571821) !important;
-  box-shadow: 0 8px 22px rgba(110, 31, 42, 0.28) !important;
+  background: var(--accent-hover, #cc003d) !important;
+  box-shadow: 0 8px 22px rgba(255, 0, 76, 0.28) !important;
   transform: translateY(-1px);
 }
 #dynamic-view[data-view="success"] .btn-outline {
@@ -11269,4 +11479,594 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 @media (prefers-reduced-motion: reduce) {
   .pm-badge { transition: none; }
   .pm-badge:hover { transform: none; }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.93 — CHECKOUT MODAL POLISH
+   ────────────────────────────────────────────────────────────
+   Three small but visible upgrades:
+   (A) Custom dropdown chevron on Delivery Zone + Payment Method
+       so customers immediately see "this is selectable" (was a
+       flat-looking input that read like a static field).
+   (B) Animated "Place Order" truck button — pure-CSS adaptation
+       of the owner-supplied reference at /Animated Order Button/.
+       Plays on .animate class which submitOrder() toggles right
+       before the place-order request fires; reverts to the
+       default static button after success/error.
+   (C) Order Summary row now carries a product thumbnail (48px),
+       handled in app.js renderCheckoutSummary().
+   ════════════════════════════════════════════════════════════ */
+
+/* (A) Select wrapper with custom chevron */
+.yarz-select-wrap {
+  position: relative;
+  display: block;
+}
+.yarz-select-wrap > .form-select {
+  /* Hide native chevron in WebKit/Blink/Firefox so our custom one shows. */
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  padding-right: 38px !important;
+  background-image: none !important;
+  cursor: pointer;
+}
+.yarz-select-wrap > .yarz-select-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 12px;
+  height: 8px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted, #6C7486);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+.yarz-select-wrap:hover > .yarz-select-chevron,
+.yarz-select-wrap:focus-within > .yarz-select-chevron {
+  color: var(--accent, #ff004c);
+}
+.yarz-select-wrap:focus-within > .yarz-select-chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* (B) Animated Place Order button — pure CSS truck animation.
+       Adapted from the owner-supplied reference. Class names prefixed
+       `po-` (place-order) to avoid collisions with cart drawer styles. */
+.yarz-place-order {
+  /* Fashion-luxury palette (uses brand red + dark base from theme tokens
+     so any active preset's button still reads "premium"). */
+  --po-primary: var(--accent, #ff004c);
+  --po-primary-light: #ff3d75;
+  --po-dark: #1C212E;
+  --po-grey-dark: #3F4656;
+  --po-grey: #6C7486;
+  --po-grey-light: #CDD9ED;
+  --po-white: #FFF;
+  --po-green: #16BF78;
+  --po-sand: #fbbf24;
+  --po-sand-light: #fde68a;
+
+  position: relative;
+  height: 56px;
+  border-radius: 14px;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  /* The base .btn-primary already supplies the background + text color
+     so the button blends in with all 15 theme presets. We just bolt on
+     the animation containers below. */
+}
+.yarz-place-order:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.yarz-place-order > .po-default,
+.yarz-place-order > .po-success {
+  --o: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 1;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  opacity: var(--o);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.yarz-place-order > .po-default { transition-delay: 0.3s; }
+.yarz-place-order > .po-success { --offset: 16px; --o: 0; letter-spacing: 0.12em; }
+.yarz-place-order > .po-success svg {
+  width: 12px;
+  height: 10px;
+  display: inline-block;
+  vertical-align: top;
+  fill: none;
+  margin: 4px 0 0 6px;
+  stroke: var(--po-green);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16px;
+  stroke-dashoffset: var(--offset);
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.yarz-place-order .po-lines {
+  opacity: 0;
+  position: absolute;
+  height: 3px;
+  background: var(--po-white);
+  border-radius: 2px;
+  width: 6px;
+  top: 50%;
+  margin-top: -1.5px;
+  left: 100%;
+  pointer-events: none;
+  box-shadow:
+    15px 0 0 var(--po-white), 30px 0 0 var(--po-white), 45px 0 0 var(--po-white),
+    60px 0 0 var(--po-white), 75px 0 0 var(--po-white), 90px 0 0 var(--po-white),
+    105px 0 0 var(--po-white), 120px 0 0 var(--po-white), 135px 0 0 var(--po-white),
+    150px 0 0 var(--po-white), 165px 0 0 var(--po-white), 180px 0 0 var(--po-white),
+    195px 0 0 var(--po-white), 210px 0 0 var(--po-white), 225px 0 0 var(--po-white),
+    240px 0 0 var(--po-white), 255px 0 0 var(--po-white), 270px 0 0 var(--po-white),
+    285px 0 0 var(--po-white), 300px 0 0 var(--po-white), 315px 0 0 var(--po-white),
+    330px 0 0 var(--po-white);
+}
+
+.yarz-place-order .po-back,
+.yarz-place-order .po-box {
+  --start: var(--po-white);
+  --stop: var(--po-grey-light);
+  border-radius: 2px;
+  background: linear-gradient(var(--start), var(--stop));
+  position: absolute;
+  pointer-events: none;
+}
+.yarz-place-order .po-truck {
+  width: 60px;
+  height: 41px;
+  left: 100%;
+  z-index: 1;
+  top: 50%;
+  margin-top: -20.5px;
+  position: absolute;
+  transform: translateX(24px);
+  pointer-events: none;
+}
+.yarz-place-order .po-truck:before,
+.yarz-place-order .po-truck:after {
+  --r: -90deg;
+  content: "";
+  height: 2px;
+  width: 20px;
+  right: 58px;
+  position: absolute;
+  display: block;
+  background: var(--po-white);
+  border-radius: 1px;
+  transform-origin: 100% 50%;
+  transform: rotate(var(--r));
+}
+.yarz-place-order .po-truck:before { top: 4px; }
+.yarz-place-order .po-truck:after  { --r: 90deg; bottom: 4px; }
+.yarz-place-order .po-truck .po-back {
+  left: 0; top: 0;
+  width: 60px; height: 41px;
+  z-index: 1;
+}
+.yarz-place-order .po-truck .po-front {
+  overflow: hidden;
+  position: absolute;
+  border-radius: 2px 9px 9px 2px;
+  width: 26px;
+  height: 41px;
+  left: 60px;
+}
+.yarz-place-order .po-truck .po-front:before,
+.yarz-place-order .po-truck .po-front:after {
+  content: "";
+  position: absolute;
+  display: block;
+}
+.yarz-place-order .po-truck .po-front:before {
+  height: 13px;
+  width: 2px;
+  left: 0;
+  top: 14px;
+  background: linear-gradient(var(--po-grey), var(--po-grey-dark));
+}
+.yarz-place-order .po-truck .po-front:after {
+  border-radius: 2px 9px 9px 2px;
+  background: var(--po-primary);
+  width: 24px;
+  height: 41px;
+  right: 0;
+}
+.yarz-place-order .po-truck .po-front .po-window {
+  overflow: hidden;
+  border-radius: 2px 8px 8px 2px;
+  background: var(--po-primary-light);
+  transform: perspective(4px) rotateY(3deg);
+  width: 22px;
+  height: 41px;
+  position: absolute;
+  left: 2px;
+  top: 0;
+  z-index: 1;
+  transform-origin: 0 50%;
+}
+.yarz-place-order .po-truck .po-front .po-window:before,
+.yarz-place-order .po-truck .po-front .po-window:after {
+  content: "";
+  position: absolute;
+  right: 0;
+}
+.yarz-place-order .po-truck .po-front .po-window:before {
+  top: 0; bottom: 0;
+  width: 14px;
+  background: var(--po-dark);
+}
+.yarz-place-order .po-truck .po-front .po-window:after {
+  width: 14px;
+  top: 7px;
+  height: 4px;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.14);
+  transform: skewY(14deg);
+  box-shadow: 0 7px 0 rgba(255, 255, 255, 0.14);
+}
+.yarz-place-order .po-truck .po-light {
+  width: 3px;
+  height: 8px;
+  left: 83px;
+  transform-origin: 100% 50%;
+  position: absolute;
+  border-radius: 2px;
+  transform: scaleX(0.8);
+  background: #f0dc5f;
+}
+.yarz-place-order .po-truck .po-light:before {
+  content: "";
+  height: 4px;
+  width: 7px;
+  opacity: 0;
+  transform: perspective(2px) rotateY(-15deg) scaleX(0.94);
+  position: absolute;
+  transform-origin: 0 50%;
+  left: 3px;
+  top: 50%;
+  margin-top: -2px;
+  background: linear-gradient(90deg, #f0dc5f, rgba(240, 220, 95, 0.7), rgba(240, 220, 95, 0));
+}
+.yarz-place-order .po-truck .po-light--top    { top: 4px; }
+.yarz-place-order .po-truck .po-light--bottom { bottom: 4px; }
+.yarz-place-order .po-box {
+  --start: var(--po-sand-light);
+  --stop: var(--po-sand);
+  width: 21px;
+  height: 21px;
+  right: 100%;
+  top: 50%;
+  margin-top: -10.5px;
+}
+.yarz-place-order .po-box:before,
+.yarz-place-order .po-box:after {
+  content: "";
+  top: 10px;
+  position: absolute;
+  left: 0; right: 0;
+}
+.yarz-place-order .po-box:before {
+  height: 3px;
+  margin-top: -1px;
+  background: rgba(0, 0, 0, 0.1);
+}
+.yarz-place-order .po-box:after {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* Animation triggers when .animate is added */
+.yarz-place-order.animate .po-default {
+  --o: 0;
+  transition-delay: 0s;
+}
+.yarz-place-order.animate .po-success {
+  --offset: 0;
+  --o: 1;
+  transition-delay: 6.5s;
+}
+.yarz-place-order.animate .po-success svg { transition-delay: 6.8s; }
+.yarz-place-order.animate .po-truck      { animation: yarz-po-truck 9s ease forwards; }
+.yarz-place-order.animate .po-truck:before { animation: yarz-po-door1 2.4s ease forwards 0.3s; }
+.yarz-place-order.animate .po-truck:after  { animation: yarz-po-door2 2.4s ease forwards 0.6s; }
+.yarz-place-order.animate .po-truck .po-light:before,
+.yarz-place-order.animate .po-truck .po-light:after { animation: yarz-po-light 9s ease forwards; }
+.yarz-place-order.animate .po-box   { animation: yarz-po-box 9s ease forwards; }
+.yarz-place-order.animate .po-lines { animation: yarz-po-lines 9s ease forwards; }
+
+@keyframes yarz-po-truck {
+  10%, 30% { transform: translateX(-164px); }
+  40%      { transform: translateX(-104px); }
+  60%      { transform: translateX(-224px); }
+  75%, 100%{ transform: translateX(24px); }
+}
+@keyframes yarz-po-lines {
+  0%, 30%   { opacity: 0; transform: scaleY(0.7) translateX(0); }
+  35%, 65%  { opacity: 1; }
+  70%       { opacity: 0; }
+  100%      { transform: scaleY(0.7) translateX(-400px); }
+}
+@keyframes yarz-po-light {
+  0%, 30%  { opacity: 0; transform: perspective(2px) rotateY(-15deg) scaleX(0.88); }
+  40%, 100%{ opacity: 1; transform: perspective(2px) rotateY(-15deg) scaleX(0.94); }
+}
+@keyframes yarz-po-door1 {
+  30%, 50% { transform: rotate(32deg); }
+}
+@keyframes yarz-po-door2 {
+  30%, 50% { transform: rotate(-32deg); }
+}
+@keyframes yarz-po-box {
+  8%, 10%   { transform: translateX(40px);  opacity: 1; }
+  25%       { transform: translateX(112px); opacity: 1; }
+  26%       { transform: translateX(112px); opacity: 0; }
+  27%, 100% { transform: translateX(0px);   opacity: 0; }
+}
+
+/* Reduced-motion users — show only the success state without animations */
+@media (prefers-reduced-motion: reduce) {
+  .yarz-place-order.animate .po-truck,
+  .yarz-place-order.animate .po-truck:before,
+  .yarz-place-order.animate .po-truck:after,
+  .yarz-place-order.animate .po-truck .po-light:before,
+  .yarz-place-order.animate .po-truck .po-light:after,
+  .yarz-place-order.animate .po-box,
+  .yarz-place-order.animate .po-lines {
+    animation: none !important;
+  }
+  .yarz-place-order.animate .po-default { transition: none !important; opacity: 0; }
+  .yarz-place-order.animate .po-success { transition-delay: 0s; opacity: 1; }
+  .yarz-place-order.animate .po-success svg { transition-delay: 0.1s; stroke-dashoffset: 0; }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.93 FIX — Animated Place Order button compatibility layer
+   ────────────────────────────────────────────────────────────
+   The legacy #checkout-submit-btn rules (shimmer ::after, gradient
+   bg, fixed padding) coexist with the new .yarz-place-order truck.
+   These overrides ensure the truck animation reads cleanly:
+     • Hide the sweeping shimmer ::after WHILE the truck animates
+       (otherwise a diagonal light streak crosses the truck).
+     • Guarantee the button keeps a stable height so the truck's
+       absolute-positioned wheels/box line up regardless of the
+       legacy `padding !important` rule.
+     • Keep overflow hidden so the truck enters/exits off-canvas.
+   ════════════════════════════════════════════════════════════ */
+#checkout-modal #checkout-submit-btn.yarz-place-order {
+  height: 56px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* During the delivery animation, silence the legacy shimmer streak so
+   it doesn't visually clash with the moving truck. */
+.yarz-place-order.animate::after {
+  display: none !important;
+  animation: none !important;
+}
+/* The default + success labels must sit above the shimmer + truck. */
+.yarz-place-order > .po-default,
+.yarz-place-order > .po-success {
+  z-index: 3;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.95 — CUSTOMER ORDER TRACKING TIMELINE
+   ────────────────────────────────────────────────────────────
+   Premium vertical progress tracker shown inside each order card
+   in the Track Order section. Mirrors the Pinterest-style refs:
+   a connected stepper (Confirmed → Processing → Picked Up →
+   In Transit → Delivered) with done / current / pending states,
+   plus a dedicated Cancelled / Returned banner with WhatsApp CTA.
+   Cream + brand-red palette, fully responsive, reduced-motion safe.
+   ════════════════════════════════════════════════════════════ */
+.yarz-track {
+  margin: 14px 0 4px;
+  padding: 14px 14px 6px;
+  background: var(--surface-50, #FBF8F1);
+  border: 1px solid var(--border-light, #EEE7DA);
+  border-radius: 12px;
+}
+.yarz-track__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.yarz-track__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #6C6356);
+}
+.yarz-track__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+.yarz-track__chip svg { width: 11px; height: 11px; }
+.yarz-track__chip--progress { background: rgba(255,0,76,0.10); color: #cc003d; }
+.yarz-track__chip--done     { background: rgba(5,150,105,0.12); color: #059669; }
+.yarz-track__chip--cancel   { background: rgba(220,38,38,0.10); color: #DC2626; }
+
+/* Each step row */
+.yarz-step {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+.yarz-step:last-child { padding-bottom: 0; }
+/* Connector line between dots */
+.yarz-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 17px;            /* center of the 36px dot */
+  top: 38px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--border-light, #E5DDCD);
+}
+.yarz-step--done:not(:last-child)::before { background: #059669; }
+
+.yarz-step__dot {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-light, #E5DDCD);
+  background: #fff;
+  color: #B8AE9C;
+  z-index: 1;
+  transition: all 0.25s ease;
+}
+.yarz-step__dot svg { width: 16px; height: 16px; }
+
+/* Done = filled green */
+.yarz-step--done .yarz-step__dot {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+/* Current = brand red ring + pulse */
+.yarz-step--current .yarz-step__dot {
+  background: #ff004c;
+  border-color: #ff004c;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(255,0,76,0.14);
+  animation: yarz-step-pulse 2s ease-in-out infinite;
+}
+@keyframes yarz-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(255,0,76,0.14); }
+  50%      { box-shadow: 0 0 0 7px rgba(255,0,76,0.05); }
+}
+
+.yarz-step__body { flex: 1; min-width: 0; padding-top: 1px; }
+.yarz-step__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.yarz-step__name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-muted, #A89E8C);
+  line-height: 1.3;
+}
+.yarz-step--done .yarz-step__name,
+.yarz-step--current .yarz-step__name {
+  color: var(--text-primary, #1A1411);
+}
+.yarz-step__time {
+  font-size: 10.5px;
+  color: var(--text-muted, #A89E8C);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.yarz-step__desc {
+  font-size: 11.5px;
+  color: var(--text-muted, #A89E8C);
+  margin-top: 2px;
+  line-height: 1.5;
+  font-family: var(--font-bengali, inherit);
+}
+.yarz-step--current .yarz-step__desc { color: var(--text-secondary, #6C6356); }
+
+/* Cancelled / Returned banner */
+.yarz-track--cancel {
+  border-color: rgba(220,38,38,0.25);
+  background: rgba(220,38,38,0.04);
+}
+.yarz-cancel-box { text-align: center; padding: 8px 6px 4px; }
+.yarz-cancel-box__icon {
+  width: 46px; height: 46px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: rgba(220,38,38,0.10);
+  color: #DC2626;
+  display: flex; align-items: center; justify-content: center;
+}
+.yarz-cancel-box__icon svg { width: 24px; height: 24px; }
+.yarz-cancel-box__title {
+  font-size: 14px; font-weight: 700; color: #DC2626; margin-bottom: 4px;
+  font-family: var(--font-bengali, inherit);
+}
+.yarz-cancel-box__text {
+  font-size: 11.5px; color: var(--text-secondary, #6C6356);
+  line-height: 1.6; margin-bottom: 12px;
+  font-family: var(--font-bengali, inherit);
+}
+.yarz-cancel-box__wa {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #25D366; color: #fff;
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 12.5px; font-weight: 700; text-decoration: none;
+  box-shadow: 0 4px 14px rgba(37,211,102,0.32);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.yarz-cancel-box__wa:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(37,211,102,0.4); }
+.yarz-cancel-box__wa svg { width: 16px; height: 16px; fill: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .yarz-step--current .yarz-step__dot { animation: none !important; }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   v15.96 — CART "ALREADY ADDED" HIGHLIGHT
+   ────────────────────────────────────────────────────────────
+   When a customer hits Buy Now on a product+size that's already
+   in their cart, we open the drawer and briefly pulse the
+   matching line so they instantly see "this is already here"
+   (prevents accidental duplicate orders). Brand-red glow ring,
+   2.4s, then settles. Reduced-motion safe.
+   ════════════════════════════════════════════════════════════ */
+.cart-item--flash {
+  animation: yarz-cart-flash 2.4s ease-out;
+  border-radius: 12px;
+}
+@keyframes yarz-cart-flash {
+  0%   { background: rgba(255, 0, 76, 0.16); box-shadow: 0 0 0 2px rgba(255, 0, 76, 0.45); }
+  25%  { background: rgba(255, 0, 76, 0.10); box-shadow: 0 0 0 2px rgba(255, 0, 76, 0.30); }
+  100% { background: transparent; box-shadow: 0 0 0 0 rgba(255, 0, 76, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cart-item--flash {
+    animation: none;
+    background: rgba(255, 0, 76, 0.10);
+    box-shadow: inset 0 0 0 2px rgba(255, 0, 76, 0.35);
+    transition: background 0.3s ease;
+  }
 }

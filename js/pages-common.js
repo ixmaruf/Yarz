@@ -202,15 +202,34 @@
         root.style.setProperty('--bg-secondary', controls.themeCardBg);
       }
       if (controls.themeText) {
-        root.style.setProperty('--text-primary', controls.themeText);
-        root.style.setProperty('--text-main', controls.themeText);
+        // ✅ v15.87 contrast safety (mirrors app.js applyExtrasControls).
+        // Admin's chosen text color is auto-corrected to a readable
+        // alternative if it would fade into the chosen body bg.
+        var _bgForText = controls.themeBg || '#FBF8F1';
+        var _hex2rgb = function(hex){ var h=String(hex||'').trim().replace('#',''); if(h.length===3) h=h.split('').map(function(c){return c+c;}).join(''); return /^[0-9a-f]{6}$/i.test(h) ? {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)} : null; };
+        var _lum = function(c){ var rgb=_hex2rgb(c); if(!rgb) return null; var f=function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);}; return 0.2126*f(rgb.r)+0.7152*f(rgb.g)+0.0722*f(rgb.b); };
+        var _ratio = function(a,b){ var la=_lum(a),lb=_lum(b); if(la===null||lb===null) return null; return (Math.max(la,lb)+0.05)/(Math.min(la,lb)+0.05); };
+        var _safe = controls.themeText;
+        var _r = _ratio(controls.themeText, _bgForText);
+        if (_r !== null && _r < 4.5) {
+          var rDark  = _ratio('#1A1411', _bgForText) || 0;
+          var rCream = _ratio('#FBF8F1', _bgForText) || 0;
+          _safe = rDark >= rCream ? '#1A1411' : '#FBF8F1';
+        }
+        root.style.setProperty('--text-primary', _safe);
+        root.style.setProperty('--text-main', _safe);
       }
       if (controls.themeBorder) {
         root.style.setProperty('--border-color', controls.themeBorder);
         root.style.setProperty('--border-light', controls.themeBorder);
       }
       if (controls.themeLink) root.style.setProperty('--link-color', controls.themeLink);
-      if (controls.themeFooterBg) root.style.setProperty('--footer-bg', controls.themeFooterBg);
+      if (controls.themeFooterBg) {
+        // ✅ v15.89: Footer text decoupled — only the bg follows admin's
+        // theme; heading/link/text colors are hardcoded pure white in CSS
+        // with !important. See app.js applyExtrasControls for rationale.
+        root.style.setProperty('--footer-bg', controls.themeFooterBg);
+      }
       // ✅ v15.34 FIX: Announcement bar color CSS vars — admin's chosen
       // background/text color must apply on subpages too. Without these,
       // the subpages' announcement bar showed default dark text on

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bn" style="color-scheme: light">
 
 <head>
@@ -54,8 +54,8 @@
   <!-- Image CDN + critical asset preload -->
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <link rel="preload" href="./js/api.js?v=15.84" as="script">
-  <link rel="preload" href="./css/style.css?v=15.86" as="style">
+  <link rel="preload" href="./js/api.js?v=16.2" as="script">
+  <link rel="preload" href="./css/style.css?v=15.96" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -136,9 +136,13 @@
                     !location.hostname.endsWith('github.io'))
           ? '/'
           : 'https://yarz.marufhasan80009.workers.dev/';
-        // cb=1 + _t=<now> to bust any stray HTTP cache; Worker honors fresh
-        // request, serves from its 30min server-side cache, purged on Publish.
-        var url = base + '?key=AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k&action=products&cb=1&_t=' + Date.now();
+        // cb removed (v15.97): `cb=1` forked the edge cache into a slot the
+        // Worker never prewarms/purges → every visit was a cold GAS fetch
+        // (2-3s). Without cb, this normalizes to the SAME warm `?action=
+        // products` slot the admin Publish prewarms → ~50ms edge HIT. `_t`
+        // is stripped by buildCacheKey so it only busts intermediate HTTP
+        // caches, never forks the edge slot.
+        var url = base + '?key=AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k&action=products&_t=' + Date.now();
         // cache:'no-store' so the browser never persists this response either.
         window.__YARZ_EARLY_FETCH = fetch(url, { cache: 'no-store' }).then(function (r) {
           return r.ok ? r.json() : null;
@@ -359,9 +363,9 @@
 
   
   <!-- Favicon — v15.61 YARZ shirt-button mark (centered, larger holes, fixed Safari mask-icon) -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='16' fill='%23FBF8F1'/%3E%3Ccircle cx='60' cy='60' r='42' fill='%236E1F2A' stroke='%23571821' stroke-width='2.4'/%3E%3Ccircle cx='60' cy='60' r='34.4' fill='none' stroke='%23FBF8F1' stroke-width='1.2' opacity='0.85'/%3E%3Ccircle cx='47.4' cy='47.4' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='72.6' cy='47.4' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='47.4' cy='72.6' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='72.6' cy='72.6' r='8' fill='%23FBF8F1'/%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23FBF8F1'/%3E%3Ccircle cx='90' cy='90' r='66' fill='%236E1F2A' stroke='%23571821' stroke-width='3.6'/%3E%3Ccircle cx='90' cy='90' r='54' fill='none' stroke='%23FBF8F1' stroke-width='2' opacity='0.85'/%3E%3Ccircle cx='71' cy='71' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='109' cy='71' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='71' cy='109' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='109' cy='109' r='12.4' fill='%23FBF8F1'/%3E%3C/svg%3E">
-  <link rel="mask-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 1.6 a6.4 6.4 0 1 0 0 12.8 a6.4 6.4 0 1 0 0 -12.8 z M5.8 5.8 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M10.2 5.8 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M5.8 10.2 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M10.2 10.2 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z'/%3E%3C/svg%3E" color="#6E1F2A">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='16' fill='%23FBF8F1'/%3E%3Ccircle cx='60' cy='60' r='42' fill='%23ff004c' stroke='%23cc003d' stroke-width='2.4'/%3E%3Ccircle cx='60' cy='60' r='34.4' fill='none' stroke='%23FBF8F1' stroke-width='1.2' opacity='0.85'/%3E%3Ccircle cx='47.4' cy='47.4' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='72.6' cy='47.4' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='47.4' cy='72.6' r='8' fill='%23FBF8F1'/%3E%3Ccircle cx='72.6' cy='72.6' r='8' fill='%23FBF8F1'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23FBF8F1'/%3E%3Ccircle cx='90' cy='90' r='66' fill='%23ff004c' stroke='%23cc003d' stroke-width='3.6'/%3E%3Ccircle cx='90' cy='90' r='54' fill='none' stroke='%23FBF8F1' stroke-width='2' opacity='0.85'/%3E%3Ccircle cx='71' cy='71' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='109' cy='71' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='71' cy='109' r='12.4' fill='%23FBF8F1'/%3E%3Ccircle cx='109' cy='109' r='12.4' fill='%23FBF8F1'/%3E%3C/svg%3E">
+  <link rel="mask-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 1.6 a6.4 6.4 0 1 0 0 12.8 a6.4 6.4 0 1 0 0 -12.8 z M5.8 5.8 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M10.2 5.8 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M5.8 10.2 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z M10.2 10.2 m-1.2 0 a1.2 1.2 0 1 0 2.4 0 a1.2 1.2 0 1 0 -2.4 0 z'/%3E%3C/svg%3E" color="#ff004c">
   <meta name="apple-mobile-web-app-title" content="YARZ">
   <meta name="application-name" content="YARZ">
   <meta name="msapplication-TileColor" content="#FBF8F1">
@@ -388,7 +392,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.86">
+  <link rel="stylesheet" href="./css/style.css?v=15.96">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -727,12 +731,16 @@
     .filter-overlay:not(.active),
     .modal-overlay:not(.active),
     .yarz-popup-overlay:not(.active),
-    .maintenance-overlay:not(.active),
-    .holiday-overlay:not(.active),
     #yarz-newsletter-popup:not(.active),
     #yarz-promo-popup:not(.active) {
       display: none;
     }
+    /* ✅ v15.85 FIX: Maintenance + Holiday overlays are runtime-injected by JS
+       (never present in initial HTML), so the FOUC `:not(.active)` rule was
+       wrongly hiding them after JS appended them with no `.active` class.
+       The screenshot showed an empty footer-only page because the overlay
+       existed in DOM but was display:none-ed by the rule above. Removing
+       these from the FOUC list lets the overlay's own CSS govern visibility. */
     .cart-drawer:not(.open),
     #filter-drawer:not(.open),
     #cart-drawer:not(.open) {
@@ -871,7 +879,7 @@
     <defs>
       <symbol id="yarz-button-mark" viewBox="0 0 24 24">
         <!-- Burgundy disc body + stroke ring -->
-        <circle cx="12" cy="12" r="10.25" fill="var(--yarz-mark-fill, #6E1F2A)" stroke="var(--yarz-mark-ring, #571821)" stroke-width="1.4"/>
+        <circle cx="12" cy="12" r="10.25" fill="var(--yarz-mark-fill, #ff004c)" stroke="var(--yarz-mark-ring, #cc003d)" stroke-width="1.4"/>
         <!-- Inner concentric stitching ring — sits at 82% to feel like a real button rim -->
         <circle cx="12" cy="12" r="8.4" fill="none" stroke="var(--yarz-mark-hole, #FBF8F1)" stroke-width="0.5" opacity="0.85"/>
         <!-- 4 thread holes in 2×2 grid — 17% of disc, slightly inboard -->
@@ -1166,9 +1174,17 @@
         </div>
         <div class="form-group">
             <label>Delivery Zone <span style="font-size:10.5px;color:var(--text-muted);font-weight:500;font-family:var(--font-bengali);">— এলাকা সিলেক্ট করুন</span></label>
-            <select class="form-select" id="co-location" onchange="YARZ.renderCheckoutSummary()">
-              <!-- v3.6: Options injected dynamically from DELIVERY_CHARGES sheet -->
-            </select>
+            <!-- ✅ v15.93: Wrapper with custom dropdown chevron so customers
+                 immediately recognise this as a selectable list (was a flat
+                 input that read more like a static field). -->
+            <div class="yarz-select-wrap">
+              <select class="form-select" id="co-location" onchange="YARZ.renderCheckoutSummary()">
+                <!-- v3.6: Options injected dynamically from DELIVERY_CHARGES sheet -->
+              </select>
+              <svg class="yarz-select-chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false">
+                <path d="M1 1.5L6 6.5L11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
             <div style="font-size:10.5px;color:var(--text-muted);margin-top:5px;font-family:var(--font-bengali);">আপনার এলাকা অনুযায়ী সঠিক ডেলিভারি জোন বাছাই করুন</div>
         </div>
         <div class="form-group">
@@ -1177,17 +1193,44 @@
         </div>
         <div class="form-group">
           <label>Payment Method</label>
-          <select class="form-select" id="co-payment" onchange="YARZ.showPaymentInfo(this.value)">
-            <option value="COD">Cash on Delivery (COD)</option>
-            <option value="bKash">bKash</option>
-            <option value="Nagad">Nagad</option>
-          </select>
+          <!-- ✅ v15.93: Same custom chevron treatment for payment select. -->
+          <div class="yarz-select-wrap">
+            <select class="form-select" id="co-payment" onchange="YARZ.showPaymentInfo(this.value)">
+              <option value="COD">Cash on Delivery (COD)</option>
+              <option value="bKash">bKash</option>
+              <option value="Nagad">Nagad</option>
+            </select>
+            <svg class="yarz-select-chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false">
+              <path d="M1 1.5L6 6.5L11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <!-- Payment info box injected here by JS -->
         </div>
-        <button class="btn btn-primary btn-block btn-lg" id="checkout-submit-btn" onclick="YARZ.submitOrder()"
-          style="margin-top:8px;">Place Order</button>
+        <!-- ✅ v15.93: Animated "Place Order" — pure-CSS truck animation
+             (adapted from owner-supplied reference at /Animated Order Button/).
+             jQuery dependency removed; toggled via classList from submitOrder().
+             Class .yarz-place-order is the new structural class; the legacy
+             id="checkout-submit-btn" + .btn .btn-primary classes are preserved
+             so all existing JS that disables/enables it still works. -->
+        <button class="btn btn-primary btn-block btn-lg yarz-place-order" id="checkout-submit-btn"
+                onclick="YARZ.submitOrder()" style="margin-top:8px;">
+          <span class="po-default">PLACE ORDER</span>
+          <span class="po-success">Order Placed
+            <svg viewBox="0 0 12 10" aria-hidden="true" focusable="false">
+              <polyline points="1.5 6 4.5 9 10.5 1"></polyline>
+            </svg>
+          </span>
+          <div class="po-box" aria-hidden="true"></div>
+          <div class="po-truck" aria-hidden="true">
+            <div class="po-back"></div>
+            <div class="po-front"><div class="po-window"></div></div>
+            <div class="po-light po-light--top"></div>
+            <div class="po-light po-light--bottom"></div>
+          </div>
+          <div class="po-lines" aria-hidden="true"></div>
+        </button>
         <p style="text-align:center;font-size:10px;color:var(--text-muted);margin-top:10px;">By placing an order you
-          agree to our terms and conditions</p>
+          agree to our <a href="./terms/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:500;">terms and conditions</a></p>
       </div>
     </div>
   </div>
@@ -1229,7 +1272,7 @@
               <div style="text-align:center;padding:24px;display:inline-flex;flex-direction:column;align-items:center;gap:14px;">
                 <svg viewBox="0 0 24 24" style="width:64px;height:64px;" aria-hidden="true"><use href="#yarz-button-mark"/></svg>
                 <div
-                  style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:0.32em;color:#6E1F2A;text-transform:uppercase;border-bottom:1px solid rgba(110,31,42,0.4);padding-bottom:8px;">
+                  style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:0.32em;color:#ff004c;text-transform:uppercase;border-bottom:1px solid rgba(255, 0, 76,0.4);padding-bottom:8px;">
                   YARZ</div>
                 <div
                   style="font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;color:#1A1411;letter-spacing:0.04em;">
@@ -1460,17 +1503,17 @@
 
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
-  <script src="./js/api.js?v=15.84" defer></script>
+  <script src="./js/api.js?v=16.2" defer></script>
 
   <!-- TURBO: Boot loader + cache engine + image optimizer -->
-  <script src="./js/boot.js?v=12.1" defer></script>
+  <script src="./js/boot.js?v=15.97" defer></script>
   <script src="./js/turbo-core.js?v=12.1" defer></script>
   <script src="./js/image-turbo.js?v=12.1" defer></script>
 
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=15.86"  defer></script>
+  <script src="./js/app.js?v=16.2"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).
@@ -1561,8 +1604,8 @@
       style="position:fixed;inset:0;background:#FBF8F1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:9999;">
       <div>
         <div style="display:inline-flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:16px;">
-          <svg viewBox="0 0 24 24" style="width:56px;height:56px;" aria-hidden="true"><circle cx="12" cy="12" r="10.25" fill="#6E1F2A" stroke="#571821" stroke-width="1.4"/><circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/><circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/><circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/><circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/><circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/></svg>
-          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.26em;color:#6E1F2A;text-transform:uppercase;border-bottom:1px solid rgba(110,31,42,0.4);padding-bottom:6px;">YARZ</div>
+          <svg viewBox="0 0 24 24" style="width:56px;height:56px;" aria-hidden="true"><circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/><circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/><circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/><circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/><circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/><circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/></svg>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.26em;color:#ff004c;text-transform:uppercase;border-bottom:1px solid rgba(255, 0, 76,0.4);padding-bottom:6px;">YARZ</div>
         </div>
         <p style="font-size:14px;color:#56524C;">Please enable JavaScript to view this website.</p>
       </div>
