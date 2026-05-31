@@ -2124,12 +2124,27 @@ const YARZ = (() => {
   function initPromoPopupSlots() {
     var c = state.controls || {};
     if (!c.popupSlots || !c.popupSlots.length) return;
-    var today = new Date(); today.setHours(0,0,0,0);
+    // ✅ Timezone-safe date-only key (YYYYMMDD as integer). Avoids the UTC-midnight
+    // bug where new Date("2026-06-01") becomes 6 AM local in GMT+6, making a slot
+    // that starts "today" look like it starts in the future (popup never showed).
+    function _dayKey(v) {
+      if (v == null || v === '') return null;
+      var str = String(v).trim();
+      // Plain YYYY-MM-DD from <input type="date"> → parse parts directly (no TZ shift)
+      var m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return parseInt(m[1] + m[2] + m[3], 10);
+      // Otherwise (e.g. Sheets coerced "Mon Jun 01 2026 ..." Date string) → local parts
+      var d = new Date(str);
+      if (isNaN(d.getTime())) return null;
+      return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    }
+    var now = new Date();
+    var todayKey = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
     for (var i = 0; i < c.popupSlots.length; i++) {
       var slot = c.popupSlots[i];
       if (!slot.image) continue;
-      if (slot.start) { var sd = new Date(slot.start); if (!isNaN(sd) && sd > today) continue; }
-      if (slot.end)   { var ed = new Date(slot.end);   if (!isNaN(ed) && ed < today) continue; }
+      var sk = _dayKey(slot.start); if (sk !== null && sk > todayKey) continue;   // not started yet
+      var ek = _dayKey(slot.end);   if (ek !== null && ek < todayKey) continue;   // already ended (end day inclusive)
       var dismissKey = 'yarz_popup_slot_' + (i + 1) + '_dismissed';
       if (sessionStorage.getItem(dismissKey)) continue;
       _showPopupSlot(slot, i + 1);
@@ -2404,6 +2419,15 @@ const YARZ = (() => {
     } else {
       document.body.removeAttribute('data-royal-frame');
     }
+
+    // ✅ v16.4 BUGFIX: Render the Men's Accessories entry banner HERE too.
+    // The banner needs state.controls.accessoriesActive, but on the turbo
+    // first-paint path renderDynamicSections() runs BEFORE controls are set,
+    // so the banner was missing until a later refresh. applyExtrasControls
+    // always runs once controls ARE available → guarantees the banner appears
+    // on first load. renderAccessoriesBanner() removes any existing node first,
+    // so calling it from both places never duplicates.
+    try { renderAccessoriesBanner(); } catch(e) {}
   }
 
   function computeStoreHoursMessage(c) {
@@ -2693,6 +2717,14 @@ const YARZ = (() => {
     // route through here with the sentinel name — delegate to openAccessories
     // so the page keeps showing accessory products (not a phantom category).
     if (categoryName === '__ACCESSORIES__') { openAccessories(pageNum, skipPushState); return; }
+    // ✅ v16.4: search-results pagination uses the '__SEARCH__' sentinel — just
+    // re-page the already-computed results without re-filtering by category.
+    if (categoryName === '__SEARCH__') {
+      state.currentCategoryPageNum = pageNum || 1;
+      state.currentCollectionProducts = state.searchResults || [];
+      applyFilters();
+      return;
+    }
     pageNum = pageNum || 1;
     var safeCatName = categoryName || 'All';
 
@@ -2905,20 +2937,16 @@ const YARZ = (() => {
       }
     } 
     
-    // 2. Fallback to Category filter ONLY when admin provided NO links at all.
-    // ✅ v15.52: Previously the fallback fired whenever links FAILED to
-    // match (slug parsing error etc.) — admin saw "I added 1 link → 5
-    // products appear" because the whole category dumped in. Now we only
-    // fall back to category when validLinks itself is empty, so a broken
-    // link returns an empty section instead of polluting it with every
-    // category product.
-    if (validLinks.length === 0 && sec.category) {
-      var searchCat = sec.category.trim().toLowerCase();
-      // ✅ v16.3: exclude accessories from category-based dynamic collections too.
-      secProducts = getShopProducts().filter(function(p) {
-        var pc = (p.category || '').trim().toLowerCase();
-        return pc === searchCat || pc.indexOf(searchCat) > -1 || searchCat.indexOf(pc) > -1;
-      });
+    // 2. ✅ v16.5: Category/Tag is a LABEL ONLY — it never auto-populates products.
+    // Products appear in a section EXCLUSIVELY through explicit Target Links.
+    // Previously, a section with a Category/Tag but no link auto-dumped every
+    // product in that category (admin reported: "I gave no target link but a
+    // product still shows up"). The Category/Tag field is still used elsewhere
+    // for the section card image + display name (see renderDynamicSections),
+    // but it must NOT decide which products land inside the collection.
+    // So when there are no valid Target Links, the collection stays empty.
+    if (validLinks.length === 0) {
+      secProducts = [];
     }
 
     // Render products
@@ -3641,8 +3669,8 @@ const YARZ = (() => {
         
         html += '<section class="related-products-section" style="padding:48px 0 24px !important;width:100% !important;max-width:100% !important;border-top:1px solid var(--border-light);">';
         html += '<div class="related-heading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin:10px auto 30px;text-align:center;">' +
-                  '<h3 style="font-family:var(--font-serif,\'Playfair Display\',Georgia,serif);font-size:26px;font-weight:700;color:var(--purple-900,#2A1E3E);margin:0;letter-spacing:0.02em;text-transform:uppercase;">RECENTLY STALKED</h3>' +
-                  '<span style="max-width:40px;width:40px;height:2px;background:var(--accent,#634A8E);border-radius:1px;"></span>' +
+                  '<h3 style="font-family:var(--font-serif,\'Playfair Display\',Georgia,serif);font-size:26px;font-weight:700;color:var(--text-main);margin:0;letter-spacing:0.02em;text-transform:uppercase;">RECENTLY STALKED</h3>' +
+                  '<span style="max-width:40px;width:40px;height:2px;background:var(--accent);border-radius:1px;"></span>' +
                 '</div>';
         
         // Full width container
@@ -4237,6 +4265,11 @@ const YARZ = (() => {
 
   // ===== BUY NOW =====
   function buyNow() {
+    // ✅ v16: Clear any stale Buy Now session flags up-front so an abandoned
+    // previous express-purchase can't accidentally trigger a cart revert now.
+    state._buyNowMode = false;
+    state._buyNowKey = null;
+    state._cartBeforeBuyNow = null;
     // ✅ v15.96: Duplicate-in-cart guard. Customers often leave an item in
     // the cart, return later, re-select the SAME product + SAME size, and
     // hit Buy Now again — silently adding a second line / bumping the qty
@@ -4270,6 +4303,12 @@ const YARZ = (() => {
     // selected, in-stock, under cap) BEFORE opening checkout. Previously
     // a no-size click on Buy Now would toast the warning and then still
     // open the checkout form — confusing the customer.
+    // ✅ v16: Buy Now is an EXPRESS purchase — it must NOT permanently leave
+    // the item sitting in the cart if the customer abandons checkout. We
+    // snapshot the pre-Buy-Now cart here; the item is added only so the
+    // shared checkout flow (which reads state.cart) can process it, and
+    // closeCheckout() reverts to this snapshot when the order isn't placed.
+    var _snapshotBeforeBuyNow = JSON.parse(JSON.stringify(state.cart || []));
     var beforeLen = (state.cart || []).length;
     var beforeQty = (state.cart || []).reduce(function(s, c){ return s + (c.qty || 0); }, 0);
     addToCart();
@@ -4278,6 +4317,14 @@ const YARZ = (() => {
     // If neither line nor quantity grew, addToCart's guards aborted — bail
     // without opening checkout.
     if (afterLen === beforeLen && afterQty === beforeQty) return;
+    // Mark this as a Buy Now session so closeCheckout() can revert the cart
+    // if the customer leaves without ordering. We remember the temp item's
+    // key + the pre-Buy-Now cart contents. `_buyNowArming` is consumed at the
+    // top of openCheckout() so that a NORMAL (cart-icon) checkout always
+    // clears any stale buy-now revert state.
+    state._buyNowArming = true;
+    state._buyNowKey = (p && s) ? (p.name + '_' + s) : null;
+    state._cartBeforeBuyNow = _snapshotBeforeBuyNow;
     toggleCart(false);
     openCheckout();
   }
@@ -4341,6 +4388,18 @@ const YARZ = (() => {
   function openCheckout() {
     if (state.cart.length === 0) { showToast('Cart is empty', 'warning'); return; }
     toggleCart(false);
+
+    // ✅ v16: Buy Now revert arming. buyNow() sets `_buyNowArming` right before
+    // calling us. A NORMAL cart-icon checkout has it false → we clear any
+    // stale revert state so we never wrongly revert a real cart. The WhatsApp
+    // checkout mode below returns early (no modal, no closeCheckout), so we
+    // also clear the flags there to avoid leaking into the next checkout.
+    state._buyNowMode = !!state._buyNowArming;
+    state._buyNowArming = false;
+    if (!state._buyNowMode) {
+      state._buyNowKey = null;
+      state._cartBeforeBuyNow = null;
+    }
 
     // ✅ v15.6 FIX: Honor admin's `Checkout Mode` — when set to "whatsapp",
     // skip the website checkout form and send a WhatsApp message with the
@@ -4463,10 +4522,13 @@ const YARZ = (() => {
     var addressInput = $('#co-address');
     var paymentSel = $('#co-payment');
 
-    if (nameInput) nameInput.value = u.name || '';
-    if (phoneInput) phoneInput.value = u.phone || '';
-    if (emailInput) emailInput.value = u.email || '';
-    if (addressInput) addressInput.value = u.address || '';
+    // ✅ v16.5: Per owner request — do NOT auto-fill from saved details.
+    // Every customer types their own info fresh each time (cleaner, no stale
+    // pre-filled values bleeding in). Inputs are explicitly cleared on open.
+    if (nameInput) nameInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    if (emailInput) emailInput.value = '';
+    if (addressInput) addressInput.value = '';
 
     state.appliedCoupon = null;
     var couponInput = $('#co-coupon-code');
@@ -4926,7 +4988,22 @@ const YARZ = (() => {
     // Check coupon
     var couponRow = $('#checkout-coupon-row');
     if (state.appliedCoupon) {
-      var discountAmt = (subtotal * state.appliedCoupon.discountPct) / 100;
+      // ✅ v16.4 BUGFIX: Coupons are PER-PRODUCT (each product carries its own
+      // couponCode). Previously the summary discounted the WHOLE subtotal
+      // (`subtotal * pct`), but the confirm modal AND the actual order payload
+      // only discount the item(s) whose own couponCode matches — so the
+      // customer was shown a bigger discount than they were really charged.
+      // Recompute the discount across ONLY the matching cart items so the
+      // summary, confirm modal and final order all agree to the taka.
+      var _isCpnActive = function(a){ a = String(a||'').toLowerCase(); return a==='yes'||a==='hidden'; };
+      var discountAmt = 0;
+      state.cart.forEach(function(item){
+        if (_isCpnActive(item.couponActive) &&
+            (item.couponCode || '').toUpperCase() === state.appliedCoupon.code) {
+          discountAmt += (item.price * item.qty) * state.appliedCoupon.discountPct / 100;
+        }
+      });
+      discountAmt = Math.round(discountAmt);
       total = total - discountAmt;
       
       if (!couponRow) {
@@ -5004,6 +5081,26 @@ const YARZ = (() => {
     var modal = $('#checkout-modal');
     if (modal) modal.classList.remove('active');
     document.body.classList.remove('checkout-open');
+    // ✅ v16: Buy Now revert. If this checkout was opened via Buy Now (express
+    // purchase) and the customer is leaving WITHOUT placing the order, the
+    // temporarily-added item must NOT linger in the cart. A successful order
+    // already empties state.cart, so we only revert when the buy-now item is
+    // still present (genuine abandonment). This restores the exact cart the
+    // customer had before clicking Buy Now.
+    if (state._buyNowMode) {
+      var _stillThere = state._buyNowKey
+        ? (state.cart || []).some(function (i) { return i.key === state._buyNowKey; })
+        : false;
+      if (_stillThere && Array.isArray(state._cartBeforeBuyNow)) {
+        state.cart = state._cartBeforeBuyNow;
+        saveCart();
+        try { renderCartDrawer(); } catch (e) {}
+        try { updateCartCount(); } catch (e) {}
+      }
+      state._buyNowMode = false;
+      state._buyNowKey = null;
+      state._cartBeforeBuyNow = null;
+    }
     // ✅ v15.93: Reset the Place Order truck animation so the next time
     // the customer opens checkout, the button starts in its default state.
     var __pob = $('#checkout-submit-btn');
@@ -5262,10 +5359,10 @@ const YARZ = (() => {
                               productNames.map(function(n){ return '<li>' + escHtml(n) + '</li>'; }).join('') + 
                               '</ul>';
 
-        var qtyWarning = '<div style="margin-bottom:12px; padding:12px; background:' + (totalQty > 1 ? 'rgba(220,53,69,0.06)' : 'rgba(99,74,142,0.06)') + '; border:1px solid ' + (totalQty > 1 ? 'rgba(220,53,69,0.15)' : 'rgba(99,74,142,0.15)') + '; border-radius:8px; color:var(--text-main); font-size:14px; text-align:center;">' +
+        var qtyWarning = '<div style="margin-bottom:12px; padding:12px; background:' + (totalQty > 1 ? 'rgba(220,53,69,0.06)' : 'rgba(0,0,0,0.04)') + '; border:1px solid ' + (totalQty > 1 ? 'rgba(220,53,69,0.15)' : 'var(--border-light)') + '; border-radius:8px; color:var(--text-main); font-size:14px; text-align:center;">' +
                          '<div style="font-weight:700; color:' + (totalQty > 1 ? '#d32f2f' : 'var(--accent)') + ';">আপনি মোট <span style="font-size:16px;">' + totalQty + '</span> টি প্রোডাক্ট অর্ডার করছেন!</div>' +
                          productListHtml +
-                         '<div style="margin-top:8px; font-weight:700; font-size:15px; color:var(--ink-1); border-top:1px dashed ' + (totalQty > 1 ? 'rgba(220,53,69,0.2)' : 'rgba(99,74,142,0.2)') + '; padding-top:8px;">ডেলিভারি চার্জ: ' + dlvText + '</div>' +
+                         '<div style="margin-top:8px; font-weight:700; font-size:15px; color:var(--text-main); border-top:1px dashed ' + (totalQty > 1 ? 'rgba(220,53,69,0.2)' : 'var(--border-light)') + '; padding-top:8px;">ডেলিভারি চার্জ: ' + dlvText + '</div>' +
                          '<div style="margin-top:4px; font-weight:700; font-size:15px; color:var(--brand);">সর্বমোট বিল: ' + formatPrice(grandTotal) + '</div>' +
                          '<div style="margin-top:6px; font-size:12px; font-weight:600; color:var(--text-muted);">' + (totalQty > 1 ? 'সম্মতি থাকলে কনফার্ম করুন।' : 'সব ঠিক থাকলে কনফার্ম করুন।') + '</div>' +
                          '</div>';
@@ -5672,7 +5769,7 @@ const YARZ = (() => {
     var paymentInstructions = '';
     if (paymentMethod && (paymentMethod.toLowerCase().includes('bkash') || paymentMethod.toLowerCase().includes('nagad'))) {
       var paymentColor = paymentMethod.toLowerCase().includes('bkash') ? '#E2136E' : '#ED1C24';
-      paymentInstructions = '<div style="background:linear-gradient(135deg,rgba(99,74,142,0.06),rgba(99,74,142,0.02));border:1.5px solid rgba(99,74,142,0.15);border-radius:12px;padding:18px;margin-bottom:24px;text-align:left;">' +
+      paymentInstructions = '<div style="background:linear-gradient(135deg,rgba(0,0,0,0.04),rgba(0,0,0,0.015));border:1.5px solid var(--border-light);border-radius:12px;padding:18px;margin-bottom:24px;text-align:left;">' +
         '<h3 style="font-size:14px;font-weight:700;color:' + paymentColor + ';margin-bottom:10px;display:flex;align-items:center;gap:8px;">' +
         // ✅ v15.85: Use the brand wordmark badge instead of a generic shield icon.
         '<span class="pm-badge ' + (paymentMethod.toLowerCase().includes('bkash') ? 'pm-badge--bkash' : 'pm-badge--nagad') + '" aria-hidden="true">' +
@@ -5693,8 +5790,10 @@ const YARZ = (() => {
             '<span class="copy-label">Copy</span>' +
           '</button>' +
         '</li>' +
-        // ✅ v15.77: Amount text — clarified to "delivery charge only"
-        '<li>Send Money করুন — Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong></li>' +
+        // ✅ v15.77: Amount text — delivery charge only (or ৳100 advance when free-ship active)
+        '<li>Send Money করুন — Amount: <strong>' +
+          (isFreeShipAdvanceActive() ? 'মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি' : 'শুধুমাত্র ডেলিভারি চার্জ') +
+        '</strong></li>' +
         '<li>Reference এ আপনার ফোন নম্বর দিন</li>' +
         '<li>Order ID: <strong>' + escHtml(orderId) + '</strong></li>' +
         '</ul>' +
@@ -5819,8 +5918,30 @@ const YARZ = (() => {
     state.searchQuery = q;
     state.searchResults = results;
     state.currentCategory = null;
-    renderProducts(results, '🔍 Search: ' + query);
     if (window.YARZ_PIXEL) YARZ_PIXEL.search(q);
+
+    // ✅ v16.4 BUGFIX: Render results into the dedicated collection view (the
+    // proven grid + pagination architecture). Previously this called
+    // renderProducts(results, '🔍 Search: ...') — passing the HEADING as the
+    // containerId, so renderProducts did getElementById('🔍 Search: ...') →
+    // null → returned immediately → the customer saw a BLANK page on Enter.
+    state.currentView = 'collection';
+    state.currentCategoryPageName = '__SEARCH__';   // sentinel (no category filter)
+    state.currentCategoryPageNum = 1;
+
+    var home = document.getElementById('home-content');
+    if (home) home.style.display = 'none';
+    var dyn = document.getElementById('dynamic-view');
+    if (dyn) dyn.style.display = 'none';
+
+    var collectionView = document.getElementById('collection-view');
+    if (collectionView) { collectionView.style.display = ''; window.scrollTo(0, 0); }
+
+    var titleEl = document.getElementById('collection-title');
+    if (titleEl) titleEl.textContent = 'Search: ' + query;
+
+    state.currentCollectionProducts = results;
+    applyFilters();
   }
 
   // ===== ORDER TRACKING =====
@@ -5850,7 +5971,7 @@ const YARZ = (() => {
       '<div class="page-header" style="border:none;margin-bottom:16px;">' +
       '<h1>Order Tracking</h1>' +
       '<p>Enter your phone number to view your orders</p>' +
-      '<div style="background:rgba(99,74,142,0.05);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 30 days.</p></div>' +
+      '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 30 days.</p></div>' +
       '<p style="font-size:12px;color:var(--text-muted);font-family:var(--font-bengali);margin-top:4px;">আপনার ফোন নম্বর দিয়ে অর্ডার খুঁজুন</p>' +
       '<p style="font-size:11px;color:var(--text-muted);margin-top:6px;">🔄 Status auto-refreshes every 10s</p></div>' +
       '<div class="tracking-card">' +
@@ -6117,15 +6238,14 @@ const YARZ = (() => {
   // style.css, so it works the moment the card mounts.
   function _buildOrderTimeline(o, waUrl) {
     var raw = String(o.status || 'Pending').toLowerCase().replace(/\s+/g, '');
-    var updated = _fmtBdDate(o.updated || o.date || o.orderDate || '');
 
-    // ── Cancelled / Returned → banner (no stepper) ──
-    if (raw === 'cancelled' || raw === 'canceled' || raw === 'returned') {
+    // ── Cancelled / Returned / Deleted → professional banner with WhatsApp CTA ──
+    if (raw === 'cancelled' || raw === 'canceled' || raw === 'returned' || raw === 'deleted' || raw === 'notreceived') {
       var isReturn = (raw === 'returned');
-      var bannerTitle = isReturn ? 'অর্ডারটি রিটার্ন করা হয়েছে' : 'অর্ডারটি বাতিল করা হয়েছে';
+      var bannerTitle = isReturn ? 'অর্ডারটি রিটার্ন করা হয়েছে' : 'অর্ডারটি গ্রহণ করা হয়নি';
       var bannerText = isReturn
         ? 'আপনার অর্ডারটি রিটার্ন হিসেবে প্রসেস করা হয়েছে। বিস্তারিত তথ্য জানতে আমাদের সাথে WhatsApp-এ যোগাযোগ করুন।'
-        : 'আপনার অর্ডারটি বাতিল করা হয়েছে। সম্পূর্ণ তথ্য জানতে বা পুনরায় অর্ডার করতে আমাদের সাথে WhatsApp-এ যোগাযোগ করুন।';
+        : 'আপনার অর্ডারটি গ্রহণ করা হয়নি। বিস্তারিত জানতে বা পুনরায় অর্ডার করতে অনুগ্রহ করে আমাদের সাথে WhatsApp-এ যোগাযোগ করুন।';
       var waMsg = encodeURIComponent('আমার অর্ডার #' + (o.orderId || o.orderID || '') + ' সম্পর্কে জানতে চাই।');
       var waFull = waUrl + (waUrl.indexOf('?') > -1 ? '&' : '?') + 'text=' + waMsg;
       var waSvg = '<svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a1.1 1.1 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>';
@@ -6141,69 +6261,25 @@ const YARZ = (() => {
       '</div>';
     }
 
-    // ── Normal flow → 5-stage stepper ──
-    // Map every possible status to a stage index (0..4). `raw` has already
-    // been lowercased AND had spaces stripped, so keys here are space-free.
-    // ✅ v16.4: Customer timeline now EXACTLY mirrors the 4 real admin stages:
-    //   New Order (Pending)  →  Picked Up  →  In Delivery  →  Complete (Delivered)
-    // Admin "Sent for delivery" writes "Ready for Delivery"/"Handed to Courier"
-    // (and Steadfast writes "In Transit"/"Shipped") — ALL of those map to the
-    // single "In Delivery" stage so the customer view tracks admin live.
-    // Previously these statuses had NO mapping and silently fell back to
-    // stage 0, which is why the customer was stuck on "Order Confirmed".
-    var stageIndex = {
-      // Stage 0 — order received / confirmed
-      pending: 0, confirmed: 0, processing: 0, packaging: 0,
-      // Stage 1 — picked up from the seller
-      pickedup: 1,
-      // Stage 2 — out with the courier / on the way
-      readyfordelivery: 2, handedtocourier: 2, shipped: 2,
-      intransit: 2, outfordelivery: 2, indelivery: 2,
-      // Stage 3 — delivered / complete
-      delivered: 3, completed: 3, complete: 3
-    };
-    var current = stageIndex.hasOwnProperty(raw) ? stageIndex[raw] : 0;
-
-    var steps = [
-      { icon: 'check', name: 'Order Confirmed',  desc: 'আপনার অর্ডারটি গ্রহণ ও কনফার্ম করা হয়েছে।' },
-      { icon: 'box',   name: 'Picked Up',        desc: 'আপনার অর্ডারটি প্রস্তুত করে কুরিয়ারে হস্তান্তর করা হয়েছে।' },
-      { icon: 'truck', name: 'In Delivery',      desc: 'অর্ডারটি ডেলিভারির জন্য আপনার ঠিকানার পথে রয়েছে।' },
-      { icon: 'pkgIn', name: 'Delivered',        desc: 'অর্ডারটি সফলভাবে পৌঁছে দেওয়া হয়েছে। ধন্যবাদ।' }
-    ];
-
-    var lastStep = steps.length - 1; // 3
-    var isComplete = (current >= lastStep);
-    var headChip = isComplete
-      ? '<span class="yarz-track__chip yarz-track__chip--done">' + _icon('check', 11) + '<span>Completed</span></span>'
-      : '<span class="yarz-track__chip yarz-track__chip--progress">' + _icon('truck', 11) + '<span>In Progress</span></span>';
-
-    var rows = '';
-    steps.forEach(function (s, i) {
-      var cls = '';
-      if (i < current) cls = 'yarz-step--done';
-      else if (i === current) cls = (isComplete ? 'yarz-step--done' : 'yarz-step--current');
-      // Completed-step dots show a check; pending/current keep their own icon.
-      var dotIcon = (i < current || (isComplete)) ? _icon('check', 16) : _icon(s.icon, 16);
-      // Only show a timestamp on steps already reached (done + current).
-      var timeHtml = (i <= current) ? '<span class="yarz-step__time">' + escHtml(updated) + '</span>' : '';
-      rows += '<div class="yarz-step ' + cls + '">' +
-        '<div class="yarz-step__dot">' + dotIcon + '</div>' +
-        '<div class="yarz-step__body">' +
-          '<div class="yarz-step__row">' +
-            '<span class="yarz-step__name">' + s.name + '</span>' +
-            timeHtml +
-          '</div>' +
-          '<div class="yarz-step__desc">' + s.desc + '</div>' +
-        '</div>' +
-      '</div>';
-    });
-
-    return '<div class="yarz-track">' +
-      '<div class="yarz-track__head">' +
-        '<span class="yarz-track__title">Order Timeline</span>' +
-        headChip +
+    // ── Delivered / Complete → success confirmation ──
+    // ── Everything else → simple "order confirmed" confirmation ──
+    // ✅ v16.5: Replaced the live 4-stage stepper (Confirmed→Picked Up→In
+    // Delivery→Delivered) with a single, reliable confirmation card. The
+    // stepper depended on the admin status syncing perfectly through polling +
+    // cache + status-string mapping; any mismatch left customers stuck on the
+    // wrong stage. The owner asked for a clean professional confirmation
+    // instead — far more robust, no moving parts that can desync.
+    var isDelivered = (raw === 'delivered' || raw === 'completed' || raw === 'complete');
+    var okTitle = isDelivered ? 'অর্ডারটি সফলভাবে ডেলিভারি হয়েছে' : 'আপনার অর্ডারটি কনফার্ম করা হয়েছে';
+    var okText  = isDelivered
+      ? 'আপনার অর্ডারটি সফলভাবে পৌঁছে দেওয়া হয়েছে। YARZ-এর সাথে থাকার জন্য আন্তরিক ধন্যবাদ।'
+      : 'আপনার অর্ডারটি গ্রহণ ও কনফার্ম করা হয়েছে। আমাদের টিম শীঘ্রই আপনার সাথে যোগাযোগ করে অর্ডারটি প্রসেস করবে।';
+    return '<div class="yarz-track yarz-track--confirmed">' +
+      '<div class="yarz-confirm-box">' +
+        '<div class="yarz-confirm-box__icon">' + _icon('check', 24) + '</div>' +
+        '<div class="yarz-confirm-box__title">' + okTitle + '</div>' +
+        '<div class="yarz-confirm-box__text">' + okText + '</div>' +
       '</div>' +
-      rows +
     '</div>';
   }
 
@@ -6302,7 +6378,7 @@ const YARZ = (() => {
 
       // Product name (clickable)
       if (prodName) {
-        html += '<div style="font-size:13px;font-weight:600;margin-bottom:8px;cursor:pointer;" onclick="YARZ.openProduct(\'' + safeName + '\')"><span style="color:var(--accent);text-decoration:underline;text-decoration-color:rgba(99,74,142,0.3);text-underline-offset:3px;transition:all 0.2s;">' +
+        html += '<div style="font-size:13px;font-weight:600;margin-bottom:8px;cursor:pointer;" onclick="YARZ.openProduct(\'' + safeName + '\')"><span style="color:var(--accent);text-decoration:underline;text-decoration-color:var(--border-light);text-underline-offset:3px;transition:all 0.2s;">' +
           prodName + '</span>' + (o.size ? ' <span style="color:var(--text-muted);font-weight:400;">(' + escHtml(_sizeLabel(o.size)) + ')</span>' : '') +
           (qty > 1 ? ' <span style="color:var(--text-muted);font-weight:400;">x' + qty + '</span>' : '') + ' <span style="font-size:11px;color:var(--accent);opacity:0.7;">→</span></div>';
       }
@@ -6327,7 +6403,7 @@ const YARZ = (() => {
       html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">' +
         '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:' + (isPaid ? 'rgba(5,150,105,0.1);color:var(--success)' : 'rgba(217,119,6,0.1);color:#D97706') + ';font-weight:600;">' + escHtml(payment) + '</span>';
       if (o.courier) {
-        html += '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(99,74,142,0.1);color:var(--brand);font-weight:600;">🚚 ' + escHtml(o.courier) + '</span>';
+        html += '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(0,0,0,0.06);color:var(--brand);font-weight:600;">🚚 ' + escHtml(o.courier) + '</span>';
       }
       html += '</div>';
 
@@ -6615,6 +6691,15 @@ const YARZ = (() => {
     if (!paymentField) return;
     var parent = paymentField.closest('.form-group') || paymentField.parentNode;
 
+    // ✅ Amount-line wording depends on cart state:
+    //   • Free-ship unlocked + COD off + advance ON → customer sends a fixed
+    //     ৳100 security advance (NOT the delivery charge). Saying "delivery
+    //     charge" here confused customers since delivery is actually FREE.
+    //   • Otherwise → customer sends the delivery charge shown at checkout.
+    var _amountLine = isFreeShipAdvanceActive()
+      ? '2. Amount: <strong>মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> (চেকআউটে দেখানো amount)<br>'
+      : '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>';
+
     if (method === 'bKash') {
       var box = document.createElement('div');
       box.id = 'payment-info-box';
@@ -6647,7 +6732,8 @@ const YARZ = (() => {
         '1. আপনার bKash থেকে Send Money করুন<br>' +
         // ✅ v15.77: Amount line now clearly says "delivery charge only" — the merchant
         //   collects only the courier fee for verification; the rest is paid on delivery.
-        '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>' +
+        //   v16: switches to "৳100 advance" wording when free-ship advance is active.
+        _amountLine +
         '3. Reference: আপনার ফোন নম্বর<br>' +
         '4. Transaction ID টি নিচের বক্সে দিন' +
         '</div>' +
@@ -6680,8 +6766,8 @@ const YARZ = (() => {
         '</div>' +
         '<div class="pay-instruction">' +
         '1. আপনার Nagad থেকে Send Money করুন<br>' +
-        // ✅ v15.77: Amount line — delivery charge only
-        '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>' +
+        // ✅ v15.77: Amount line — delivery charge only (or ৳100 advance when free-ship active)
+        _amountLine +
         '3. Reference: আপনার ফোন নম্বর<br>' +
         '4. Transaction ID টি নিচের বক্সে দিন' +
         '</div>' +
@@ -7468,6 +7554,12 @@ const YARZ = (() => {
             setTimeout(function() {
               openCategoryPage(decodeURIComponent(_cp[0]), parseInt(_cp[1], 10) || 1, true);
             }, 50);
+            return;
+          } else if (_hash === '#wishlist') {
+            // ✅ v16.4: handle wishlist deep-link in the turbo-first-paint path
+            // too (previously only the Promise.all branch did, so a fast first
+            // paint landed on Home instead of the wishlist).
+            setTimeout(function() { openWishlistPage(true); }, 50);
             return;
           }
           // No deep-link found — clear the inline hash-route style so
@@ -8386,17 +8478,28 @@ const YARZ = (() => {
     // v15.74: Returns BD-time formatted string like "১২ অক্টোবর ২০২৫, সন্ধ্যা ৭টা".
     function _fmtBnDate(s) {
       if (!s) return '';
-      var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
-      if (!m) return '';
+      var str = String(s).trim();
       var months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
       var bnDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
       var toBn = function(n){ return String(n).split('').map(function(d){ return bnDigits[+d] || d; }).join(''); };
-      var y = m[1], mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+      var y, mo, d, hasTime = false, h, mm;
+      var m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/);
+      if (m) {
+        // Bare datetime-local → Dhaka wall-clock parts (use as-is, no shift)
+        y = m[1]; mo = parseInt(m[2], 10); d = parseInt(m[3], 10);
+        if (m[4] !== undefined && m[5] !== undefined) { hasTime = true; h = parseInt(m[4], 10); mm = parseInt(m[5], 10); }
+      } else {
+        // ✅ FIX: ISO/Z string from Sheets coercion → convert to Asia/Dhaka (UTC+6) wall-clock
+        var t = Date.parse(str);
+        if (isNaN(t)) return '';
+        var dh = new Date(t + 6 * 3600 * 1000); // shift to Dhaka, then read UTC fields
+        y = dh.getUTCFullYear(); mo = dh.getUTCMonth() + 1; d = dh.getUTCDate();
+        hasTime = true; h = dh.getUTCHours(); mm = dh.getUTCMinutes();
+      }
       if (!y || !mo || !d || mo < 1 || mo > 12) return '';
       var out = toBn(d) + ' ' + months[mo - 1] + ' ' + toBn(y);
       // Time portion (if present)
-      if (m[4] !== undefined && m[5] !== undefined) {
-        var h = parseInt(m[4], 10), mm = parseInt(m[5], 10);
+      if (hasTime) {
         // Bengali day-part labels
         var part = h < 5 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকাল' : h < 22 ? 'সন্ধ্যা' : 'রাত';
         var h12 = h % 12 || 12;
@@ -8407,15 +8510,26 @@ const YARZ = (() => {
 
     // v15.74: Parse "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm" as Asia/Dhaka wall-clock,
     // return UTC epoch ms. Visitor's local TZ doesn't enter the math.
+    // ✅ FIX: Google Sheets auto-coerces the saved datetime string into a Date,
+    // which serializes back as a UTC ISO string with a Z suffix
+    // (e.g. "2026-06-15T04:00:00.000Z"). The old strict regex rejected that
+    // format → countdown never rendered. Now we accept BOTH: the bare
+    // datetime-local form (treated as Dhaka wall-clock) AND any ISO/Date
+    // string (already an absolute instant → trust native parsing).
     function _parseTargetMs(s) {
       if (!s) return NaN;
-      var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
-      if (!m) return NaN;
-      var y = +m[1], mo = +m[2], d = +m[3];
-      var hh = m[4] !== undefined ? +m[4] : 0;
-      var mm = m[5] !== undefined ? +m[5] : 0;
-      // Asia/Dhaka is UTC+6, no DST
-      return Date.UTC(y, mo - 1, d, hh - 6, mm, 0, 0);
+      var str = String(s).trim();
+      var m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/);
+      if (m) {
+        var y = +m[1], mo = +m[2], d = +m[3];
+        var hh = m[4] !== undefined ? +m[4] : 0;
+        var mm = m[5] !== undefined ? +m[5] : 0;
+        // Asia/Dhaka is UTC+6, no DST
+        return Date.UTC(y, mo - 1, d, hh - 6, mm, 0, 0);
+      }
+      // ISO string with Z/offset (Sheets coercion) or any Date-parseable string
+      var t = Date.parse(str);
+      return isNaN(t) ? NaN : t;
     }
 
     // Bengali digit converter

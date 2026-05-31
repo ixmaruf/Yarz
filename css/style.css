@@ -5494,6 +5494,12 @@ textarea.form-input {
 
 #dynamic-view {
   animation: yarzSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ✅ v16.5: Defensive cream background + full-height so NO layer behind the
+     dynamic view (footer, body, leftover bars) can ever bleed through on short
+     pages like My Account / Order Tracking. The navy footer color stays
+     strictly inside .site-footer. */
+  background: var(--bg-primary, #FBF8F1);
+  min-height: calc(100vh - var(--header-height, 56px));
 }
 
 @keyframes yarzFadeIn {
@@ -8419,6 +8425,18 @@ body.yarz-quickview-open { overflow: hidden; }
   --footer-bg:     #1A1411;
   --footer-text:   rgba(255, 255, 255, 0.7);
 
+  /* ✅ v16.4: Alias tokens used by inline JS markup (cart/checkout/confirm/
+     order-success/tracking). These were referenced but never defined, so
+     panels rendered with no background and near-invisible text. Map them to
+     the real theme tokens so everything resolves correctly site-wide.
+     (--brand is already aliased to var(--accent) elsewhere; not redefined here.) */
+  --ink-1:      #1A1411;
+  --ink-2:      #3A3530;
+  --ink-3:      #4A4A5A;
+  --surface-1:  #F4F2EC;
+  --surface-50: #FAFAF7;
+  --text-main:  #1A1411;
+
   /* Typography swap */
   --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
 
@@ -10202,13 +10220,17 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
        Also explicitly set background on the footer wrapper so the
        safe-area-inset-bottom strip below it shows the dark color. */
 @media (max-width: 768px) {
+  /* ✅ v16.5 FIX: The body background must be the CREAM paper color, NOT the
+     footer color. Previously body was forced to var(--footer-bg) (the admin's
+     navy #0f005c) with !important — so any section without its own background
+     (the editorial "REDEFINE YOUR STYLE" block, the gaps around product
+     images, etc.) showed navy bleeding ABOVE the footer. The footer paints
+     its own navy separately below, so body should stay cream site-wide. */
   html body {
-    background-color: var(--footer-bg, #1A1411) !important;
+    background-color: var(--bg-primary, #FBF8F1) !important;
     background-image: none !important;
   }
-  /* But the visible content area still needs the cream paper bg.
-     Apply it on the wrapping content + header so visually nothing
-     changes EXCEPT the strip below the footer. */
+  /* Content wrappers explicitly cream too (defensive, unchanged). */
   html body > main,
   html body > #app,
   html body > header,
@@ -10221,8 +10243,8 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   html body > #yarz-promo-popup {
     background-color: var(--bg-primary, #FBF8F1);
   }
-  /* Footer itself anchors at the bottom-most edge — paint its
-     border/edge area too so no cream slips through. */
+  /* Footer itself anchors at the bottom-most edge — it (and only it) carries
+     the admin's footer color, including the safe-area strip below it. */
   html body > footer.site-footer,
   html body .site-footer {
     background-color: var(--footer-bg, #1A1411) !important;
@@ -12029,6 +12051,33 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 }
 .yarz-cancel-box__wa:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(37,211,102,0.4); }
 .yarz-cancel-box__wa svg { width: 16px; height: 16px; fill: #fff; }
+
+/* ✅ v16.5 — Simple "Order Confirmed" / "Delivered" confirmation card
+   (replaces the live 4-stage stepper). Clean, professional, no moving parts. */
+.yarz-track--confirmed {
+  border-color: rgba(5,150,105,0.22);
+  background: rgba(5,150,105,0.04);
+}
+.yarz-confirm-box { text-align: center; padding: 10px 8px 8px; }
+.yarz-confirm-box__icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(16,185,129,0.35);
+}
+.yarz-confirm-box__icon svg { width: 24px; height: 24px; }
+.yarz-confirm-box__title {
+  font-size: 15px; font-weight: 700; color: #059669; margin-bottom: 6px;
+  font-family: var(--font-bengali, inherit);
+}
+.yarz-confirm-box__text {
+  font-size: 12px; color: var(--text-secondary, #6C6356);
+  line-height: 1.65; margin: 0 auto; max-width: 360px;
+  font-family: var(--font-bengali, inherit);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .yarz-step--current .yarz-step__dot { animation: none !important; }

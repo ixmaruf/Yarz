@@ -1107,30 +1107,28 @@
           <div id="co-coupon-msg" style="font-size:11px;margin-top:6px;"></div>
         </div>
 
-        <!-- Customer Info — v16: floating-label fields (label sits inside the
-             box, floats up on focus/content → cleaner, less vertical space) -->
-        <div class="form-group yarz-float">
-          <input type="text" class="form-input" id="co-name" placeholder="Full name">
-          <label for="co-name">Your Name <span class="required">*</span></label>
+        <!-- Customer Info — v16.5: simple placeholder hints INSIDE each box.
+             No floating labels (finicky), no separate labels below (confusing).
+             The hint text lives as the placeholder so the customer always sees
+             what goes where, the form stays compact, and nothing can desync. -->
+        <div class="form-group co-field">
+          <input type="text" class="form-input" id="co-name" placeholder="আপনার নাম লিখুন *" autocomplete="off">
           <!-- Honeypot Field (Anti-Bot) -->
           <input type="text" id="co-website" style="display:none" tabindex="-1" autocomplete="off" placeholder="Leave empty">
         </div>
         <div class="form-row">
-          <div class="form-group yarz-float">
-            <input type="tel" class="form-input" id="co-phone" placeholder="01XXXXXXXXX">
-            <label for="co-phone">Phone <span class="required">*</span></label>
+          <div class="form-group co-field">
+            <input type="tel" class="form-input" id="co-phone" placeholder="ফোন নম্বর (01XXXXXXXXX) *" autocomplete="off">
           </div>
-          <div class="form-group yarz-float">
-            <input type="email" class="form-input" id="co-email" placeholder="name@example.com">
-            <label for="co-email">Email</label>
+          <div class="form-group co-field">
+            <input type="email" class="form-input" id="co-email" placeholder="ইমেইল (ঐচ্ছিক)" autocomplete="off">
           </div>
         </div>
-        <div class="form-group yarz-float yarz-float--area">
-          <textarea class="form-input" id="co-address" placeholder="House, road, area"></textarea>
-          <label for="co-address">Delivery Address <span class="required">*</span></label>
+        <div class="form-group co-field">
+          <textarea class="form-input" id="co-address" placeholder="সম্পূর্ণ ঠিকানা — বাসা, রোড, এলাকা *" autocomplete="off"></textarea>
         </div>
-        <div class="form-group yarz-float--select" style="position:relative;margin-bottom:13px;">
-            <label style="position:absolute;left:14px;top:-7px;margin:0;padding:0 4px;font-size:13.5px;transform:scale(0.82);transform-origin:left center;font-weight:600;color:var(--text-secondary);background:var(--bg-card,#FFF);pointer-events:none;z-index:1;">Delivery Zone</label>
+        <div class="form-group" style="margin-bottom:13px;">
+            <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">ডেলিভারি এলাকা নির্বাচন করুন <span class="required" style="color:var(--accent)">*</span></div>
             <!-- v16: radio-style zone cards (no dropdown). The hidden <select>
                  below keeps every existing value-reading code path working;
                  the visible cards drive it via YARZ.selectZone(). -->
@@ -1139,12 +1137,12 @@
               <!-- Options injected dynamically from DELIVERY_CHARGES sheet -->
             </select>
         </div>
-        <div class="form-group yarz-float">
-            <input type="text" class="form-input" id="co-city" placeholder="e.g. Mirpur, Bandar">
-            <label for="co-city">City / Area</label>
+        <div class="form-group co-field">
+            <input type="text" class="form-input" id="co-city" placeholder="শহর / এলাকা (যেমন: মিরপুর, বন্দর)" autocomplete="off">
         </div>
-        <div class="form-group yarz-float yarz-float--select">
+        <div class="form-group co-field co-field--select">
           <!-- ✅ v15.93: Same custom chevron treatment for payment select. -->
+          <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">পেমেন্ট মেথড</div>
           <div class="yarz-select-wrap">
             <select class="form-select" id="co-payment" onchange="YARZ.showPaymentInfo(this.value)">
               <option value="COD">Cash on Delivery (COD)</option>
@@ -1155,7 +1153,6 @@
               <path d="M1 1.5L6 6.5L11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <label for="co-payment">Payment Method</label>
           <!-- Payment info box injected here by JS -->
         </div>
         <!-- ✅ v15.93: Animated "Place Order" — pure-CSS truck animation

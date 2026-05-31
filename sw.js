@@ -207,8 +207,13 @@ self.addEventListener('fetch', (event) => {
         // Fallback: regular fetch with cache:'no-cache' to force revalidation
         return await fetch(new Request(req, { cache: 'no-cache' }));
       } catch (e) {
-        // Only if completely offline (no internet), show the offline page
-        return (await caches.match('/404.html')) || new Response('Offline', { status: 503 });
+        // ✅ v16.4: Offline fallback — prefer the precached homepage shell so a
+        // returning visitor sees the real site (which then hydrates from cache),
+        // and only fall back to the 404 page if even that isn't cached.
+        return (await caches.match('/index.html')) ||
+               (await caches.match('/')) ||
+               (await caches.match('/404.html')) ||
+               new Response('Offline', { status: 503 });
       }
     })());
     return;
