@@ -236,7 +236,7 @@ const YARZ_API = (() => {
           console.warn('TURBO CF fallback, trying Sheets API:', e);
           var sheetUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' +
             SHEET_ID + '/values:batchGet?ranges=' +
-            encodeURIComponent('INVENTORY!A1:AY') + '&ranges=' +
+            encodeURIComponent('INVENTORY!A1:AZ') + '&ranges=' +
             encodeURIComponent('SETTINGS!A:B') +
             '&key=' + GOOGLE_API_KEY +
             '&valueRenderOption=UNFORMATTED_VALUE';
@@ -283,7 +283,8 @@ const YARZ_API = (() => {
                   status:st, couponActive:String(r[42]||''),
                   couponCode:String(r[43]||''), couponDisc:parseFloat(r[44])||0,
                   hiddenSizes:String(r[49]||''),
-                  sizeType:String(r[50]||'')
+                  sizeType:String(r[50]||''),
+                  accessory:String(r[51]||'')
                 });
               }
               var storeInfo = {};
@@ -1252,6 +1253,11 @@ const YARZ_API = (() => {
           return arr;
         })(),
         igGridLink:       String(get('ig_grid_link') || ''),
+        // ✅ v16.3: Men's Accessories showcase (separate world)
+        accessoriesActive:   parseBool(get('accessories_active')),
+        accessoriesTitle:    String(get('accessories_title') || "Men's Accessories"),
+        accessoriesSubtitle: String(get('accessories_subtitle') || ''),
+        accessoriesBanner:   String(get('accessories_banner') || ''),
         // Best sellers / new arrivals / recently viewed / wishlist
         bestSellersActive: parseBool(get('best_sellers_active')),
         bestSellersTitle: String(get('best_sellers_title') || 'Best Sellers'),

@@ -123,12 +123,11 @@
       <div class="yarz-skeleton-wrap" aria-hidden="true">
         <div class="yarz-skel-stamp">
           <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
-            <circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>
-            <circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>
-            <circle cx="8.7" cy="8.7" r="2" fill="#FBF8F1"/>
-            <circle cx="15.3" cy="8.7" r="2" fill="#FBF8F1"/>
-            <circle cx="8.7" cy="15.3" r="2" fill="#FBF8F1"/>
-            <circle cx="15.3" cy="15.3" r="2" fill="#FBF8F1"/>
+            <circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>
+            <circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>
+            <circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>
+            <circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>
+            <circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>
           </svg>
         </div>
         <div class="yarz-skel-banner"></div>

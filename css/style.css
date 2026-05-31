@@ -4202,7 +4202,7 @@ textarea.form-input {
   animation:
     yarz-mark-disc-in 1100ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
     yarz-mark-disc-breathe 3600ms 1200ms ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px rgba(255, 0, 76, 0.18));
+  filter: drop-shadow(0 4px 12px rgba(200, 16, 46, 0.18));
   will-change: transform, filter;
 }
 
@@ -4215,8 +4215,8 @@ textarea.form-input {
 
 /* Idle breathing — barely-there scale pulse, gives it life */
 @keyframes yarz-mark-disc-breathe {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 12px rgba(255, 0, 76, 0.18)); }
-  50%      { transform: scale(1.04); filter: drop-shadow(0 6px 18px rgba(255, 0, 76, 0.28)); }
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 12px rgba(200, 16, 46, 0.18)); }
+  50%      { transform: scale(1.04); filter: drop-shadow(0 6px 18px rgba(200, 16, 46, 0.28)); }
 }
 
 /* Glow halo — sits behind the disc, pulses outward in a 4s cycle.
@@ -4230,7 +4230,7 @@ textarea.form-input {
   height: var(--yarz-mark-size);
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 0, 76, 0.28) 0%, rgba(255, 0, 76, 0) 70%);
+  background: radial-gradient(circle, rgba(200, 16, 46, 0.28) 0%, rgba(200, 16, 46, 0) 70%);
   pointer-events: none;
   z-index: -1;
   opacity: 0;
@@ -4277,9 +4277,9 @@ textarea.form-input {
    that loops in lockstep with the disc breathing. Subtle, editorial. */
 .holiday-overlay .yarz-mark--stacked .yarz-mark__word::after {
   background: linear-gradient(90deg,
-    rgba(255, 0, 76, 0.25) 0%,
+    rgba(200, 16, 46, 0.25) 0%,
     rgba(201, 162, 63, 0.95) 50%,
-    rgba(255, 0, 76, 0.25) 100%);
+    rgba(200, 16, 46, 0.25) 100%);
   background-size: 200% 100%;
   animation: yarz-mark-rule-shimmer 4000ms 1400ms ease-in-out infinite;
 }
@@ -10257,9 +10257,15 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
      ✅ v15.88: Owner spec change — brand mark color is now `#ff004c`
      (vivid pink-red) with `#cc003d` ring stroke. Hex-locked across every
      logo render point: header, footer, holiday/maintenance overlay,
-     favicons, mask-icon. */
-  --yarz-mark-fill: #ff004c;
-  --yarz-mark-ring: #cc003d;
+     favicons, mask-icon.
+     ✅ v16.0: REBRAND — brand mark recolored away from the old pink-red.
+     ✅ v16.1: Brand mark is now vibrant CARDINAL RED `#C8102E` with a
+     deeper `#9B0C23` ring (professional, confident, menswear-appropriate —
+     not neon, not dark). Holes stay cream `#FBF8F1`, and a cream rim-ring
+     groove sits inside the disc for a real-button look. This is INDEPENDENT
+     of the theme palette/--accent system on purpose (logo never drifts). */
+  --yarz-mark-fill: #C8102E;
+  --yarz-mark-ring: #9B0C23;
   --yarz-mark-hole: #FBF8F1;
   --yarz-mark-text: var(--text-primary, #1A1411);
   --yarz-mark-size: 28px;
@@ -10300,8 +10306,23 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   font-size: calc(var(--yarz-mark-size) * 0.78);
   letter-spacing: 0.18em;
   color: var(--yarz-mark-text);
-  /* Slight optical lift — round shapes always look low next to caps */
-  transform: translateY(0.02em);
+  line-height: 1;
+  display: inline-block;
+  /* v16.3 alignment fix: uppercase Cormorant Garamond has tall asc/descent
+     with a low cap-height, so line-box centering + the OLD +0.02em nudge
+     pushed the caps BELOW the disc center (the "wordmark sits low" bug).
+     The correct correction is a small NEGATIVE (upward) em nudge — expressed
+     in em so it auto-scales and stays optically centered at every breakpoint
+     (desktop 32px → mobile 30/28/26px) with no per-breakpoint tuning. */
+  transform: translateY(-0.06em);
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+/* Modern browsers: trim cap metrics deterministically (removes the need for
+   the em nudge). Layers cleanly on top of the fallback above. */
+@supports (text-box: trim-both cap alphabetic) {
+  .yarz-mark__word { text-box: trim-both cap alphabetic; transform: none; }
 }
 
 /* Inverse — kept as a class for backwards-compat (used by footer + holiday +
@@ -10313,10 +10334,10 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    v15.88: Brand color updated to #ff004c (pink-red) with #cc003d ring.
    v15.89: Wordmark inside footer is now hardcoded white (no variable). */
 .yarz-mark--inverse {
-  /* Disc/ring/hole stay locked to brand pink-red — DO NOT alias to --accent
+  /* Disc/ring/hole stay locked to brand cardinal red — DO NOT alias to --accent
      or --bg-primary; that's how the logo started drifting with theme palette. */
-  --yarz-mark-fill: #ff004c;
-  --yarz-mark-ring: #cc003d;
+  --yarz-mark-fill: #C8102E;
+  --yarz-mark-ring: #9B0C23;
   --yarz-mark-hole: #FBF8F1;
   /* v15.89: Wordmark on dark surfaces is hardcoded white — no theme link. */
   --yarz-mark-text: #FFFFFF;
@@ -10374,7 +10395,19 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   --yarz-mark-size: 32px;
 }
 .site-header .brand-logo .yarz-mark__icon {
-  /* Hover already lifted at .yarz-mark:hover; nothing to add */
+  /* v16.3 luxury depth — tight contact + soft ambient, tinted with the deep
+     cardinal (pure black reads heavy/cheap). Header-only so footer (dark) and
+     favicons stay clean. px offsets are correct at 28–32px header size. */
+  filter:
+    drop-shadow(0 1px 1px rgba(142, 10, 31, 0.22))
+    drop-shadow(0 2px 5px rgba(60, 8, 16, 0.10));
+  transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1), filter 0.3s ease;
+}
+.site-header .brand-logo.yarz-mark:hover .yarz-mark__icon,
+.site-header .brand-logo.yarz-mark:focus-visible .yarz-mark__icon {
+  filter:
+    drop-shadow(0 1.5px 2px rgba(142, 10, 31, 0.26))
+    drop-shadow(0 4px 10px rgba(60, 8, 16, 0.14));
 }
 
 /* Footer lockup (cream wordmark on dark) */
@@ -10451,7 +10484,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    sharply. Letter-spacing widened back to 0.18em (editorial standard). */
 .brand-logo.yarz-mark,
 .brand-logo.yarz-mark .yarz-mark__word {
-  letter-spacing: 0.18em !important;
+  letter-spacing: 0.20em !important;
   font-weight: 600 !important;
   color: var(--yarz-mark-text) !important;
   -webkit-text-stroke: 0 !important;
@@ -10488,7 +10521,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 
 /* (1) Inverse — keep the burgundy outline ring so silhouette doesn't melt */
 .yarz-mark--inverse {
-  --yarz-mark-ring: var(--accent, #ff004c);
+  --yarz-mark-ring: #9B0C23;
 }
 
 /* (2 + 3) Stacked — tighter tracking, more vertical breathing */
@@ -10499,10 +10532,10 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   letter-spacing: 0.26em;
 }
 
-/* (4) Stronger optical lift — circle's true center sits below cap-line */
-.yarz-mark__word {
-  transform: translateY(0.04em);
-}
+/* (4) v16.3: optical-lift correction. The old +0.04em pushed uppercase
+   Cormorant caps BELOW the disc center. Correct direction is upward; the
+   single source of truth now lives on the base .yarz-mark__word rule
+   (translateY(-0.06em)). This block intentionally no longer overrides it. */
 
 /* (5) Tiny phones — shrink, but never fully hide.
    v15.78: previously hid wordmark below 320px which left only an emblem
@@ -10528,220 +10561,17 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 }
 
 /* ════════════════════════════════════════════════════════════
-   v15.66 — Header lockup: CINEMATIC SEWING ANIMATION
+   v16.0 — Header lockup: SEWING ANIMATION REMOVED
    ────────────────────────────────────────────────────────────
-   Synthesized from 18 design-lens audit of v15.65 (rotation
-   bugs, transform-box origin, needle scale, missing "lying"
-   preamble). This version reads like a short film loop:
-   needle lies idle, flies in, dives, draws thread, arcs over,
-   dives again, exits — admire window — loop.
-
-   Components (all siblings of <use> inside .site-header SVG):
-     • <path .yarz-thread--a>   — first stitch (TL → BR)
-     • <path .yarz-thread--b>   — second stitch (TR → BL)
-     • <circle .yarz-knot--*>   — sparkle dots at each hole entry
-     • <g .yarz-needle>         — the moving needle group
-
-   10-second cycle (every keyframe in viewBox units; needle is
-   designed pointing +X with tip at origin (0,0), eye at (-7,0)):
-
-     time  %    translate     rotate    scale  opacity   stage
-     0.0s   0   (-1,  13)        0       1.0   0.85      lying-idle
-     1.0s  10   (-1,  13)        0       1.0   0.95      lying-idle (held)
-     2.0s  20   ( 3,   3)       45       1.0   1.0       arrived above TL
-     2.4s  24   ( 8.7, 8.7)     45       0.7   0.55      diving into TL
-     2.6s  26   ( 8.7, 8.7)     45       0.5   0.0       gone under cloth
-     2.9s  29   (15.3,15.3)     45       0.5   0.0       still under cloth
-     3.0s  30   (16,  16)       45       1.0   1.0       emerged at BR
-     3.5s  35   (18,  10)       90       1.0   1.0       mid-air arc up
-     4.0s  40   (18,   5)      135       1.0   1.0       above TR
-     4.4s  44   (15.3, 8.7)    135       0.7   0.55      diving into TR
-     4.6s  46   (15.3, 8.7)    135       0.5   0.0       gone
-     4.9s  49   ( 8.7,15.3)    135       0.5   0.0       still gone
-     5.0s  50   ( 7,  17)      135       1.0   1.0       emerged at BL
-     6.0s  60   (-2,  22)      135       0.9   0.0       exiting bottom-left
-     9.0s  90   (-1,  13)        0       1.0   0.0       hidden during admire
-    10.0s 100   (-1,  13)        0       1.0   0.85      back to lying
-
-   Performance:
-     • Animated properties: transform, opacity, stroke-dashoffset
-     • transform/opacity composited on GPU
-     • stroke-dashoffset paints in a 24×24 region (~1.5ms on
-       Adreno 506) — negligible
-     • will-change scoped to .site-header only
+   The previous needle/thread/knot "sewing" animation (v15.66–15.89)
+   was removed per owner request — it read as busy/unprofessional.
+   The header mark is now a clean, static shirt-button. The animation
+   keyframes, needle/thread/knot rules, and their reduced-motion/
+   reduced-data guards were all deleted along with the SVG overlay
+   elements in the header markup. Nothing references .yarz-needle,
+   .yarz-thread, .yarz-knot, or .yarz-mark__icon--sewing anymore.
    ════════════════════════════════════════════════════════════ */
-/* (A) Defaults — invisible everywhere. The CSS only ever activates
-       under .site-header so footer/cart/popup/maintenance stay static. */
-.yarz-thread,
-.yarz-needle,
-.yarz-knot {
-  pointer-events: none;
-}
-.yarz-thread {
-  opacity: 1;
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-}
-.yarz-needle {
-  opacity: 0;
-  /* transform-box: view-box gives correct origin in viewBox space.
-     Falls back gracefully on older browsers (translate is in px units
-     of the viewBox already, which on a 24×24 viewBox = 1:1). */
-  transform-box: view-box;
-  transform-origin: 0 0;
-}
-.yarz-knot {
-  opacity: 0;
-}
 
-/* (B) Header-only activation. Promote the SVG to its own GPU layer
-       so the surrounding header chrome doesn't repaint. */
-.site-header .brand-logo.yarz-mark .yarz-mark__icon--sewing {
-  will-change: transform;
-  transform: translateZ(0);
-  overflow: visible; /* needle exits viewBox during "lying" preamble */
-}
-
-/* (C) Needle — single 10s timeline. Defined in detail in the
-       header comment above. cubic-bezier eases give a natural
-       "pulled by hand" feel rather than mechanical lerp.
-       v15.89: !important guards against any custom-CSS override
-       that could silence the animation (admin theme palette /
-       Custom CSS textarea / future cascade additions). */
-.site-header .brand-logo.yarz-mark .yarz-needle {
-  animation: yarz-needle 10s cubic-bezier(0.4, 0.0, 0.2, 1.0) infinite !important;
-  will-change: transform, opacity;
-}
-
-@keyframes yarz-needle {
-  /* lying-idle ON THE BUTTON SURFACE — half on burgundy disc, half on cream.
-     v15.67: moved here from outside-left so the gold needle is clearly
-     visible during the "rest" portion of the loop. Slight tilt 15° gives
-     it a tailored "ready-to-pick-up" feel. */
-  0%   { transform: translate(11px, 22px) rotate( 15deg) scale(1.0); opacity: 0.95; }
-  10%  { transform: translate(11px, 22px) rotate( 15deg) scale(1.0); opacity: 1;    }
-  /* arrived above TL (rotated to point down-right) */
-  20%  { transform: translate( 3px,  3px) rotate( 45deg) scale(1.0); opacity: 1;   }
-  /* diving into TL hole */
-  24%  { transform: translate( 8.7px,  8.7px) rotate( 45deg) scale(0.7); opacity: 0.55; }
-  26%  { transform: translate( 8.7px,  8.7px) rotate( 45deg) scale(0.5); opacity: 0;   }
-  /* under cloth — invisible during travel under fabric */
-  29%  { transform: translate(15.3px, 15.3px) rotate( 45deg) scale(0.5); opacity: 0;   }
-  /* emerging at BR */
-  30%  { transform: translate(16px,  16px) rotate( 45deg) scale(1.0); opacity: 1;   }
-  /* mid-air arc up */
-  35%  { transform: translate(18px,  10px) rotate( 90deg) scale(1.0); opacity: 1;   }
-  /* arrived above TR (rotated to point down-left) */
-  40%  { transform: translate(18px,   5px) rotate(135deg) scale(1.0); opacity: 1;   }
-  /* diving into TR hole */
-  44%  { transform: translate(15.3px, 8.7px) rotate(135deg) scale(0.7); opacity: 0.55; }
-  46%  { transform: translate(15.3px, 8.7px) rotate(135deg) scale(0.5); opacity: 0;   }
-  /* under cloth */
-  49%  { transform: translate( 8.7px,15.3px) rotate(135deg) scale(0.5); opacity: 0;   }
-  /* emerging at BL */
-  50%  { transform: translate( 7px,  17px) rotate(135deg) scale(1.0); opacity: 1;   }
-  /* arc back toward resting position (smooth landing) */
-  60%  { transform: translate(11px, 22px) rotate(135deg) scale(1.0); opacity: 0.85;}
-  /* hidden during admire window so the X-stitch reads cleanly */
-  63%  { transform: translate(11px, 22px) rotate(135deg) scale(1.0); opacity: 0;   }
-  85%  { transform: translate(11px, 22px) rotate( 15deg) scale(1.0); opacity: 0;   }
-  /* fade gold needle back in for the next cycle */
-  100% { transform: translate(11px, 22px) rotate( 15deg) scale(1.0); opacity: 0.95; }
-}
-
-/* (D) Threads — drawn via stroke-dashoffset, locked to needle dive.
-       Thread A: drawn 24-30% (TL→BR underneath travel)
-       Thread B: drawn 44-50% (TR→BL underneath travel)
-       Both hold visible 50-90% (admire window), fade 90-100%.
-       v15.89: !important guards against custom-CSS override. */
-.site-header .brand-logo.yarz-mark .yarz-thread--a {
-  animation: yarz-thread-a 10s linear infinite !important;
-}
-.site-header .brand-logo.yarz-mark .yarz-thread--b {
-  animation: yarz-thread-b 10s linear infinite !important;
-}
-@keyframes yarz-thread-a {
-  0%, 24%  { stroke-dashoffset: 100; opacity: 1; }
-  30%      { stroke-dashoffset:   0; opacity: 1; }
-  90%      { stroke-dashoffset:   0; opacity: 1; }
-  100%     { stroke-dashoffset:   0; opacity: 0; }
-}
-@keyframes yarz-thread-b {
-  0%, 44%  { stroke-dashoffset: 100; opacity: 1; }
-  50%      { stroke-dashoffset:   0; opacity: 1; }
-  90%      { stroke-dashoffset:   0; opacity: 1; }
-  100%     { stroke-dashoffset:   0; opacity: 0; }
-}
-
-/* (E) Knot sparkles — pop at each hole entry/exit for tactile "click".
-       v15.89: !important guards against custom-CSS override. */
-.site-header .brand-logo.yarz-mark .yarz-knot--tl { animation: yarz-knot-tl 10s ease-out infinite !important; }
-.site-header .brand-logo.yarz-mark .yarz-knot--br { animation: yarz-knot-br 10s ease-out infinite !important; }
-.site-header .brand-logo.yarz-mark .yarz-knot--tr { animation: yarz-knot-tr 10s ease-out infinite !important; }
-.site-header .brand-logo.yarz-mark .yarz-knot--bl { animation: yarz-knot-bl 10s ease-out infinite !important; }
-@keyframes yarz-knot-tl { 0%,22% {opacity:0} 24% {opacity:1} 32% {opacity:0} 100% {opacity:0} }
-@keyframes yarz-knot-br { 0%,28% {opacity:0} 30% {opacity:1} 38% {opacity:0} 100% {opacity:0} }
-@keyframes yarz-knot-tr { 0%,42% {opacity:0} 44% {opacity:1} 52% {opacity:0} 100% {opacity:0} }
-@keyframes yarz-knot-bl { 0%,48% {opacity:0} 50% {opacity:1} 58% {opacity:0} 100% {opacity:0} }
-
-/* (F) Tail-thread sway — adds "thread tension" wobble on the trailing thread. */
-.site-header .brand-logo.yarz-mark .yarz-needle__tail {
-  animation: yarz-tail-sway 1.4s ease-in-out infinite;
-  transform-origin: 0 0;
-  transform-box: view-box;
-}
-@keyframes yarz-tail-sway {
-  0%, 100% { transform: rotate(  0deg); }
-  50%      { transform: rotate( -10deg); }
-}
-
-/* (G) Reduced-motion: static X-stitch + no needle. */
-@media (prefers-reduced-motion: reduce) {
-  .site-header .brand-logo.yarz-mark .yarz-thread--a,
-  .site-header .brand-logo.yarz-mark .yarz-thread--b {
-    animation: none !important;
-    stroke-dashoffset: 0 !important;
-    opacity: 1 !important;
-  }
-  .site-header .brand-logo.yarz-mark .yarz-needle,
-  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
-  .site-header .brand-logo.yarz-mark .yarz-knot {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-}
-
-/* (H) Tiny phones (≤360px) — needle off, static X visible. */
-@media (max-width: 360px) {
-  .site-header .brand-logo.yarz-mark .yarz-thread--a,
-  .site-header .brand-logo.yarz-mark .yarz-thread--b {
-    animation: none !important;
-    stroke-dashoffset: 0 !important;
-    opacity: 0.85 !important;
-  }
-  .site-header .brand-logo.yarz-mark .yarz-needle,
-  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
-  .site-header .brand-logo.yarz-mark .yarz-knot {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-}
-
-/* (I) Reduced-data — same treatment as ≤360px. */
-@media (prefers-reduced-data: reduce) {
-  .site-header .brand-logo.yarz-mark .yarz-thread--a,
-  .site-header .brand-logo.yarz-mark .yarz-thread--b {
-    animation: none !important;
-    stroke-dashoffset: 0 !important;
-    opacity: 0.85 !important;
-  }
-  .site-header .brand-logo.yarz-mark .yarz-needle,
-  .site-header .brand-logo.yarz-mark .yarz-needle__tail,
-  .site-header .brand-logo.yarz-mark .yarz-knot {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-}
 
 /* ════════════════════════════════════════════════════════════
    v15.61 — Admin panel brand-icon dark chip (override CSS war)
@@ -10888,7 +10718,168 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   outline: none !important;
 }
 
-/* — Form row → polished 2-col grid — */
+/* ════════════════════════════════════════════════════════════
+   v16 — FLOATING-LABEL CHECKOUT FIELDS
+   ────────────────────────────────────────────────────────────
+   Label sits INSIDE the box (acts as the hint), then floats up
+   small when the field is focused or has content. Saves vertical
+   space + reads premium. Markup: .form-group.yarz-float > input + label
+   (label AFTER input so the CSS sibling selector works).
+   ════════════════════════════════════════════════════════════ */
+#checkout-modal .form-group.yarz-float {
+  position: relative;
+  margin-bottom: 13px;
+}
+/* The label overlays the input as the resting hint */
+#checkout-modal .form-group.yarz-float > label {
+  position: absolute;
+  left: 14px;
+  top: 13px;
+  margin: 0 !important;
+  padding: 0 4px;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  color: var(--text-light, rgba(26,20,17,0.45)) !important;
+  background: transparent;
+  pointer-events: none;
+  transform-origin: left center;
+  transition: transform 0.16s ease, color 0.16s ease, top 0.16s ease;
+  white-space: nowrap;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Hide the native placeholder while the label is resting on top of it
+   (we still keep a placeholder in HTML so :placeholder-shown works) */
+#checkout-modal .form-group.yarz-float > .form-input::placeholder,
+#checkout-modal .form-group.yarz-float > textarea.form-input::placeholder {
+  color: transparent !important;
+}
+/* Float the label up when focused OR when the field has a value */
+#checkout-modal .form-group.yarz-float > .form-input:focus + label,
+#checkout-modal .form-group.yarz-float > .form-input:not(:placeholder-shown) + label,
+#checkout-modal .form-group.yarz-float > textarea.form-input:focus + label,
+#checkout-modal .form-group.yarz-float > textarea.form-input:not(:placeholder-shown) + label {
+  top: -7px;
+  transform: scale(0.82);
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+  background: var(--bg-card, #FFFFFF);
+}
+/* When focused, show the real placeholder hint (e.g. 01XXXXXXXXX) */
+#checkout-modal .form-group.yarz-float > .form-input:focus::placeholder,
+#checkout-modal .form-group.yarz-float > textarea.form-input:focus::placeholder {
+  color: var(--text-light, rgba(26,20,17,0.38)) !important;
+}
+/* Not focused & has value → label stays floated but in neutral colour */
+#checkout-modal .form-group.yarz-float > .form-input:not(:focus):not(:placeholder-shown) + label,
+#checkout-modal .form-group.yarz-float > textarea.form-input:not(:focus):not(:placeholder-shown) + label {
+  color: var(--text-secondary) !important;
+}
+/* Textarea label sits a touch higher (taller box) */
+#checkout-modal .form-group.yarz-float--area > label {
+  top: 13px;
+}
+/* SELECT fields always have a value → label permanently floated.
+   The label sits over the select wrapper. */
+#checkout-modal .form-group.yarz-float--select {
+  position: relative;
+  margin-bottom: 13px;
+}
+#checkout-modal .form-group.yarz-float--select > label {
+  position: absolute;
+  left: 14px;
+  top: -7px;
+  margin: 0 !important;
+  padding: 0 4px;
+  font-size: 13.5px !important;
+  transform: scale(0.82);
+  transform-origin: left center;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  background: var(--bg-card, #FFFFFF);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 1;
+}
+#checkout-modal .form-group.yarz-float--select .form-select:focus ~ label,
+#checkout-modal .form-group.yarz-float--select:focus-within > label {
+  color: var(--accent) !important;
+}
+/* Give selects a little top room so the floated label clears the border */
+#checkout-modal .form-group.yarz-float--select .form-select {
+  padding-top: 12px !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   v16 — DELIVERY ZONE: radio-style selectable cards (no dropdown)
+   Customer taps a card → it selects (drives the hidden #co-location).
+   ════════════════════════════════════════════════════════════ */
+#checkout-modal .yarz-zone-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+}
+#checkout-modal .yarz-zone-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card, #FFFFFF);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+  user-select: none;
+}
+#checkout-modal .yarz-zone-card:hover {
+  border-color: var(--text-secondary);
+}
+/* The radio circle */
+#checkout-modal .yarz-zone-card__dot {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  position: relative;
+  transition: border-color 0.16s ease;
+}
+#checkout-modal .yarz-zone-card__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+#checkout-modal .yarz-zone-card__price {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+/* Selected state */
+#checkout-modal .yarz-zone-card.is-selected {
+  border-color: var(--accent);
+  background: rgba(255, 0, 76, 0.04);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__dot {
+  border-color: var(--accent);
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__dot::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__price {
+  color: var(--accent);
+}
+
+
 #checkout-modal .form-row {
   display: grid !important;
   grid-template-columns: 1fr 1fr;
@@ -12069,4 +12060,102 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
     box-shadow: inset 0 0 0 2px rgba(255, 0, 76, 0.35);
     transition: background 0.3s ease;
   }
+}
+
+/* ===== v16.3: MEN'S ACCESSORIES ENTRY BANNER ===== */
+/* Premium, aesthetic entry card that sits between the categories grid and the
+   product list on the homepage. Clicking opens the dedicated Accessories page.
+   Designed to feel like "another world" — young, editorial, on-theme. */
+.acc-banner-wrap {
+  margin: 8px auto 24px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.acc-banner {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #14110E;
+  aspect-ratio: 1100 / 360;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,0.35);
+  transition: transform .45s cubic-bezier(.4,0,.2,1), box-shadow .45s ease;
+  font-family: inherit;
+}
+.acc-banner:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 44px -14px rgba(0,0,0,0.45);
+}
+.acc-banner > img {
+  transition: transform .6s cubic-bezier(.4,0,.2,1);
+}
+.acc-banner:hover > img { transform: scale(1.05); }
+.acc-banner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8% ;
+  text-align: left;
+  background: linear-gradient(90deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.34) 45%, rgba(0,0,0,0.08) 100%);
+  color: #FBF8F1;
+}
+.acc-banner-gradient {
+  background: linear-gradient(120deg, #1F1A16 0%, #3A2A22 45%, #C8102E 140%);
+}
+.acc-banner-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.82;
+}
+.acc-banner-title {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(26px, 4.4vw, 46px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: #FBF8F1;
+}
+.acc-banner-sub {
+  font-size: clamp(11px, 1.6vw, 14px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.9;
+  font-weight: 500;
+}
+.acc-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: #FBF8F1;
+  color: #14110E;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background .2s ease, color .2s ease;
+}
+.acc-banner:hover .acc-banner-cta { background: #C8102E; color: #FBF8F1; }
+
+@media (max-width: 768px) {
+  .acc-banner { aspect-ratio: 750 / 360; border-radius: 14px; }
+  .acc-banner-overlay { padding: 0 7%; gap: 6px; }
+}
+@media (max-width: 480px) {
+  .acc-banner { aspect-ratio: 16 / 9; }
+  .acc-banner-eyebrow { font-size: 9.5px; letter-spacing: 0.26em; }
+  .acc-banner-cta { padding: 7px 16px; font-size: 11px; margin-top: 6px; }
 }

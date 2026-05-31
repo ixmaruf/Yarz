@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    YARZ — Main Application v3.1 (2026-05-03)
    State Management, Cart, User, UI Components, Navigation
    Global Control Sync: Maintenance Mode, Announcement
@@ -357,7 +357,28 @@ const YARZ = (() => {
           }
         });
         var finalOrders = Object.values(unique);
-        
+
+        // ✅ v16.5: 30-DAY EXPIRY — mirror the server policy. The Google Sheet
+        // auto-deletes orders older than ~1 month (daily 1 AM cleanup), so the
+        // customer's locally-cached copy must expire on the same window.
+        // Without this, an aged-out order would (a) linger forever in the
+        // customer's browser and (b) get falsely flagged "Cancelled" by the
+        // admin-delete detection (it's gone from the server simply because it
+        // aged out, not because it was cancelled).
+        var THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+        var _now = Date.now();
+        var _orderTime = function(o) {
+          // Prefer placedAt (epoch ms); fall back to parsing date/updated.
+          var t = (typeof o.placedAt === 'number') ? o.placedAt : Date.parse(o.date || o.updated || o.orderDate || '');
+          return isNaN(t) ? 0 : t;
+        };
+        finalOrders = finalOrders.filter(function(o) {
+          var t = _orderTime(o);
+          // t === 0 means age is unknown → keep it (don't risk dropping a
+          // valid just-placed order that has no timestamp yet).
+          return (t === 0) || ((_now - t) <= THIRTY_DAYS);
+        });
+
         // Prevent Mobile Storage bloat (Max 50 newest orders allowed in cache)
         if (finalOrders.length > 50) {
            finalOrders.sort(function(a, b) { return (b.placedAt || 0) - (a.placedAt || 0); });
@@ -1007,6 +1028,31 @@ const YARZ = (() => {
     if (!product) return false;
     return String(product.hiddenSizes || '').trim().toUpperCase() === ONE_SIZE_FLAG;
   }
+  // ✅ v16.3 MEN'S ACCESSORIES: a product flagged "accessory" in the admin
+  // (INVENTORY column AZ → product.accessory === "Yes") belongs to the separate
+  // Accessories showcase. It is EXCLUDED from the normal homepage grid, the
+  // category tabs, the dynamic sections and search — but it stays inside
+  // state.products untouched, so ordering / cart / product page / pixel /
+  // discounts all keep working exactly like any other product.
+  function isAccessory(product) {
+    if (!product) return false;
+    return String(product.accessory || '').trim().toLowerCase() === 'yes';
+  }
+  // Master switch: is the Accessories showcase enabled by the admin toggle?
+  function accessoriesEnabled() {
+    return !!(state.controls && state.controls.accessoriesActive);
+  }
+  // The products that belong in the MAIN shop (everything that is NOT an
+  // accessory). Used everywhere the storefront lists apparel.
+  function getShopProducts() {
+    var all = state.products || [];
+    return all.filter(function (p) { return !isAccessory(p); });
+  }
+  // The products that belong in the Accessories showcase.
+  function getAccessoryProducts() {
+    var all = state.products || [];
+    return all.filter(function (p) { return isAccessory(p); });
+  }
   // Stock available for a one-size product (kept in the M slot).
   function oneSizeStock(product) {
     if (!product) return 0;
@@ -1120,6 +1166,17 @@ const YARZ = (() => {
     var container = document.getElementById(containerId || 'product-grid');
     if (!container) return;
 
+    // ✅ v16.3: The main homepage grid must never show Men's Accessories —
+    // they live only in the dedicated Accessories showcase. This is the master
+    // safety net so every code path that renders the home grid (direct calls,
+    // applyFilters, turbo load, goHome fallback) stays accessory-free. The
+    // collection grid + accessories grid pass their own containerId and are
+    // intentionally NOT filtered here.
+    var isHomeGrid = (containerId === 'product-grid' || !containerId);
+    if (isHomeGrid && products && products.length) {
+      products = products.filter(function (p) { return !isAccessory(p); });
+    }
+
     if (!products || products.length === 0) {
       container.innerHTML = '<div class="text-center text-muted" style="grid-column:1/-1;padding:48px 16px;">' +
         '<p style="font-size:14px;font-weight:500;">No products found</p>' +
@@ -1187,6 +1244,7 @@ const YARZ = (() => {
   // to filtered products by category or target links.
   function renderDynamicSections(products, storeInfo) {
     renderBottomShowcase(storeInfo); // NEW: render bottom showcase alongside dynamic sections
+    try { renderAccessoriesBanner(); } catch(e) {} // ✅ v16.3: Men's Accessories entry banner
     
     var wrapper = $('#dynamic-sections-wrapper');
     var allProductsSec = $('#all-products-section');
@@ -1650,7 +1708,7 @@ const YARZ = (() => {
   function renderBestSellersSection() {
     var c = state.controls || {};
     if (!c.bestSellersActive) return;
-    var products = (state.products || []).slice();
+    var products = getShopProducts(); // ✅ v16.3: best sellers = main shop only
     products.sort(function(a, b) {
       var sa = parseFloat(a.totalSold || a.sold || 0);
       var sb = parseFloat(b.totalSold || b.sold || 0);
@@ -1672,6 +1730,67 @@ const YARZ = (() => {
     section.innerHTML = html;
     var wrapper = document.getElementById('dynamic-sections-wrapper');
     if (wrapper && wrapper.parentNode) wrapper.parentNode.insertBefore(section, wrapper.nextSibling);
+  }
+
+  // ----- Men's Accessories Entry Banner (v16.3) -----
+  // A premium, aesthetic banner card placed just above the category tabs on the
+  // homepage. Clicking it opens the dedicated Accessories showcase page. Fully
+  // gated by the admin `accessoriesActive` toggle + presence of ≥1 accessory
+  // product — when OFF or empty, the banner is removed and never shown.
+  function renderAccessoriesBanner() {
+    var existing = document.getElementById('yarz-accessories-banner');
+    if (existing) existing.remove();
+
+    var c = state.controls || {};
+    if (!c.accessoriesActive) return;                 // admin master switch OFF
+    if (!getAccessoryProducts().length) return;       // nothing flagged yet → hide
+
+    var title = escHtml(c.accessoriesTitle || "Men's Accessories");
+    var subtitle = escHtml(c.accessoriesSubtitle || 'Caps · Watches · Bracelets · Sunglasses');
+    var bannerImg = c.accessoriesBanner ? getImgSrc(c.accessoriesBanner, 1600) : '';
+
+    var inner = '';
+    if (bannerImg) {
+      inner =
+        '<img src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
+          'style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div class="acc-banner-overlay">' +
+          '<span class="acc-banner-eyebrow">The Edit</span>' +
+          '<h2 class="acc-banner-title">' + title + '</h2>' +
+          '<span class="acc-banner-sub">' + subtitle + '</span>' +
+          '<span class="acc-banner-cta">Explore <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>' +
+        '</div>';
+    } else {
+      // No image yet — render a clean gradient card so the section still looks
+      // intentional and premium (no broken/empty box).
+      inner =
+        '<div class="acc-banner-overlay acc-banner-gradient">' +
+          '<span class="acc-banner-eyebrow">The Edit</span>' +
+          '<h2 class="acc-banner-title">' + title + '</h2>' +
+          '<span class="acc-banner-sub">' + subtitle + '</span>' +
+          '<span class="acc-banner-cta">Explore <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>' +
+        '</div>';
+    }
+
+    var section = document.createElement('div');
+    section.id = 'yarz-accessories-banner';
+    section.className = 'container acc-banner-wrap';
+    section.innerHTML =
+      '<button type="button" class="acc-banner" onclick="YARZ.openAccessories()" aria-label="' + title + '">' +
+        inner +
+      '</button>';
+
+    // Place it directly ABOVE the category tabs / shop controls so it sits
+    // between the categories grid and the product list — high-visibility, the
+    // natural "another world" entry point.
+    var anchor = document.getElementById('shop-controls-wrapper');
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(section, anchor);
+    } else {
+      var allSec = document.getElementById('all-products-section');
+      if (allSec && allSec.parentNode) allSec.parentNode.insertBefore(section, allSec);
+    }
   }
 
   // ----- Testimonials Section -----
@@ -1928,12 +2047,11 @@ const YARZ = (() => {
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-newsletter-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_newsletter_dismissed\',\'1\')">✕</button>' +
         '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
           '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
-            '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
-            '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
-            '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
+            '<circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
           '</svg>' +
         '</div>' +
         '<div class="popup-title">' + escHtml(c.newsletterTitle || 'Get 10% off your first order!') + '</div>' +
@@ -2380,17 +2498,28 @@ const YARZ = (() => {
   function renderCategories(categories) {
     var container = $('#category-tabs');
     if (!container) return;
+    // ✅ v16.3: Recount categories from the MAIN shop products only (exclude
+    // Men's Accessories). This drops any accessory-only category from the tabs
+    // and keeps every count accurate to what the shop grid actually shows.
+    var shopCounts = {};
+    getShopProducts().forEach(function (p) {
+      var c = (p.category || '').trim();
+      if (c) shopCounts[c] = (shopCounts[c] || 0) + 1;
+    });
+    var visibleCats = (categories || []).filter(function (c) {
+      return c && c.name && shopCounts[c.name] > 0;
+    });
     var html = '<button class="category-tab active" onclick="YARZ.filterCategory(\'\')">All</button>';
-    categories.forEach(function (c) {
-      html += '<button class="category-tab" onclick="YARZ.filterCategory(\'' + escHtml(c.name) + '\')">' + escHtml(c.name) + ' <span style="opacity:0.5;font-size:10px">(' + c.count + ')</span></button>';
+    visibleCats.forEach(function (c) {
+      html += '<button class="category-tab" onclick="YARZ.filterCategory(\'' + escHtml(c.name) + '\')">' + escHtml(c.name) + ' <span style="opacity:0.5;font-size:10px">(' + shopCounts[c.name] + ')</span></button>';
     });
     container.innerHTML = html;
 
     // Also populate the header dropdown menu
     var dropdownMenu = $('#nav-categories-menu');
-    if (dropdownMenu && categories.length > 0) {
+    if (dropdownMenu && visibleCats.length > 0) {
       var dropHtml = '';
-      categories.forEach(function (c) {
+      visibleCats.forEach(function (c) {
         var safeCat = escHtml(c.name).replace(/'/g, "\\'");
         dropHtml += '<a href="#" onclick="YARZ.filterCategory(\'' + safeCat + '\');return false;">' + escHtml(c.name) + '</a>';
       });
@@ -2560,6 +2689,10 @@ const YARZ = (() => {
   }
 
   function openCategoryPage(categoryName, pageNum, skipPushState) {
+    // ✅ v16.3: pagination/back-button callbacks for the Accessories showcase
+    // route through here with the sentinel name — delegate to openAccessories
+    // so the page keeps showing accessory products (not a phantom category).
+    if (categoryName === '__ACCESSORIES__') { openAccessories(pageNum, skipPushState); return; }
     pageNum = pageNum || 1;
     var safeCatName = categoryName || 'All';
 
@@ -2597,8 +2730,11 @@ const YARZ = (() => {
     if (titleEl) titleEl.textContent = safeCatName;
 
     // Filter purely by category text
+    // ✅ v16.3: exclude accessory-flagged products so a normal category page
+    // can never leak an accessory (belt-and-suspenders — accessories live only
+    // in their own showcase). Accessories keep their own categories anyway.
     var searchCat = safeCatName.trim().toLowerCase();
-    var catProducts = state.products.filter(function(p) {
+    var catProducts = getShopProducts().filter(function(p) {
       var pc = (p.category || '').trim().toLowerCase();
       return pc === searchCat || pc.indexOf(searchCat) > -1 || searchCat.indexOf(pc) > -1;
     });
@@ -2606,6 +2742,57 @@ const YARZ = (() => {
     state.currentCollectionProducts = catProducts;
 
     // This will trigger filtering/sorting/pagination and render Products
+    applyFilters();
+  }
+
+  // ✅ v16.3 MEN'S ACCESSORIES: dedicated showcase page. Reuses the proven
+  // collection-view architecture (filter + pagination + grid) but feeds it the
+  // accessory-flagged products instead of a category. Guarded by the admin
+  // `accessoriesActive` toggle — if OFF, we bounce home so the page can never
+  // be reached even via a stale link.
+  function openAccessories(pageNum, skipPushState) {
+    if (!accessoriesEnabled()) { goHome(); return; }
+    pageNum = pageNum || 1;
+
+    if (!skipPushState) {
+      var expectedSearch = '?accessories=1';
+      if ((window.location.search || '') !== expectedSearch) {
+        history.pushState({ view: 'accessories', page: pageNum }, '', window.location.pathname + expectedSearch);
+      }
+    }
+
+    state.currentView = 'collection';            // reuse collection architecture
+    state.currentCategoryPageName = '__ACCESSORIES__'; // sentinel for pagination callbacks
+    state.currentCategoryPageNum = pageNum;
+
+    // Hide others
+    var home = document.getElementById('home-content');
+    if (home) home.style.display = 'none';
+    var dyn = document.getElementById('dynamic-view');
+    if (dyn) dyn.style.display = 'none';
+
+    var mainNav = $('#main-nav');
+    var hamburger = $('#hamburger');
+    if (mainNav && mainNav.classList.contains('active')) {
+      mainNav.classList.remove('active');
+      if (hamburger) hamburger.classList.remove('active');
+    }
+
+    var collectionView = document.getElementById('collection-view');
+    if (collectionView) {
+      collectionView.style.display = '';
+      window.scrollTo(0, 0);
+    }
+
+    var titleEl = document.getElementById('collection-title');
+    var accTitle = (state.controls && state.controls.accessoriesTitle) || "Men's Accessories";
+    if (titleEl) titleEl.textContent = accTitle;
+
+    // Feed the collection engine ONLY accessory products.
+    state.currentCollectionProducts = getAccessoryProducts().filter(function (p) {
+      return p && p.status !== 'Archived';
+    });
+
     applyFilters();
   }
 
@@ -2727,7 +2914,8 @@ const YARZ = (() => {
     // category product.
     if (validLinks.length === 0 && sec.category) {
       var searchCat = sec.category.trim().toLowerCase();
-      secProducts = state.products.filter(function(p) {
+      // ✅ v16.3: exclude accessories from category-based dynamic collections too.
+      secProducts = getShopProducts().filter(function(p) {
         var pc = (p.category || '').trim().toLowerCase();
         return pc === searchCat || pc.indexOf(searchCat) > -1 || searchCat.indexOf(pc) > -1;
       });
@@ -2827,7 +3015,9 @@ const YARZ = (() => {
       filtered = (state.currentCollectionProducts || []).slice();
     } else {
       // Homepage view: Filter all products by current category
-      filtered = (state.products || []).slice();
+      // ✅ v16.3: exclude Men's Accessories from the main shop grid — they live
+      // only in the dedicated Accessories showcase. state.products is untouched.
+      filtered = getShopProducts();
       var cat = state.currentCategory || '';
       if (cat) {
         var searchCat = cat.trim().toLowerCase();
@@ -3413,8 +3603,13 @@ const YARZ = (() => {
     } else {
     try {
       var catKey = (product.category || '').toLowerCase();
+      // ✅ v16.3: keep related products on the same side of the shop/accessory
+      // divide as the product being viewed — never mix accessories into an
+      // apparel product's related rail or vice versa.
+      var viewingAccessory = isAccessory(product);
       var sameCatPool = state.products.filter(function (p) {
         return p && p.status === 'Active' && p.name !== product.name &&
+               isAccessory(p) === viewingAccessory &&
                (p.category || '').toLowerCase() === catKey;
       });
 
@@ -3426,6 +3621,7 @@ const YARZ = (() => {
       if (needed > 0) {
         var otherPool = state.products.filter(function (p) {
           return p && p.status === 'Active' && p.name !== product.name &&
+                 isAccessory(p) === viewingAccessory &&
                  (p.category || '').toLowerCase() !== catKey;
         });
         var otherLatest = otherPool.slice(-needed).reverse();
@@ -3958,7 +4154,9 @@ const YARZ = (() => {
       var allLocal = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
       var myOrders = savedPhone ? allLocal.filter(function(o) { return o.phone === savedPhone; }) : allLocal;
       if (myOrders.length > 0) {
-        var recentOrders = myOrders.slice(-5).reverse();
+        // ✅ v16.5: Show only the 3 most recent orders in the cart drawer —
+        // keeps it clean; the full list lives in the Order Tracking page.
+        var recentOrders = myOrders.slice(-3).reverse();
         orderHistoryHtml = '<div style="border-top:1px solid var(--border-light);padding-top:12px;margin-top:12px;">' +
           '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="m16 8 4 0 3 4v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>' +
@@ -4302,6 +4500,8 @@ const YARZ = (() => {
       if (currentLoc && locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
         locationSel.value = currentLoc;
       }
+      // v16: build the visible radio-style zone cards from the same data
+      renderZoneCards();
     }
 
     renderCheckoutSummary();
@@ -4324,6 +4524,7 @@ const YARZ = (() => {
             if (currentLoc && res.locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
               locationSel.value = currentLoc;
             }
+            renderZoneCards();
           }
           renderCheckoutSummary();
         }
@@ -4582,6 +4783,45 @@ const YARZ = (() => {
       var info = state._lastFreeShipInfo || {};
       return !!(info.applied && info.advanceApplied && !isCODEnabled() && isFreeShipAdvanceEnabled());
     } catch (e) { return false; }
+  }
+
+  // v16: Render the Delivery Zone as visible radio-style cards (no dropdown).
+  // Reads the same locations as the hidden #co-location <select>, mirrors the
+  // current selection, and updates live delivery charge per zone.
+  function renderZoneCards() {
+    var wrap = $('#co-zone-cards');
+    var sel = $('#co-location');
+    if (!wrap || !sel) return;
+    var locations = getDeliveryLocations() || [];
+    if (!locations.length) { wrap.innerHTML = ''; return; }
+    // Make sure the hidden select has a valid value (default to first zone)
+    var current = sel.value;
+    if (!current || !locations.some(function (l) { return String(l.id) === String(current); })) {
+      current = String(locations[0].id);
+      sel.value = current;
+    }
+    wrap.innerHTML = locations.map(function (loc) {
+      var charge = parseFloat(loc.charge) || 0;
+      if (state.cart.length > 0) charge = calculateCartDeliveryCharge(loc.id);
+      var selected = String(loc.id) === String(current);
+      return '<div class="yarz-zone-card' + (selected ? ' is-selected' : '') + '" role="radio" tabindex="0"'
+        + ' aria-checked="' + (selected ? 'true' : 'false') + '"'
+        + ' onclick="YARZ.selectZone(\'' + escHtml(String(loc.id)) + '\')"'
+        + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();YARZ.selectZone(\'' + escHtml(String(loc.id)) + '\');}">'
+        + '<span class="yarz-zone-card__dot"></span>'
+        + '<span class="yarz-zone-card__label">' + escHtml(loc.name) + '</span>'
+        + '<span class="yarz-zone-card__price">' + formatPrice(charge) + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  // v16: A zone card was tapped → update the hidden select + re-render summary.
+  function selectZone(id) {
+    var sel = $('#co-location');
+    if (!sel) return;
+    sel.value = String(id);
+    renderZoneCards();
+    renderCheckoutSummary();
   }
 
   function renderCheckoutSummary() {
@@ -5468,14 +5708,13 @@ const YARZ = (() => {
     var html = '<div style="max-width:480px;margin:48px auto;text-align:center;padding:0 24px;">' +
       '<div style="display:inline-flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px;">' +
       '<svg viewBox="0 0 24 24" style="width:48px;height:48px;" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
-      '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
-      '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
+      '<circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
       '</svg>' +
-      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:14px;font-weight:600;letter-spacing:0.26em;color:#ff004c;text-transform:uppercase;border-bottom:1px solid rgba(255, 0, 76,0.4);padding-bottom:6px;">YARZ</span>' +
+      '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:14px;font-weight:600;letter-spacing:0.26em;color:#C8102E;text-transform:uppercase;border-bottom:1px solid rgba(200, 16, 46,0.4);padding-bottom:6px;">YARZ</span>' +
       '</div>' +
       '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#10B981,#059669);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 24px rgba(16,185,129,0.35);">' + ICONS.check + '</div>' +
       '<h2 style="font-family:var(--font-serif);font-size:22px;font-weight:600;margin-bottom:12px;color:var(--ink-1);">ধন্যবাদ!</h2>' +
@@ -5546,6 +5785,7 @@ const YARZ = (() => {
     if (window.YARZ_PIXEL && q.length >= 3) YARZ_PIXEL.search(q);
 
     var results = state.products.filter(function (p) {
+      if (isAccessory(p)) return false; // ✅ v16.3: accessories never appear in main search
       return p.name.toLowerCase().indexOf(q) >= 0 ||
         (p.category || '').toLowerCase().indexOf(q) >= 0 ||
         (p.description || '').toLowerCase().indexOf(q) >= 0;
@@ -5571,6 +5811,7 @@ const YARZ = (() => {
     if (!q || q.length < 2) return;
     closeSearch();
     var results = state.products.filter(function (p) {
+      if (isAccessory(p)) return false; // ✅ v16.3: accessories excluded from main search
       return p.name.toLowerCase().indexOf(q) >= 0 ||
         (p.category || '').toLowerCase().indexOf(q) >= 0 ||
         (p.description || '').toLowerCase().indexOf(q) >= 0;
@@ -5611,7 +5852,7 @@ const YARZ = (() => {
       '<p>Enter your phone number to view your orders</p>' +
       '<div style="background:rgba(99,74,142,0.05);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 30 days.</p></div>' +
       '<p style="font-size:12px;color:var(--text-muted);font-family:var(--font-bengali);margin-top:4px;">আপনার ফোন নম্বর দিয়ে অর্ডার খুঁজুন</p>' +
-      '<p style="font-size:11px;color:var(--text-muted);margin-top:6px;">🔄 Status auto-refreshes every 20s</p></div>' +
+      '<p style="font-size:11px;color:var(--text-muted);margin-top:6px;">🔄 Status auto-refreshes every 10s</p></div>' +
       '<div class="tracking-card">' +
       '<div class="form-group"><label>Phone Number <span class="required">*</span></label>' +
       '<div style="display:flex;gap:8px;">' +
@@ -5724,10 +5965,18 @@ const YARZ = (() => {
         // GUARDED by apiSucceeded — never runs on a failed/empty-fallback
         // call, which would otherwise false-cancel every order on a blip.
         if (apiSucceeded) {
+          var _CANCEL_GRACE = 30 * 24 * 60 * 60 * 1000; // 30 days
+          var _nowMs = Date.now();
           allLocal.forEach(function(lo) {
             if (!lo._seenOnServer) return;
             var st = String(lo.status || '').toLowerCase().replace(/\s+/g,'');
             if (st === 'cancelled' || st === 'canceled' || st === 'returned' || st === 'delivered') return;
+            // ✅ v16.5: Don't false-cancel an order that simply AGED OUT of the
+            // server's 30-day window. If the order is older than 30 days, the
+            // server legitimately no longer returns it (daily cleanup) — that
+            // is NOT an admin cancellation, so skip the inference.
+            var _lt = (typeof lo.placedAt === 'number') ? lo.placedAt : Date.parse(lo.date || lo.updated || lo.orderDate || '');
+            if (!isNaN(_lt) && _lt > 0 && (_nowMs - _lt) > _CANCEL_GRACE) return;
             var stillThere = secureApiOrders.some(function(ao) {
               var matchById  = (ao.orderId && lo.orderId && ao.orderId === lo.orderId);
               var phoneMatch = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");
@@ -5768,6 +6017,17 @@ const YARZ = (() => {
         var ta = a.placedAt || Date.parse(a.date || a.updated || 0) || 0;
         var tb = b.placedAt || Date.parse(b.date || b.updated || 0) || 0;
         return tb - ta;
+      });
+
+      // ✅ v16.5: Only show the last 30 days (matches the server cleanup + the
+      // "Showing your order history for the last 30 days" note). Orders with
+      // no parseable date are kept so a just-placed order never disappears.
+      var _DISPLAY_WINDOW = 30 * 24 * 60 * 60 * 1000;
+      var _nowDisp = Date.now();
+      merged = merged.filter(function(o){
+        var t = (typeof o.placedAt === 'number') ? o.placedAt : Date.parse(o.date || o.updated || o.orderDate || '');
+        if (isNaN(t) || t === 0) return true;
+        return (_nowDisp - t) <= _DISPLAY_WINDOW;
       });
 
       if (merged.length > 0) {
@@ -5848,12 +6108,13 @@ const YARZ = (() => {
     } catch(e) { return String(input); }
   }
 
-  // ✅ v15.95: Build a premium order-tracking timeline for the customer.
-  // Maps the raw order status (from the sheet / admin panel) to a 5-stage
-  // visual stepper: Confirmed → Processing → Picked Up → In Transit →
-  // Delivered. Cancelled / Returned render a dedicated red banner with a
-  // WhatsApp CTA instead of the stepper. Pure inline styles + the .yarz-*
-  // classes defined in style.css, so it works the moment the card mounts.
+  // ✅ v16.4: Build a premium order-tracking timeline for the customer.
+  // Maps the raw order status (from the sheet / admin panel) to a 4-stage
+  // visual stepper that EXACTLY mirrors the admin's 4 order tabs:
+  // Order Confirmed → Picked Up → In Delivery → Delivered. Cancelled /
+  // Returned render a dedicated red banner with a WhatsApp CTA instead of
+  // the stepper. Pure inline styles + the .yarz-* classes defined in
+  // style.css, so it works the moment the card mounts.
   function _buildOrderTimeline(o, waUrl) {
     var raw = String(o.status || 'Pending').toLowerCase().replace(/\s+/g, '');
     var updated = _fmtBdDate(o.updated || o.date || o.orderDate || '');
@@ -5883,24 +6144,35 @@ const YARZ = (() => {
     // ── Normal flow → 5-stage stepper ──
     // Map every possible status to a stage index (0..4). `raw` has already
     // been lowercased AND had spaces stripped, so keys here are space-free.
+    // ✅ v16.4: Customer timeline now EXACTLY mirrors the 4 real admin stages:
+    //   New Order (Pending)  →  Picked Up  →  In Delivery  →  Complete (Delivered)
+    // Admin "Sent for delivery" writes "Ready for Delivery"/"Handed to Courier"
+    // (and Steadfast writes "In Transit"/"Shipped") — ALL of those map to the
+    // single "In Delivery" stage so the customer view tracks admin live.
+    // Previously these statuses had NO mapping and silently fell back to
+    // stage 0, which is why the customer was stuck on "Order Confirmed".
     var stageIndex = {
-      pending: 0, confirmed: 0,
-      processing: 1, packaging: 1,
-      pickedup: 2,
-      shipped: 3, intransit: 3, outfordelivery: 3,
-      delivered: 4, completed: 4
+      // Stage 0 — order received / confirmed
+      pending: 0, confirmed: 0, processing: 0, packaging: 0,
+      // Stage 1 — picked up from the seller
+      pickedup: 1,
+      // Stage 2 — out with the courier / on the way
+      readyfordelivery: 2, handedtocourier: 2, shipped: 2,
+      intransit: 2, outfordelivery: 2, indelivery: 2,
+      // Stage 3 — delivered / complete
+      delivered: 3, completed: 3, complete: 3
     };
     var current = stageIndex.hasOwnProperty(raw) ? stageIndex[raw] : 0;
 
     var steps = [
-      { icon: 'check', name: 'Order Confirmed', desc: 'আপনার অর্ডারটি গ্রহণ ও কনফার্ম করা হয়েছে।' },
-      { icon: 'cog',   name: 'Processing',      desc: 'প্রোডাক্ট প্যাকেজিং করা হচ্ছে।' },
-      { icon: 'box',   name: 'Picked Up',       desc: 'অর্ডারটি কুরিয়ারে হস্তান্তর করা হয়েছে।' },
-      { icon: 'truck', name: 'In Transit',      desc: 'অর্ডারটি আপনার ঠিকানার পথে রয়েছে।' },
-      { icon: 'pkgIn', name: 'Delivered',       desc: 'অর্ডারটি সফলভাবে পৌঁছে দেওয়া হয়েছে।' }
+      { icon: 'check', name: 'Order Confirmed',  desc: 'আপনার অর্ডারটি গ্রহণ ও কনফার্ম করা হয়েছে।' },
+      { icon: 'box',   name: 'Picked Up',        desc: 'আপনার অর্ডারটি প্রস্তুত করে কুরিয়ারে হস্তান্তর করা হয়েছে।' },
+      { icon: 'truck', name: 'In Delivery',      desc: 'অর্ডারটি ডেলিভারির জন্য আপনার ঠিকানার পথে রয়েছে।' },
+      { icon: 'pkgIn', name: 'Delivered',        desc: 'অর্ডারটি সফলভাবে পৌঁছে দেওয়া হয়েছে। ধন্যবাদ।' }
     ];
 
-    var isComplete = (current >= 4);
+    var lastStep = steps.length - 1; // 3
+    var isComplete = (current >= lastStep);
     var headChip = isComplete
       ? '<span class="yarz-track__chip yarz-track__chip--done">' + _icon('check', 11) + '<span>Completed</span></span>'
       : '<span class="yarz-track__chip yarz-track__chip--progress">' + _icon('truck', 11) + '<span>In Progress</span></span>';
@@ -5983,6 +6255,14 @@ const YARZ = (() => {
           statusText = 'আপনার অর্ডারটি রেডি করে কুরিয়ারে দেওয়া হয়েছে।';
           statusBadge = '<span style="display:inline-flex;align-items:center;gap:5px;color:#4F46E5;background:rgba(79,70,229,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.04em;">' + _icon('box', 11) + '<span>Picked Up</span></span>';
           break;
+        case 'ready for delivery':
+        case 'handed to courier':
+        case 'in transit':
+        case 'out for delivery':
+        case 'in delivery':
+          statusText = 'অর্ডারটি ডেলিভারির জন্য আপনার ঠিকানার পথে রয়েছে।';
+          statusBadge = '<span style="display:inline-flex;align-items:center;gap:5px;color:#7C3AED;background:rgba(124,58,237,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.04em;">' + _icon('truck', 11) + '<span>In Delivery</span></span>';
+          break;
         case 'shipped':
           statusText = 'অর্ডারটি আপনার ঠিকানায় ডেলিভারির জন্য পাঠানো হয়েছে।';
           statusBadge = '<span style="display:inline-flex;align-items:center;gap:5px;color:#7C3AED;background:rgba(124,58,237,0.1);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.04em;">' + _icon('truck', 11) + '<span>Shipped</span></span>';
@@ -6051,10 +6331,10 @@ const YARZ = (() => {
       }
       html += '</div>';
 
-      // ✅ v15.95: Premium real-time order tracking timeline. Shows the
-      // customer exactly where their order is (Confirmed → Processing →
-      // Picked Up → In Transit → Delivered) or a Cancelled/Returned banner
-      // with a WhatsApp CTA. Driven by the live status synced from admin.
+      // ✅ v16.4: Real-time order tracking timeline matching the 4 admin
+      // stages (Order Confirmed → Picked Up → In Delivery → Delivered) or a
+      // Cancelled/Returned banner with a WhatsApp CTA. Driven by the live
+      // status synced from admin (polls every 10s, cache-bypassed).
       html += _buildOrderTimeline(o, trackWaUrl);
 
       // ✅ v15.95: Footer help line — for non-terminal orders, point the
@@ -6841,11 +7121,15 @@ const YARZ = (() => {
         var productParam = params.get('product');
         // ✅ v15.52: Accept ?collection=N query in addition to legacy hash
         var collectionParam = params.get('collection');
+        // ✅ v16.3: Accessories showcase deep-link
+        var accessoriesParam = params.get('accessories');
         var hash = window.location.hash || '';
 
         if (productParam) {
           var p = findProductBySlug(productParam);
           if (p) { openProduct(p.name); return; }
+        } else if (accessoriesParam !== null && accessoriesParam !== '') {
+          openAccessories(1, true); return;
         } else if (collectionParam !== null && collectionParam !== '') {
           var cIdx = parseInt(collectionParam, 10);
           if (!isNaN(cIdx)) { openCollection(cIdx, true); return; }
@@ -7147,6 +7431,7 @@ const YARZ = (() => {
           var _params = new URLSearchParams(window.location.search);
           var _productParam = _params.get('product');
           var _collectionParam = _params.get('collection');
+          var _accessoriesParam = _params.get('accessories'); // ✅ v16.3
           var _hash = window.location.hash || '';
           if (_productParam) {
             var _p = findProductBySlug(_productParam);
@@ -7154,6 +7439,10 @@ const YARZ = (() => {
               setTimeout(function() { openProduct(_p.name); }, 50);
               return;
             }
+          } else if (_accessoriesParam !== null && _accessoriesParam !== '') {
+            // ✅ v16.3: deep-link refresh on the Accessories showcase
+            setTimeout(function() { openAccessories(1, true); }, 50);
+            return;
           } else if (_collectionParam !== null && _collectionParam !== '') {
             // ✅ v15.52: Accept ?collection=N query
             var _cqi = parseInt(_collectionParam, 10);
@@ -7531,12 +7820,11 @@ const YARZ = (() => {
               '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\')">&times;</button>' +
               '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
                 '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
-                  '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
-                  '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
-                  '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-                  '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-                  '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
-                  '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+                  '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
+                  '<circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+                  '<circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+                  '<circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
+                  '<circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
                 '</svg>' +
               '</div>' +
               '<div class="popup-title">একটু দাঁড়ান</div>' +
@@ -7730,6 +8018,7 @@ const YARZ = (() => {
           var params = new URLSearchParams(window.location.search);
           var productParam = params.get('product');
           var collectionParam = params.get('collection');
+          var accessoriesParam = params.get('accessories'); // ✅ v16.3
           var _routed = false;
 
           if (productParam) {
@@ -7738,6 +8027,10 @@ const YARZ = (() => {
               _routed = true;
               setTimeout(function() { openProduct(matchedProduct.name); }, 100);
             }
+          } else if (accessoriesParam !== null && accessoriesParam !== '') {
+            // ✅ v16.3: deep-link refresh on the Accessories showcase
+            _routed = true;
+            setTimeout(function() { openAccessories(1, true); }, 100);
           } else if (collectionParam !== null && collectionParam !== '') {
             // ✅ v15.52: Accept ?collection=N query (cleaner than legacy hash)
             var _qIdx = parseInt(collectionParam, 10);
@@ -8000,12 +8293,11 @@ const YARZ = (() => {
       '</div>' +
       '<div class="maintenance-logo yarz-mark yarz-mark--stacked yarz-mark--inverse" style="display:inline-flex;align-items:center;flex-direction:column;gap:14px;margin-bottom:24px;">' +
       '<svg viewBox="0 0 24 24" style="width:64px;height:64px;" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
-      '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
-      '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
-      '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+      '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
+      '<circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
+      '<circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
       '</svg>' +
       '<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.26em;color:#FFFFFF;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.45);padding-bottom:6px;">YARZ</span>' +
       '</div>' +
@@ -8201,12 +8493,11 @@ const YARZ = (() => {
         // YARZ wordmark lockup (stacked, light variant — wordmark already in cream/burgundy by default in CSS)
         '<div class="yarz-mark yarz-mark--stacked" aria-hidden="true">' +
           '<svg class="yarz-mark__icon" viewBox="0 0 24 24" aria-hidden="true">' +
-            '<circle cx="12" cy="12" r="10.25" fill="#ff004c" stroke="#cc003d" stroke-width="1.4"/>' +
-            '<circle cx="12" cy="12" r="8.4" fill="none" stroke="#FBF8F1" stroke-width="0.5" opacity="0.85"/>' +
-            '<circle cx="8.7" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="15.3" cy="8.7" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="8.7" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
-            '<circle cx="15.3" cy="15.3" r="2.0" fill="#FBF8F1"/>' +
+            '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
+            '<circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
+            '<circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>' +
           '</svg>' +
           '<span class="yarz-mark__word">YARZ</span>' +
         '</div>' +
@@ -8648,6 +8939,7 @@ const YARZ = (() => {
     closeCheckout: closeCheckout,
     submitOrder: submitOrder,
     renderCheckoutSummary: renderCheckoutSummary,
+    selectZone: selectZone,
     showPaymentInfo: showPaymentInfo,
     openCollection: openCollection,
     openTracking: openTracking,
@@ -8665,6 +8957,7 @@ const YARZ = (() => {
     isInWishlist: isInWishlist,
     openWishlistPage: openWishlistPage,
     openCategoryPage: openCategoryPage,
+    openAccessories: openAccessories,
     // ✅ v11.8: Advanced (Royal) tab — Quick View
     openQuickView: openQuickView,
     closeQuickView: closeQuickView,
