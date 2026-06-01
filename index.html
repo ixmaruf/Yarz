@@ -1112,23 +1112,23 @@
              The hint text lives as the placeholder so the customer always sees
              what goes where, the form stays compact, and nothing can desync. -->
         <div class="form-group co-field">
-          <input type="text" class="form-input" id="co-name" placeholder="আপনার নাম লিখুন *" autocomplete="off">
+          <input type="text" class="form-input" id="co-name" placeholder="Your Name *" autocomplete="off">
           <!-- Honeypot Field (Anti-Bot) -->
           <input type="text" id="co-website" style="display:none" tabindex="-1" autocomplete="off" placeholder="Leave empty">
         </div>
         <div class="form-row">
           <div class="form-group co-field">
-            <input type="tel" class="form-input" id="co-phone" placeholder="ফোন নম্বর (01XXXXXXXXX) *" autocomplete="off">
+            <input type="tel" class="form-input" id="co-phone" placeholder="Phone Number (01XXXXXXXXX) *" autocomplete="off">
           </div>
           <div class="form-group co-field">
-            <input type="email" class="form-input" id="co-email" placeholder="ইমেইল (ঐচ্ছিক)" autocomplete="off">
+            <input type="email" class="form-input" id="co-email" placeholder="Email (optional)" autocomplete="off">
           </div>
         </div>
         <div class="form-group co-field">
-          <textarea class="form-input" id="co-address" placeholder="সম্পূর্ণ ঠিকানা — বাসা, রোড, এলাকা *" autocomplete="off"></textarea>
+          <textarea class="form-input" id="co-address" placeholder="Full Address — House, Road, Area *" autocomplete="off"></textarea>
         </div>
         <div class="form-group" style="margin-bottom:13px;">
-            <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">ডেলিভারি এলাকা নির্বাচন করুন <span class="required" style="color:var(--accent)">*</span></div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Select Delivery Area <span class="required" style="color:var(--accent)">*</span></div>
             <!-- v16: radio-style zone cards (no dropdown). The hidden <select>
                  below keeps every existing value-reading code path working;
                  the visible cards drive it via YARZ.selectZone(). -->
@@ -1138,11 +1138,11 @@
             </select>
         </div>
         <div class="form-group co-field">
-            <input type="text" class="form-input" id="co-city" placeholder="শহর / এলাকা (যেমন: মিরপুর, বন্দর)" autocomplete="off">
+            <input type="text" class="form-input" id="co-city" placeholder="City / Area (e.g. Mirpur, Bandar)" autocomplete="off">
         </div>
         <div class="form-group co-field co-field--select">
           <!-- ✅ v15.93: Same custom chevron treatment for payment select. -->
-          <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">পেমেন্ট মেথড</div>
+          <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Payment Method</div>
           <div class="yarz-select-wrap">
             <select class="form-select" id="co-payment" onchange="YARZ.showPaymentInfo(this.value)">
               <option value="COD">Cash on Delivery (COD)</option>

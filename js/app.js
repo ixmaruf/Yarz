@@ -1470,6 +1470,10 @@ const YARZ = (() => {
     }
 
     container.style.display = 'block';
+    // ✅ v16.5: Force cream background so the showcase never inherits the dark
+    // footer color on mobile (the images have a cream backdrop that must blend
+    // with the site's paper color, not sit on the navy/burgundy footer).
+    container.style.backgroundColor = 'var(--bg-primary, #FBF8F1)';
     // Premium Typography Header + Full width grid
     var html = '<div style="width: 100%; padding: 40px 16px 16px 16px; text-align: center;">';
     
@@ -4850,6 +4854,29 @@ const YARZ = (() => {
   // v16: Render the Delivery Zone as visible radio-style cards (no dropdown).
   // Reads the same locations as the hidden #co-location <select>, mirrors the
   // current selection, and updates live delivery charge per zone.
+  // ✅ v16.5: Pure per-zone BASE delivery charge — the real cost of delivering
+  // to that area (admin's value + multi-item surcharge), WITHOUT the free-ship
+  // override or the ৳100 advance. The zone cards show this so each area's true
+  // price is visible (Inside ৳70 / Outside ৳140); the FREE + advance story is
+  // shown separately in the Delivery Charge summary row. Crucially this does
+  // NOT touch state._lastFreeShipInfo (calculateCartDeliveryCharge mutates it
+  // as a side effect, so calling that per-zone in a loop was also wrong).
+  function _baseZoneCharge(locationId) {
+    var locs = getDeliveryLocations();
+    var locIndex = locs.findIndex(function (l) { return String(l.id) === String(locationId); });
+    var defaultCharge = getDeliveryCharge(locationId);
+    if (!state.cart || state.cart.length === 0) return defaultCharge;
+    var baseCharge = state.cart.reduce(function (max, item) {
+      var c = defaultCharge;
+      if (locIndex === 0 && item.deliveryDhaka !== undefined && item.deliveryDhaka !== '') c = parseFloat(item.deliveryDhaka);
+      else if (locIndex === 1 && item.deliveryOutside !== undefined && item.deliveryOutside !== '') c = parseFloat(item.deliveryOutside);
+      return Math.max(max, c);
+    }, 0);
+    var totalQty = state.cart.reduce(function (sum, item) { return sum + item.qty; }, 0);
+    var extraCharge = totalQty > 1 ? (totalQty - 1) * 5 : 0;
+    return baseCharge + extraCharge;
+  }
+
   function renderZoneCards() {
     var wrap = $('#co-zone-cards');
     var sel = $('#co-location');
@@ -4863,8 +4890,11 @@ const YARZ = (() => {
       sel.value = current;
     }
     wrap.innerHTML = locations.map(function (loc) {
-      var charge = parseFloat(loc.charge) || 0;
-      if (state.cart.length > 0) charge = calculateCartDeliveryCharge(loc.id);
+      // ✅ v16.5: Always show the REAL per-zone delivery cost on the card.
+      // (Previously used calculateCartDeliveryCharge, which returns the ৳100
+      // advance for every zone when free-ship is unlocked — making both cards
+      // read ৳100 and look like admin values weren't loading.)
+      var charge = (state.cart.length > 0) ? _baseZoneCharge(loc.id) : (parseFloat(loc.charge) || 0);
       var selected = String(loc.id) === String(current);
       return '<div class="yarz-zone-card' + (selected ? ' is-selected' : '') + '" role="radio" tabindex="0"'
         + ' aria-checked="' + (selected ? 'true' : 'false') + '"'

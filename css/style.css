@@ -10239,6 +10239,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   html body > #home-content,
   html body > #dynamic-view,
   html body > #collection-view,
+  html body > #bottom-showcase-container,
   html body > #yarz-newsletter-popup,
   html body > #yarz-promo-popup {
     background-color: var(--bg-primary, #FBF8F1);
