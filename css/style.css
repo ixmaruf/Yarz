@@ -10239,10 +10239,19 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   html body > #home-content,
   html body > #dynamic-view,
   html body > #collection-view,
-  html body > #bottom-showcase-container,
   html body > #yarz-newsletter-popup,
   html body > #yarz-promo-popup {
     background-color: var(--bg-primary, #FBF8F1);
+  }
+  /* ✅ v16.6: Bottom showcase MUST be cream regardless of the admin theme.
+     It previously used var(--bg-primary), but applyExtrasControls() overrides
+     --bg-primary with the admin's Theme Background — if that's a dark color
+     the showcase went dark too (the navy/burgundy bleed the owner reported).
+     A fixed cream value keeps the editorial images on paper-white, matching
+     the product photos' cream backdrop. !important locks it past any theme. */
+  html body > #bottom-showcase-container {
+    background-color: #FBF8F1 !important;
+    background-image: none !important;
   }
   /* Footer itself anchors at the bottom-most edge — it (and only it) carries
      the admin's footer color, including the safe-area strip below it. */

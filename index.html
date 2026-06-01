@@ -55,7 +55,7 @@
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
   <link rel="preload" href="./js/api.js?v=16.2" as="script">
-  <link rel="preload" href="./css/style.css?v=15.96" as="style">
+  <link rel="preload" href="./css/style.css?v=16.6" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -392,7 +392,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=15.96">
+  <link rel="stylesheet" href="./css/style.css?v=16.6">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -1462,7 +1462,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=16.2"  defer></script>
+  <script src="./js/app.js?v=16.8"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).

@@ -267,19 +267,17 @@ const YARZ = (() => {
       subtotal:  subtotal
     };
 
-    // ✅ v15.49 FREE-SHIP ADVANCE: When admin has disabled COD AND the
-    // customer's cart unlocked free shipping, charge a small ৳100 advance
-    // via bKash/Nagad to protect against fake orders. If customer accepts
-    // the parcel, ৳100 stays as a discount on top of free delivery; if they
-    // refuse, we don't lose the full delivery charge.
-    //
-    // Trigger conditions:
-    //   • COD disabled (admin toggle off)
-    //   • Cart unlocked free-shipping threshold
-    //   • Admin's `freeShipAdvance` toggle is ON (default true)
+    // ✅ v16.8 FREE-SHIP ADVANCE (owner's policy, simplified):
+    // When the cart unlocks free shipping (subtotal >= threshold), delivery is
+    // FREE but we collect a small ৳100 advance via bKash/Nagad to protect
+    // against fake orders. This applies whenever free-ship is unlocked AND the
+    // admin's advance toggle is ON — REGARDLESS of the COD setting. (The old
+    // code also required COD to be off, which wrongly made 2000+ orders show
+    // "delivery charge" instead of the ৳100 advance — the exact bug the owner
+    // reported.) If the customer accepts the parcel the ৳100 adjusts into the
+    // order; if they refuse, we don't lose the full delivery charge.
     var fsa = isFreeShipAdvanceEnabled();
-    var codOn = isCODEnabled();
-    if (freeShipApplied && !codOn && fsa) {
+    if (freeShipApplied && fsa) {
       deliveryCharge = 100; // ৳100 advance — security against fake orders
       state._lastFreeShipInfo.advanceApplied = true;
       state._lastFreeShipInfo.advanceAmt = 100;
@@ -1470,10 +1468,11 @@ const YARZ = (() => {
     }
 
     container.style.display = 'block';
-    // ✅ v16.5: Force cream background so the showcase never inherits the dark
-    // footer color on mobile (the images have a cream backdrop that must blend
-    // with the site's paper color, not sit on the navy/burgundy footer).
-    container.style.backgroundColor = 'var(--bg-primary, #FBF8F1)';
+    // ✅ v16.6: Force a FIXED cream background (not var(--bg-primary), which the
+    // admin Theme Background overrides — a dark theme made this section navy/
+    // burgundy, the bleed the owner reported). Hard cream keeps the editorial
+    // images on paper-white on every theme.
+    container.style.backgroundColor = '#FBF8F1';
     // Premium Typography Header + Full width grid
     var html = '<div style="width: 100%; padding: 40px 16px 16px 16px; text-align: center;">';
     
@@ -4847,36 +4846,17 @@ const YARZ = (() => {
   function isFreeShipAdvanceActive() {
     try {
       var info = state._lastFreeShipInfo || {};
-      return !!(info.applied && info.advanceApplied && !isCODEnabled() && isFreeShipAdvanceEnabled());
+      // ✅ v16.8: advanceApplied is now the single source of truth (computed in
+      // calculateCartDeliveryCharge from free-ship + admin toggle, independent
+      // of COD). Reading it here keeps the popup, trxid validation, payment
+      // text and Telegram payload all consistent with the charged ৳100 advance.
+      return !!info.advanceApplied;
     } catch (e) { return false; }
   }
 
   // v16: Render the Delivery Zone as visible radio-style cards (no dropdown).
   // Reads the same locations as the hidden #co-location <select>, mirrors the
   // current selection, and updates live delivery charge per zone.
-  // ✅ v16.5: Pure per-zone BASE delivery charge — the real cost of delivering
-  // to that area (admin's value + multi-item surcharge), WITHOUT the free-ship
-  // override or the ৳100 advance. The zone cards show this so each area's true
-  // price is visible (Inside ৳70 / Outside ৳140); the FREE + advance story is
-  // shown separately in the Delivery Charge summary row. Crucially this does
-  // NOT touch state._lastFreeShipInfo (calculateCartDeliveryCharge mutates it
-  // as a side effect, so calling that per-zone in a loop was also wrong).
-  function _baseZoneCharge(locationId) {
-    var locs = getDeliveryLocations();
-    var locIndex = locs.findIndex(function (l) { return String(l.id) === String(locationId); });
-    var defaultCharge = getDeliveryCharge(locationId);
-    if (!state.cart || state.cart.length === 0) return defaultCharge;
-    var baseCharge = state.cart.reduce(function (max, item) {
-      var c = defaultCharge;
-      if (locIndex === 0 && item.deliveryDhaka !== undefined && item.deliveryDhaka !== '') c = parseFloat(item.deliveryDhaka);
-      else if (locIndex === 1 && item.deliveryOutside !== undefined && item.deliveryOutside !== '') c = parseFloat(item.deliveryOutside);
-      return Math.max(max, c);
-    }, 0);
-    var totalQty = state.cart.reduce(function (sum, item) { return sum + item.qty; }, 0);
-    var extraCharge = totalQty > 1 ? (totalQty - 1) * 5 : 0;
-    return baseCharge + extraCharge;
-  }
-
   function renderZoneCards() {
     var wrap = $('#co-zone-cards');
     var sel = $('#co-location');
@@ -4890,11 +4870,8 @@ const YARZ = (() => {
       sel.value = current;
     }
     wrap.innerHTML = locations.map(function (loc) {
-      // ✅ v16.5: Always show the REAL per-zone delivery cost on the card.
-      // (Previously used calculateCartDeliveryCharge, which returns the ৳100
-      // advance for every zone when free-ship is unlocked — making both cards
-      // read ৳100 and look like admin values weren't loading.)
-      var charge = (state.cart.length > 0) ? _baseZoneCharge(loc.id) : (parseFloat(loc.charge) || 0);
+      var charge = parseFloat(loc.charge) || 0;
+      if (state.cart.length > 0) charge = calculateCartDeliveryCharge(loc.id);
       var selected = String(loc.id) === String(current);
       return '<div class="yarz-zone-card' + (selected ? ' is-selected' : '') + '" role="radio" tabindex="0"'
         + ' aria-checked="' + (selected ? 'true' : 'false') + '"'
@@ -5820,9 +5797,15 @@ const YARZ = (() => {
             '<span class="copy-label">Copy</span>' +
           '</button>' +
         '</li>' +
-        // ✅ v15.77: Amount text — delivery charge only (or ৳100 advance when free-ship active)
+        // ✅ v16.6: Amount text — three accurate states (free-ship was keyed off
+        // the too-strict isFreeShipAdvanceActive(); now uses _lastFreeShipInfo).
         '<li>Send Money করুন — Amount: <strong>' +
-          (isFreeShipAdvanceActive() ? 'মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি' : 'শুধুমাত্র ডেলিভারি চার্জ') +
+          (function(){
+            var _i = state._lastFreeShipInfo || {};
+            if (_i.advanceApplied) return 'মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি';
+            if (_i.applied) return 'চেকআউটে দেখানো amount (ডেলিভারি ফ্রি)';
+            return 'শুধুমাত্র ডেলিভারি চার্জ';
+          })() +
         '</strong></li>' +
         '<li>Reference এ আপনার ফোন নম্বর দিন</li>' +
         '<li>Order ID: <strong>' + escHtml(orderId) + '</strong></li>' +
@@ -6721,14 +6704,28 @@ const YARZ = (() => {
     if (!paymentField) return;
     var parent = paymentField.closest('.form-group') || paymentField.parentNode;
 
-    // ✅ Amount-line wording depends on cart state:
-    //   • Free-ship unlocked + COD off + advance ON → customer sends a fixed
-    //     ৳100 security advance (NOT the delivery charge). Saying "delivery
-    //     charge" here confused customers since delivery is actually FREE.
-    //   • Otherwise → customer sends the delivery charge shown at checkout.
-    var _amountLine = isFreeShipAdvanceActive()
-      ? '2. Amount: <strong>মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> (চেকআউটে দেখানো amount)<br>'
-      : '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>';
+    // ✅ v16.6 Amount-line wording — three accurate states (was a 2-way ternary
+    // on the STRICT isFreeShipAdvanceActive(), which required COD-off and so
+    // wrongly showed "শুধুমাত্র ডেলিভারি চার্জ" whenever delivery was actually
+    // FREE but COD was still enabled). We now key the "is delivery free?"
+    // decision off state._lastFreeShipInfo.applied — the single flag that
+    // answers exactly that question — and only show the ৳100-advance wording
+    // when an advance is genuinely being collected (advanceApplied).
+    var _fsInfo = state._lastFreeShipInfo || {};
+    var _advanceDue   = !!_fsInfo.advanceApplied; // ৳100 security advance is charged
+    var _freeUnlocked = !!_fsInfo.applied;        // delivery charge is ৳0 (free)
+    var _amountLine;
+    if (_advanceDue) {
+      // COD off + free-ship + advance ON → customer sends a fixed ৳100 advance.
+      _amountLine = '2. Amount: <strong>মাত্র <span class="yarz-num">৳100</span> অগ্রিম সিকিউরিটি</strong> (চেকআউটে দেখানো amount)<br>';
+    } else if (_freeUnlocked) {
+      // Delivery is FREE — do NOT say "delivery charge". Send the small amount
+      // shown at checkout (the advance/total), delivery itself costs nothing.
+      _amountLine = '2. Amount: <strong>চেকআউটে দেখানো amount</strong> (আপনার ডেলিভারি সম্পূর্ণ ফ্রি)<br>';
+    } else {
+      // Normal paid delivery → send only the delivery charge.
+      _amountLine = '2. Amount: <strong>শুধুমাত্র ডেলিভারি চার্জ</strong> (চেকআউটে দেখানো amount)<br>';
+    }
 
     if (method === 'bKash') {
       var box = document.createElement('div');
