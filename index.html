@@ -1450,6 +1450,147 @@
   <!-- Security: Armor — v5.3: defer added (it already uses DOMContentLoaded, safe to defer) -->
   <!-- ⚡ v13.0: armor/pixel/shield deferred to post-load via JS loader at bottom of body -->
 
+  <!-- ⚡ v16.14 INSTANT FIRST PAINT (no preview-then-load):
+       This inline script runs DURING HTML parse — BEFORE the deferred JS
+       bundle (api.js … app.js, ~9k lines) even starts downloading/parsing.
+       It reads the Cloudflare-Worker–injected window.__YARZ_INITIAL_STATE
+       (products + storeInfo + hero banners) and paints the hero banner +
+       product grid SYNCHRONOUSLY, so visitors see real products instantly
+       instead of the static shell for 2-3s. app.js later re-renders the SAME
+       data with its full renderer (identical markup → no flicker). Fully
+       wrapped in try/catch: if anything fails, it silently does nothing and
+       app.js renders normally — zero regression risk. NO localStorage is
+       used; the data is the fresh edge-injected state only. -->
+  <script>
+  (function _yarzInstantPaint() {
+    function paint(S) {
+    try {
+      if (!S) return;
+      var data = S.data || S;
+      var products = data.products || S.products || [];
+      var storeInfo = data.storeInfo || S.storeInfo || {};
+      if (!products.length) return;
+
+      // ---- tiny helpers (mirror app.js, kept minimal) ----
+      function esc(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+      function escAttr(s){ return esc(s).replace(/'/g,"\\'"); }
+      function bool(v){ if(v===true) return true; if(v==null||v==='') return false; var t=String(v).toLowerCase().trim(); return t==='true'||t==='yes'||t==='1'||t==='on'||t==='enabled'||t==='chalu'||t==='চালু'; }
+      function gi(k){ return storeInfo[k] !== undefined ? storeInfo[k] : storeInfo[k.replace(/_/g,' ')]; }
+      var CUR = String(gi('currency') || '\u09F3');
+      function price(n){ var x=parseFloat(n)||0; return CUR + x.toLocaleString('en-IN'); }
+      function imgSrc(url, size){
+        if(!url) return ''; url=String(url).trim(); if(!url) return '';
+        size = parseInt(size,10) || 1600;
+        if(!/^https?:|^data:|^\/\//.test(url)) url='https://'+url;
+        if(/\.(jpe?g|png|webp|avif|gif|bmp|svg)(\?.*)?$/i.test(url)) return url;
+        if(url.indexOf('drive.google.com')!==-1){ var m=url.match(/d\/([a-zA-Z0-9_-]+)/)||url.match(/id=([a-zA-Z0-9_-]+)/); if(m) return 'https://lh3.googleusercontent.com/d/'+m[1]+'=s'+size+'-rw'; }
+        if(url.indexOf('lh3.googleusercontent.com')!==-1){ url=url.replace(/=[swh]\d+(-[a-z0-9]+)*$/i,''); return url+'=s'+size+'-rw'; }
+        return url;
+      }
+      function badgeClass(b){ if(!b) return ''; var x=String(b).toLowerCase(); if(x.indexOf('sale')>-1||x.indexOf('hot')>-1) return 'badge-sale'; if(x.indexOf('new')>-1) return 'badge-new'; if(x.indexOf('best')>-1||x.indexOf('top')>-1) return 'badge-best'; return 'badge-default'; }
+      function isAcc(p){ return p && String(p.accessory||'').trim().toLowerCase()==='yes'; }
+      function isOneSize(p){ return p && String(p.hiddenSizes||'').trim().toUpperCase()==='__ONESIZE__'; }
+      var PANT_CATS = ['pant','pants','trouser','trousers','jeans','gabardine','chino','chinos'];
+      function isPant(cat){ var c=String(cat||'').toLowerCase(); for(var i=0;i<PANT_CATS.length;i++){ if(c.indexOf(PANT_CATS[i])>-1) return true; } return false; }
+      function pantLabel(s){ var map={S:'28',M:'30',L:'32',XL:'34',XXL:'36','3XL':'38'}; return map[s]||s; }
+
+      var hoverEffect = String(gi('hover_effect') || '');
+      var wishlistActive = bool(gi('wishlist_active'));
+      var quickViewActive = bool(gi('quick_view_active')) || bool(gi('quick_view'));
+      var SIZES = ['S','M','L','XL','XXL','3XL'];
+
+      function card(p, index){
+        var isOut = !p.inStock;
+        var salePrice = parseFloat(p.salePrice)||0;
+        var regPrice = parseFloat(p.regularPrice)||0;
+        var hasDisc = parseFloat(p.discountPercent)>0 && regPrice>salePrice;
+        var safeName = escAttr(p.name);
+        var eager = (typeof index==='number' && index<4) ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"';
+        var hoverAttr = hoverEffect ? ' data-hover="'+esc(hoverEffect)+'"' : '';
+        var h = '<article class="product-card'+(isOut?' out-of-stock':'')+'"'+hoverAttr+' onclick="YARZ.openProduct(\''+safeName+'\')">';
+        h += '<div class="card-image">';
+        var i400=esc(imgSrc(p.image1,400)), i800=esc(imgSrc(p.image1,800)), i1200=esc(imgSrc(p.image1,1200));
+        h += '<img src="'+i800+'" srcset="'+i400+' 400w, '+i800+' 800w, '+i1200+' 1200w" sizes="(max-width:480px) 50vw, (max-width:768px) 33vw, (max-width:1024px) 25vw, 240px" width="800" height="1000" alt="'+esc(p.name)+'" '+eager+' onerror="this.style.display=\'none\'">';
+        if(p.badge) h += '<span class="product-badge '+badgeClass(p.badge)+'">'+esc(p.badge)+'</span>';
+        if(wishlistActive) h += '<button class="wishlist-heart" data-prod="'+safeName+'" onclick="event.stopPropagation();YARZ.toggleWishlist(\''+safeName+'\');this.classList.toggle(\'active\')" title="Add to wishlist" aria-label="Toggle wishlist"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10z"/></svg></button>';
+        if(quickViewActive) h += '<button class="quick-view-btn" onclick="event.stopPropagation();YARZ.openQuickView(\''+safeName+'\')" aria-label="Quick view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Quick View</button>';
+        h += '</div><div class="card-info">';
+        h += '<div class="product-category">'+esc(p.category||'')+'</div>';
+        h += '<div class="product-name">'+esc(p.name)+'</div>';
+        h += '<div class="price-row"><span class="sale-price">'+price(salePrice)+'</span>';
+        if(hasDisc){ h += '<span class="regular-price">'+price(regPrice)+'</span><span class="discount-tag">-'+Math.round(p.discountPercent)+'%</span>'; }
+        h += '</div><div class="card-sizes">';
+        if(!isOneSize(p)){
+          var pant = isPant(p.category);
+          SIZES.forEach(function(s){ var avail=p.sizes && p.sizes[s]; var lbl=pant?pantLabel(s):s; h+='<span class="size-dot'+(avail?' available':' out')+'">'+lbl+'</span>'; });
+        }
+        h += '</div></div></article>';
+        return h;
+      }
+
+      // ---- product grid (group by category, 12 per group + View All) ----
+      var grid = document.getElementById('product-grid');
+      if (grid) {
+        var shopProducts = products.filter(function(p){ return !isAcc(p) && p.status==='Active'; });
+        if (shopProducts.length) {
+          var grouped = {}, order = [];
+          shopProducts.forEach(function(p){ var raw=(p.category||'Other').trim(); var c=raw.charAt(0).toUpperCase()+raw.slice(1).toLowerCase(); if(!grouped[c]){grouped[c]=[];order.push(c);} grouped[c].push(p); });
+          var html=''; var gidx=0;
+          order.forEach(function(c){
+            html += '<div style="grid-column: 1 / -1; font-size: 22px; font-weight: 800; margin: 32px 0 12px; color: var(--text-main); font-family: var(--font-bengali); border-bottom: 2px solid var(--border-light); padding-bottom: 8px;">'+esc(c)+'</div>';
+            var items = grouped[c]; var more = items.length>12; if(more) items=items.slice(0,12);
+            items.forEach(function(p){ html += card(p, gidx++); });
+            if(more) html += '<div style="grid-column: 1 / -1; text-align: center; margin: 16px 0 24px 0;"><button class="btn btn-outline" onclick="YARZ.openCategoryPage(\''+escAttr(c)+'\', 1)" style="padding: 10px 32px; border-radius: 30px; font-weight: 600;">View All</button></div>';
+          });
+          grid.innerHTML = html;
+          var cards = grid.querySelectorAll('.product-card');
+          for(var ci=0; ci<cards.length; ci++){ cards[ci].style.setProperty('--card-index', ci); }
+          grid.setAttribute('aria-busy','false');
+        }
+      }
+
+      // ---- hero banner (first slide only — slider hydrates in app.js) ----
+      var slider = document.getElementById('hero-slider');
+      if (slider) {
+        var bn = [];
+        for (var i=1;i<=5;i++){ var u=gi('hero_banner_'+i); if(u) bn.push({image:u,title:gi('banner_title_'+i)||'',link:gi('banner_link_'+i)||'',color:gi('banner_text_color_'+i)||'#ffffff'}); }
+        if (bn.length){
+          var sh = bn.map(function(b,i){
+            var s1000=esc(imgSrc(b.image,1000)), s1600=esc(imgSrc(b.image,1600)), s2000=esc(imgSrc(b.image,2000));
+            var srcset=s1000+' 1000w, '+s1600+' 1600w, '+s2000+' 2000w';
+            var eager = i===0 ? 'fetchpriority="high" loading="eager" decoding="async"' : 'loading="lazy" decoding="async"';
+            var imgH='<img src="'+s1600+'" srcset="'+srcset+'" sizes="(max-width:768px) 100vw, (max-width:1280px) 100vw, 1600px" alt="'+esc(b.title)+'" '+eager+' style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.style.display=\'none\'">';
+            var ov='';
+            if(b.title){ var col=/^#[0-9a-f]{3,8}$/i.test(b.color)?b.color:'#ffffff'; ov='<div class="banner-overlay"><div class="banner-content" style="--banner-text-color:'+col+';"><h2 class="banner-title">'+esc(b.title)+'</h2></div></div>'; }
+            var inner=imgH+ov;
+            if(b.link) inner='<a href="'+esc(b.link)+'" class="banner-link">'+inner+'</a>';
+            return '<div class="slide'+(i===0?' active':'')+'" style="width:100%;height:100%;">'+inner+'</div>';
+          }).join('');
+          slider.innerHTML = '<div class="slider-track">'+sh+'</div>';
+          var dots = document.getElementById('slider-dots');
+          if(dots) dots.innerHTML = bn.map(function(_,i){ return '<button class="slider-dot'+(i===0?' active':'')+'" aria-label="Slide '+(i+1)+'"></button>'; }).join('');
+        }
+      }
+
+      window._yarzInstantPainted = true;
+    } catch (e) { /* graceful: app.js will render normally */ }
+    }
+
+    // Driver: paint NOW if the edge already injected state (warm cache);
+    // otherwise wait for the in-flight early-fetch promise (cold cache) and
+    // paint the moment it resolves — still before the heavy app.js finishes.
+    try {
+      if (window.__YARZ_INITIAL_STATE) {
+        paint(window.__YARZ_INITIAL_STATE);
+      } else if (window.__YARZ_EARLY_FETCH && typeof window.__YARZ_EARLY_FETCH.then === 'function') {
+        window.__YARZ_EARLY_FETCH.then(function (json) {
+          if (json && !window._yarzInstantPainted && !window._turboFirstPaintDone) paint(json);
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  })();
+  </script>
+
   <!-- ⚡ v10.6: All scripts deferred — early fetch already fired in <head> inline script.
        This means HTML/CSS render INSTANTLY, scripts execute when DOM is ready. -->
   <script src="./js/api.js?v=16.10" defer></script>

@@ -112,68 +112,17 @@
   //   3. Worker server-side edge cache (FRESH_TTL=30min, purged on Publish)
   // No customer-side persistence at any layer. ALWAYS LIVE.
 
-  // ─── 3. SKELETON RENDER (instant feedback) ──────────────────────
-  function showSkeleton() {
-    // Only inject if container exists and is empty
-    const target = document.getElementById('main-content') ||
-                   document.getElementById('app') ||
-                   document.querySelector('main');
-    if (!target || target.children.length > 0) return;
-    target.innerHTML = `
-      <div class="yarz-skeleton-wrap" aria-hidden="true">
-        <div class="yarz-skel-stamp">
-          <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>
-            <circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/>
-            <circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/>
-            <circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/>
-            <circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/>
-          </svg>
-        </div>
-        <div class="yarz-skel-banner"></div>
-        <div class="yarz-skel-grid">
-          ${'<div class="yarz-skel-card"><div class="yarz-skel-img"></div><div class="yarz-skel-line"></div><div class="yarz-skel-line short"></div></div>'.repeat(8)}
-        </div>
-      </div>
-    `;
-  }
-
-  // Inject skeleton CSS once
-  function injectSkeletonCSS() {
-    if (document.getElementById('yarz-skel-css')) return;
-    const s = document.createElement('style');
-    s.id = 'yarz-skel-css';
-    s.textContent = `
-      .yarz-skeleton-wrap{padding:16px;max-width:1200px;margin:0 auto}
-      .yarz-skel-stamp{display:flex;justify-content:center;align-items:center;padding:20px 0 14px;opacity:0.45;animation:yarzStampPulse 1.6s ease-in-out infinite}
-      @keyframes yarzStampPulse{0%,100%{opacity:0.35}50%{opacity:0.7}}
-      .yarz-skel-banner{height:240px;border-radius:14px;margin-bottom:24px;background:linear-gradient(90deg,#F4F2EC 0%,#FAFAF7 50%,#F4F2EC 100%);background-size:200% 100%;animation:yarzShimmer 1.4s linear infinite}
-      .yarz-skel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
-      .yarz-skel-card{background:#fff;border-radius:0;padding:8px;box-shadow:0 1px 3px rgba(26,20,17,.06);border:1px solid rgba(26,20,17,.04)}
-      .yarz-skel-img{aspect-ratio:1;border-radius:0;background:linear-gradient(90deg,#F4F2EC 0%,#FAFAF7 50%,#F4F2EC 100%);background-size:200% 100%;animation:yarzShimmer 1.4s linear infinite}
-      .yarz-skel-line{height:12px;margin-top:10px;border-radius:2px;background:linear-gradient(90deg,#F4F2EC 0%,#FAFAF7 50%,#F4F2EC 100%);background-size:200% 100%;animation:yarzShimmer 1.4s linear infinite}
-      .yarz-skel-line.short{width:60%;height:10px}
-      @keyframes yarzShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-      @media(max-width:480px){
-        .yarz-skel-banner{height:180px}
-        .yarz-skel-grid{grid-template-columns:repeat(2,1fr);gap:10px}
-        .yarz-skel-stamp{padding:16px 0 10px}
-      }
-      @media (prefers-reduced-motion: reduce){
-        .yarz-skel-stamp,.yarz-skel-banner,.yarz-skel-img,.yarz-skel-line{animation:none !important}
-        .yarz-skel-stamp{opacity:0.55}
-      }
-    `;
-    document.head.appendChild(s);
-  }
-
-  // Run skeleton injection ASAP
-  injectSkeletonCSS();
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', showSkeleton, { once: true });
-  } else {
-    showSkeleton();
-  }
+  // ─── 3. SKELETON RENDER — DISABLED (v16.14 ZERO-CACHE mode) ─────
+  // ✅ v16.14: Skeleton injection completely disabled.
+  // In ZERO-CACHE mode, the Cloudflare Worker SSR injects
+  // __YARZ_INITIAL_STATE into the HTML <head>, and the inline
+  // _yarzInstantPaint() script (in index.html) renders REAL products
+  // synchronously during HTML parse — before boot.js even loads.
+  // The skeleton was never visible long enough to help and only added
+  // ~2KB of CSS + DOM manipulation to the critical rendering path.
+  // Kept as no-op stubs so any code referencing them doesn't break.
+  function showSkeleton() { /* no-op */ }
+  function injectSkeletonCSS() { /* no-op */ }
 
   // ─── 4. Performance reporting ───────────────────────────────────
   window.addEventListener('load', () => {

@@ -618,7 +618,7 @@ const YARZ = (() => {
           if (allSec) allSec.style.display = '';
           renderDynamicSections(state.products, state.storeInfo);
         }
-      } else if (!grid || !grid.children.length) {
+      } else if (!grid || !state.products || !state.products.length) {
         // No products yet — show skeleton + trigger reload from cache/network
         renderSkeletons('product-grid', 8);
         try {
