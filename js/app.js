@@ -1640,6 +1640,9 @@ const YARZ = (() => {
     if (home) home.style.display = 'none';
     var dyn = document.getElementById('dynamic-view');
     if (dyn) dyn.style.display = 'none';
+    // ✅ v16.12: Hide the home-only "REDEFINE YOUR STYLE" bottom showcase.
+    var bShowcaseWish = document.getElementById('bottom-showcase-container');
+    if (bShowcaseWish) bShowcaseWish.style.display = 'none';
     var collectionView = document.getElementById('collection-view');
     if (collectionView) {
       collectionView.style.display = '';
@@ -2747,6 +2750,9 @@ const YARZ = (() => {
     if (home) home.style.display = 'none';
     var dyn = document.getElementById('dynamic-view');
     if (dyn) dyn.style.display = 'none';
+    // ✅ v16.12: Hide the home-only "REDEFINE YOUR STYLE" bottom showcase.
+    var bShowcaseCat = document.getElementById('bottom-showcase-container');
+    if (bShowcaseCat) bShowcaseCat.style.display = 'none';
 
     var mainNav = $('#main-nav');
     var hamburger = $('#hamburger');
@@ -2805,6 +2811,10 @@ const YARZ = (() => {
     if (home) home.style.display = 'none';
     var dyn = document.getElementById('dynamic-view');
     if (dyn) dyn.style.display = 'none';
+    // ✅ v16.12: Hide the homepage "REDEFINE YOUR STYLE" bottom showcase — it is
+    // a HOME-only section and must not bleed into the Accessories page.
+    var bShowcaseAcc = document.getElementById('bottom-showcase-container');
+    if (bShowcaseAcc) bShowcaseAcc.style.display = 'none';
 
     var mainNav = $('#main-nav');
     var hamburger = $('#hamburger');
@@ -2856,6 +2866,10 @@ const YARZ = (() => {
     if (home) home.style.display = 'none';
     var dyn = document.getElementById('dynamic-view');
     if (dyn) dyn.style.display = 'none';
+    // ✅ v16.12: Hide the homepage "REDEFINE YOUR STYLE" bottom showcase — it is
+    // a HOME-only section and must not bleed into a collection page.
+    var bShowcaseCol = document.getElementById('bottom-showcase-container');
+    if (bShowcaseCol) bShowcaseCol.style.display = 'none';
     
     // Close mobile menu if open
     var mainNav = $('#main-nav');
@@ -3644,19 +3658,21 @@ const YARZ = (() => {
                (p.category || '').toLowerCase() === catKey;
       });
 
-      // To get the 4 *latest* products, we take the last 4 items and reverse them
+      // ✅ v16.13: "You May Also Like" must show SIMILAR products — i.e. the
+      // SAME category as the product being viewed (shirt → shirts, pant →
+      // pants). Show up to 4 same-category items. ONLY when there are NO
+      // same-category products at all do we fall back to the latest other
+      // products (so the section never sits empty). This stops a pant page
+      // from showing unrelated latest t-shirts / panjabis when other pants
+      // exist — the exact mixing the owner reported.
       var latestRelated = sameCatPool.slice(-4).reverse();
-      var needed = 4 - latestRelated.length;
-      
-      // If we don't have 4, fill with other active products (latest ones)
-      if (needed > 0) {
+      if (latestRelated.length === 0) {
         var otherPool = state.products.filter(function (p) {
           return p && p.status === 'Active' && p.name !== product.name &&
                  isAccessory(p) === viewingAccessory &&
                  (p.category || '').toLowerCase() !== catKey;
         });
-        var otherLatest = otherPool.slice(-needed).reverse();
-        latestRelated = latestRelated.concat(otherLatest);
+        latestRelated = otherPool.slice(-4).reverse();
       }
 
       if (latestRelated.length > 0) {
@@ -3672,7 +3688,7 @@ const YARZ = (() => {
         
         html += '<section class="related-products-section" style="padding:48px 0 24px !important;width:100% !important;max-width:100% !important;border-top:1px solid var(--border-light);">';
         html += '<div class="related-heading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin:10px auto 30px;text-align:center;">' +
-                  '<h3 style="font-family:var(--font-serif,\'Playfair Display\',Georgia,serif);font-size:26px;font-weight:700;color:var(--text-main);margin:0;letter-spacing:0.02em;text-transform:uppercase;">RECENTLY STALKED</h3>' +
+                  '<h3 style="font-family:var(--font-serif,\'Playfair Display\',Georgia,serif);font-size:26px;font-weight:700;color:var(--text-main);margin:0;letter-spacing:0.02em;text-transform:uppercase;">YOU MAY ALSO LIKE</h3>' +
                   '<span style="max-width:40px;width:40px;height:2px;background:var(--accent);border-radius:1px;"></span>' +
                 '</div>';
         
@@ -4871,15 +4887,29 @@ const YARZ = (() => {
     }
     wrap.innerHTML = locations.map(function (loc) {
       var charge = parseFloat(loc.charge) || 0;
-      if (state.cart.length > 0) charge = calculateCartDeliveryCharge(loc.id);
+      var freeUnlocked = false;
+      if (state.cart.length > 0) {
+        // calculateCartDeliveryCharge also refreshes state._lastFreeShipInfo
+        // for this zone, so read the free-ship flag right after calling it.
+        charge = calculateCartDeliveryCharge(loc.id);
+        freeUnlocked = !!(state._lastFreeShipInfo && state._lastFreeShipInfo.applied);
+      }
       var selected = String(loc.id) === String(current);
+      // ✅ v16.9: When the cart unlocked free shipping, the per-zone DELIVERY is
+      // free (the ৳100 shown elsewhere is only a separate security advance, not
+      // a delivery charge). Show "FREE" on the zone card so customers aren't
+      // confused into thinking delivery costs ৳100. The advance is explained in
+      // the Delivery Charge summary row above.
+      var priceHtml = freeUnlocked
+        ? '<span class="yarz-zone-card__price" style="color:#16A34A;font-weight:700;">FREE</span>'
+        : '<span class="yarz-zone-card__price">' + formatPrice(charge) + '</span>';
       return '<div class="yarz-zone-card' + (selected ? ' is-selected' : '') + '" role="radio" tabindex="0"'
         + ' aria-checked="' + (selected ? 'true' : 'false') + '"'
         + ' onclick="YARZ.selectZone(\'' + escHtml(String(loc.id)) + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();YARZ.selectZone(\'' + escHtml(String(loc.id)) + '\');}">'
         + '<span class="yarz-zone-card__dot"></span>'
         + '<span class="yarz-zone-card__label">' + escHtml(loc.name) + '</span>'
-        + '<span class="yarz-zone-card__price">' + formatPrice(charge) + '</span>'
+        + priceHtml
         + '</div>';
     }).join('');
   }
@@ -6099,18 +6129,30 @@ const YARZ = (() => {
         // GUARDED by apiSucceeded — never runs on a failed/empty-fallback
         // call, which would otherwise false-cancel every order on a blip.
         if (apiSucceeded) {
-          var _CANCEL_GRACE = 30 * 24 * 60 * 60 * 1000; // 30 days
+          var _CANCEL_GRACE = 30 * 24 * 60 * 60 * 1000; // 30 days (upper bound)
+          var _MIN_AGE = 2 * 60 * 1000; // 2 min (lower bound — avoid race with a just-placed order)
           var _nowMs = Date.now();
           allLocal.forEach(function(lo) {
-            if (!lo._seenOnServer) return;
+            // ✅ v16.11 FIX: Previously this required lo._seenOnServer === true.
+            // But if the customer placed an order and the admin cancelled/deleted
+            // it BEFORE the customer ever tracked it (so _seenOnServer was never
+            // stamped), the deletion went undetected and the stale local
+            // "Confirmed" status kept showing — a CRITICAL bug (cancelled order
+            // looked confirmed to the customer). We now detect any locally-placed
+            // order that is missing from a SUCCESSFUL API response, gated only by
+            // a time window: old enough to rule out a place→track race (>2 min),
+            // and young enough to rule out a 30-day server cleanup (<30 days).
             var st = String(lo.status || '').toLowerCase().replace(/\s+/g,'');
             if (st === 'cancelled' || st === 'canceled' || st === 'returned' || st === 'delivered') return;
-            // ✅ v16.5: Don't false-cancel an order that simply AGED OUT of the
-            // server's 30-day window. If the order is older than 30 days, the
-            // server legitimately no longer returns it (daily cleanup) — that
-            // is NOT an admin cancellation, so skip the inference.
             var _lt = (typeof lo.placedAt === 'number') ? lo.placedAt : Date.parse(lo.date || lo.updated || lo.orderDate || '');
-            if (!isNaN(_lt) && _lt > 0 && (_nowMs - _lt) > _CANCEL_GRACE) return;
+            // No reliable timestamp → fall back to the old _seenOnServer guard
+            // (can't safely time-gate, so only cancel if it was seen before).
+            if (isNaN(_lt) || _lt <= 0) { if (!lo._seenOnServer) return; }
+            else {
+              var _age = _nowMs - _lt;
+              if (_age < _MIN_AGE) return;          // too new — might just be syncing
+              if (_age > _CANCEL_GRACE) return;     // aged out of server window — not a cancellation
+            }
             var stillThere = secureApiOrders.some(function(ao) {
               var matchById  = (ao.orderId && lo.orderId && ao.orderId === lo.orderId);
               var phoneMatch = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");

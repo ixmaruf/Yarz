@@ -1334,19 +1334,24 @@ const YARZ_API = (() => {
         // ✅ v11.7: Avg Order Value (BDT) — drives Lead/Subscribe bid value for FB optimization
         avgOrderValue: parseFloat(get('avg_order_value') || s['Avg Order Value']) || 0,
         // Promo popup slots (3)
+        // ✅ v16.10 FIX: Read EVERY field through get() (which resolves Title-Case,
+        // lowercase_underscore AND case-insensitive variants). The previous code
+        // led with s['Popup N Image'] (Title Case) — but GAS's _getFullStoreInfoObj
+        // normalizes all sheet keys to lowercase_underscore (popup_n_image), so the
+        // Title-Case lookups were always undefined and the slot silently dropped.
         popupSlots: (function(){
           const arr = [];
           for(let i=1;i<=3;i++){
-            const a = parseBool(s['Popup ' + i + ' Active'] || get('popup_' + i + '_active'));
+            const a = parseBool(get('popup_' + i + '_active'));
             if(!a) continue;
-            const img = String(s['Popup ' + i + ' Image'] || get('popup_' + i + '_image') || '');
+            const img = String(get('popup_' + i + '_image') || '');
             if(!img) continue;
             arr.push({
               image: img,
-              link: String(s['Popup ' + i + ' Link'] || get('popup_' + i + '_link') || ''),
-              start: String(s['Popup ' + i + ' Start'] || get('popup_' + i + '_start') || ''),
-              end: String(s['Popup ' + i + ' End'] || get('popup_' + i + '_end') || ''),
-              trigger: String(s['Popup ' + i + ' Trigger'] || get('popup_' + i + '_trigger') || '10')
+              link: String(get('popup_' + i + '_link') || ''),
+              start: String(get('popup_' + i + '_start') || ''),
+              end: String(get('popup_' + i + '_end') || ''),
+              trigger: String(get('popup_' + i + '_trigger') || '10')
             });
           }
           return arr;

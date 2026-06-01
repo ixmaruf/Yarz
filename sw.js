@@ -14,7 +14,7 @@
      3) Product images NEVER re-downloaded once cached
    ════════════════════════════════════════════════════════════════════ */
 
-const VERSION       = 'yarz-turbo-v16.8-2026-06-01';
+const VERSION       = 'yarz-turbo-v16.13-2026-06-01';
 const STATIC_CACHE  = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const API_CACHE     = `${VERSION}-api`;
