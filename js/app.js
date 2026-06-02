@@ -3245,8 +3245,9 @@ const YARZ = (() => {
 
   // Fetch live stock from Google Sheets in background — no UI blocking
   function _refreshLiveStock(product, opts) {
-    if (!product || !product.name) return;
-    if (!window.YARZ_API || !YARZ_API.getProductStock) return;
+    // 🛑 DISABLED to save Cloudflare Worker limits (1 request per product click is too expensive!)
+    // The system will now rely entirely on the background `getProducts` refresh for stock updates.
+    return;
     var force = opts && opts.force;
     // Throttle: avoid hammering the API more than once every 8s unless forced
     if (!force && (Date.now() - _lastStockFetch) < 8000) return;

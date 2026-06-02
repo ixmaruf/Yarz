@@ -55,7 +55,7 @@
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
   <link rel="preload" href="./js/api.js?v=16.10" as="script">
-  <link rel="preload" href="./css/style.css?v=16.6" as="style">
+  <link rel="preload" href="./css/style.css?v=16.92" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -270,29 +270,31 @@
         "@type": ["Organization", "OnlineStore"],
         "@id": "https://yarzclothing.xyz/#organization",
         "name": "YARZ",
-        "alternateName": ["Yarzclothing", "ইয়ার্জ", "ইয়ার্জ ক্লোদিং", "yarz bd", "yarzbd", "yarz clothing"],
+        "alternateName": ["Yarzclothing", "yarz clothing", "yarz xyz", "yarz clothing xyz", "ইয়ার্জ", "ইয়ার্জ ক্লোদিং", "yarz bd", "yarzbd"],
         "legalName": "YARZ — Yarzclothing",
         "url": "https://yarzclothing.xyz/",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
-          "width": 1200,
-          "height": 630
-        },
+        "logo": { "@type": "ImageObject", "url": "https://yarzclothing.xyz/favicon.svg", "width": 512, "height": 512 },
         "image": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
-        "description": "YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion Brand. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট, with Cash on Delivery (COD) all over Bangladesh.",
+        "description": "YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion Brand. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট, with Cash on Delivery (COD).",
         "slogan": "Premium Men's Fashion. Redefined.",
-        "foundingDate": "2024",
+        "foundingDate": "2026-05",
+        "founder": {
+          "@type": "Person",
+          "name": "Maruf Hasan",
+          "birthDate": "2004",
+          "jobTitle": "Founder & CEO",
+          "nationality": "Bangladeshi"
+        },
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Narayanganj",
           "addressRegion": "Dhaka Division",
           "addressCountry": "BD"
         },
-        "areaServed": {
-          "@type": "Country",
-          "name": "Bangladesh"
-        },
+        "areaServed": [
+          { "@type": "Country", "name": "Bangladesh" },
+          { "@type": "Thing", "name": "Worldwide" }
+        ],
         "knowsAbout": [
           "Men's Fashion",
           "Premium Shirts",
@@ -300,23 +302,24 @@
           "Polo Shirts",
           "T-Shirts",
           "Bangladesh Fashion",
+          "Global Fashion",
           "Cash on Delivery"
         ],
-        "currenciesAccepted": "BDT",
+        "currenciesAccepted": "BDT, USD",
         "paymentAccepted": ["Cash on Delivery", "bKash", "Nagad"],
         "contactPoint": [
           {
             "@type": "ContactPoint",
             "contactType": "customer support",
-            "areaServed": "BD",
             "availableLanguage": ["Bengali", "English"],
             "url": "https://yarzclothing.xyz/contact/"
           }
         ],
         "sameAs": [
           "https://www.facebook.com/Yarzbd",
-          "https://www.instagram.com/yarz_bd",
-          "https://tiktok.com/@yarzbd"
+          "https://www.instagram.com/yarzclothing",
+          "https://wa.me/8801601743670",
+          "https://m.me/Yarzbd"
         ]
       },
       {
@@ -324,7 +327,7 @@
         "@id": "https://yarzclothing.xyz/#brand",
         "name": "YARZ",
         "alternateName": ["Yarzclothing", "ইয়ার্জ"],
-        "logo": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
+        "logo": "https://yarzclothing.xyz/favicon.svg",
         "url": "https://yarzclothing.xyz/",
         "description": "Premium Men's Fashion brand from Bangladesh"
       },
@@ -335,7 +338,7 @@
         "name": "YARZ",
         "alternateName": ["Yarzclothing", "ইয়ার্জ ক্লোদিং"],
         "description": "YARZ — Bangladesh-এর Premium Men's Fashion store. Shop online with Cash on Delivery.",
-        "inLanguage": ["bn-BD", "en-BD"],
+        "inLanguage": ["bn-BD", "en-BD", "en-US"],
         "publisher": { "@id": "https://yarzclothing.xyz/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
@@ -354,7 +357,7 @@
         "isPartOf": { "@id": "https://yarzclothing.xyz/#website" },
         "about": { "@id": "https://yarzclothing.xyz/#organization" },
         "primaryImageOfPage": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
-        "inLanguage": "bn-BD",
+        "inLanguage": ["bn-BD", "en-US"],
         "description": "Shop YARZ — Bangladesh-এর Premium Men's Fashion. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট with Cash on Delivery."
       }
     ]
@@ -363,8 +366,8 @@
 
   
   <!-- Favicon — v15.61 YARZ shirt-button mark (centered, larger holes, fixed Safari mask-icon) -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='16' fill='%23FBF8F1'/%3E%3Ccircle cx='60' cy='60' r='50' fill='%23C8102E' stroke='%239B0C23' stroke-width='3'/%3E%3Ccircle cx='60' cy='60' r='31' fill='none' stroke='%23FBF8F1' stroke-width='3.5' opacity='0.85'/%3E%3Ccircle cx='49' cy='49' r='6' fill='%23FBF8F1'/%3E%3Ccircle cx='71' cy='49' r='6' fill='%23FBF8F1'/%3E%3Ccircle cx='49' cy='71' r='6' fill='%23FBF8F1'/%3E%3Ccircle cx='71' cy='71' r='6' fill='%23FBF8F1'/%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23FBF8F1'/%3E%3Ccircle cx='90' cy='90' r='75' fill='%23C8102E' stroke='%239B0C23' stroke-width='4.5'/%3E%3Ccircle cx='90' cy='90' r='46.5' fill='none' stroke='%23FBF8F1' stroke-width='5.25' opacity='0.85'/%3E%3Ccircle cx='73.5' cy='73.5' r='9' fill='%23FBF8F1'/%3E%3Ccircle cx='106.5' cy='73.5' r='9' fill='%23FBF8F1'/%3E%3Ccircle cx='73.5' cy='106.5' r='9' fill='%23FBF8F1'/%3E%3Ccircle cx='106.5' cy='106.5' r='9' fill='%23FBF8F1'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg">
   <link rel="mask-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 1.6 a6.4 6.4 0 1 0 0 12.8 a6.4 6.4 0 1 0 0 -12.8 z M5.7 5.7 m-1.45 0 a1.45 1.45 0 1 0 2.9 0 a1.45 1.45 0 1 0 -2.9 0 z M10.3 5.7 m-1.45 0 a1.45 1.45 0 1 0 2.9 0 a1.45 1.45 0 1 0 -2.9 0 z M5.7 10.3 m-1.45 0 a1.45 1.45 0 1 0 2.9 0 a1.45 1.45 0 1 0 -2.9 0 z M10.3 10.3 m-1.45 0 a1.45 1.45 0 1 0 2.9 0 a1.45 1.45 0 1 0 -2.9 0 z'/%3E%3C/svg%3E" color="#C8102E">
   <meta name="apple-mobile-web-app-title" content="YARZ">
   <meta name="application-name" content="YARZ">
@@ -392,7 +395,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=16.6">
+  <link rel="stylesheet" href="./css/style.css?v=16.92">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -842,9 +845,34 @@
       } catch (e) {}
     })();
   </script>
+
+<style id="yarz-premium-skeleton">
+/* ── Premium Skeleton Loading (Anti-CLS, Shimmer) ── */
+.skeleton {
+  background-color: #E2E2E2 !important; /* Distinct Grey Base */
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: ultra-fast-shimmer 1s ease-in-out infinite !important;
+  border-radius: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes ultra-fast-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
 </head>
 
 <body>
+  <!-- ✅ SEO H1: Hidden visually, but read by Googlebot immediately to associate the brand name -->
+  <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">YARZ — Premium Men's Fashion Brand Bangladesh</h1>
 
   <!-- ✅ v12.0: Transfer notch detection class from <html> to <body>
        (runs immediately after <body> opens — before any content paints) -->
@@ -981,7 +1009,7 @@
           <path d="m21 21-4.35-4.35" />
         </svg>
         <input type="text" placeholder="Search products..." oninput="YARZ.handleSearch(this.value)" onkeydown="if(event.key==='Enter'){YARZ.submitSearch(this.value)}" autofocus aria-label="Search products" id="search-input">
-        <button onclick="YARZ.closeSearch()" style="padding:4px;color:var(--text-muted);">
+        <button onclick="YARZ.closeSearch()" aria-label="Close search" style="padding:4px;color:var(--text-muted);">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 6 6 18" />
@@ -1026,7 +1054,7 @@
   <aside class="cart-drawer" id="filter-drawer">
     <div class="cart-header">
       <h3>Filter & Sort</h3>
-      <button onclick="YARZ.toggleFilterDrawer(false)" style="color:var(--text-muted);padding:4px;">
+      <button onclick="YARZ.toggleFilterDrawer(false)" aria-label="Close filters" style="color:var(--text-muted);padding:4px;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
@@ -1073,7 +1101,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <h3>Complete Your Order</h3>
-        <button class="modal-close" onclick="YARZ.closeCheckout()">
+        <button class="modal-close" onclick="YARZ.closeCheckout()" aria-label="Close checkout">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 6 6 18" />
@@ -1216,20 +1244,7 @@
                v15.13: No aspect-ratio here; the .hero-section wrapper owns
                the device-aware ratio (1406:738 desktop / 4:5 mobile / 1:1 tiny). -->
           <div class="slide active">
-            <div
-              style="width:100%;height:100%;background:linear-gradient(135deg, #F4F2EC 0%, #E8E5DC 50%, #FAFAF7 100%);display:flex;align-items:center;justify-content:center;">
-              <div style="text-align:center;padding:24px;display:inline-flex;flex-direction:column;align-items:center;gap:14px;">
-                <svg viewBox="0 0 24 24" style="width:64px;height:64px;" aria-hidden="true"><use href="#yarz-button-mark"/></svg>
-                <div
-                  style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:0.32em;color:#C8102E;text-transform:uppercase;border-bottom:1px solid rgba(200, 16, 46,0.4);padding-bottom:8px;">
-                  YARZ</div>
-                <div
-                  style="font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;color:#1A1411;letter-spacing:0.04em;">
-                  Premium Men's Fashion</div>
-                <div style="font-size:11px;color:#6B6660;letter-spacing:0.16em;text-transform:uppercase;">Explore the Collection
-                </div>
-              </div>
-            </div>
+            <div class="skeleton" style="width:100%;height:100%;border-radius:0;"></div>
           </div>
         </div>
         <!-- Slider Controls -->
@@ -1254,11 +1269,16 @@
       <div id="dynamic-sections-wrapper"></div>
 
       <!-- ✅ Premium Fashion Typography Quote -->
-      <div class="fashion-typo-section" id="fashion-typo">
-        <div class="fashion-typo-inner">
+      <div class="fashion-typo-section" id="fashion-typo" style="position:relative; min-height:100px;">
+        <div class="fashion-typo-inner" id="fashion-typo-content" style="opacity: 0; transition: opacity 0.5s;">
           <span class="fashion-typo-line fashion-typo-main">"Style is a way to say who you are</span>
           <span class="fashion-typo-line fashion-typo-sub">without having to speak."</span>
           <span class="fashion-typo-accent">— YARZ</span>
+        </div>
+        <div id="fashion-typo-skeleton" style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; pointer-events:none;">
+           <div class="skeleton" style="width:280px; height:20px; border-radius:4px;"></div>
+           <div class="skeleton" style="width:200px; height:20px; border-radius:4px;"></div>
+           <div class="skeleton" style="width:80px; height:12px; border-radius:4px;"></div>
         </div>
       </div>
 
@@ -1282,35 +1302,35 @@
           <div class="product-grid" id="product-grid" aria-live="polite" aria-busy="false">
             <!-- ✅ v10.11 SUPER POWERFUL: 0ms Perceived Load Shimmer Skeletons -->
             <div class="product-card" style="border:none; box-shadow:0 4px 20px rgba(0,0,0,0.03);">
-              <div class="shimmer" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
+              <div class="skeleton" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
               <div style="padding:16px;">
-                <div class="shimmer" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
-                <div class="shimmer" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
-                <div class="shimmer" style="width:100%; height:40px; border-radius:8px;"></div>
+                <div class="skeleton" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
+                <div class="skeleton" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
+                <div class="skeleton" style="width:100%; height:40px; border-radius:8px;"></div>
               </div>
             </div>
             <div class="product-card" style="border:none; box-shadow:0 4px 20px rgba(0,0,0,0.03);">
-              <div class="shimmer" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
+              <div class="skeleton" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
               <div style="padding:16px;">
-                <div class="shimmer" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
-                <div class="shimmer" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
-                <div class="shimmer" style="width:100%; height:40px; border-radius:8px;"></div>
+                <div class="skeleton" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
+                <div class="skeleton" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
+                <div class="skeleton" style="width:100%; height:40px; border-radius:8px;"></div>
               </div>
             </div>
             <div class="product-card" style="border:none; box-shadow:0 4px 20px rgba(0,0,0,0.03); display:none; @media(min-width: 480px){display:block;}">
-              <div class="shimmer" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
+              <div class="skeleton" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
               <div style="padding:16px;">
-                <div class="shimmer" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
-                <div class="shimmer" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
-                <div class="shimmer" style="width:100%; height:40px; border-radius:8px;"></div>
+                <div class="skeleton" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
+                <div class="skeleton" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
+                <div class="skeleton" style="width:100%; height:40px; border-radius:8px;"></div>
               </div>
             </div>
             <div class="product-card" style="border:none; box-shadow:0 4px 20px rgba(0,0,0,0.03); display:none; @media(min-width: 480px){display:block;}">
-              <div class="shimmer" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
+              <div class="skeleton" style="width:100%; aspect-ratio:4/5; border-radius:12px 12px 0 0;"></div>
               <div style="padding:16px;">
-                <div class="shimmer" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
-                <div class="shimmer" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
-                <div class="shimmer" style="width:100%; height:40px; border-radius:8px;"></div>
+                <div class="skeleton" style="width:80%; height:20px; border-radius:4px; margin-bottom:12px;"></div>
+                <div class="skeleton" style="width:50%; height:16px; border-radius:4px; margin-bottom:16px;"></div>
+                <div class="skeleton" style="width:100%; height:40px; border-radius:8px;"></div>
               </div>
             </div>
           </div>
@@ -1322,7 +1342,7 @@
     <!-- ===== COLLECTION VIEW ===== -->
     <div id="collection-view" style="display:none;">
       <div class="collection-header" id="collection-header" style="padding: 20px 16px; background-color: #F8F9FA; margin-bottom: 0; display:flex; align-items:center;">
-        <button onclick="YARZ.goHome()" style="background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.05); color:var(--text-main); margin-right:16px; flex-shrink:0;">
+        <button onclick="YARZ.goHome()" aria-label="Go back to home" style="background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.05); color:var(--text-main); margin-right:16px; flex-shrink:0;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
         <h1 id="collection-title" style="font-size: 24px; margin:0; color: var(--text-main); text-align:left; flex:1; font-family:'Inter', sans-serif;">Collection Name</h1>
@@ -1697,10 +1717,25 @@
           <svg viewBox="0 0 24 24" style="width:56px;height:56px;" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/><circle cx="9.8" cy="9.8" r="1.2" fill="#FBF8F1"/><circle cx="14.2" cy="9.8" r="1.2" fill="#FBF8F1"/><circle cx="9.8" cy="14.2" r="1.2" fill="#FBF8F1"/><circle cx="14.2" cy="14.2" r="1.2" fill="#FBF8F1"/></svg>
           <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.26em;color:#C8102E;text-transform:uppercase;border-bottom:1px solid rgba(200, 16, 46,0.4);padding-bottom:6px;">YARZ</div>
         </div>
-        <p style="font-size:14px;color:#56524C;">Please enable JavaScript to view this website.</p>
+        <p style="font-size:14px;color:#56524C;margin-bottom:12px;"><strong>YARZ (Yarzclothing)</strong> is Bangladesh's Premium Men's Fashion Brand. Shop exclusive premium shirts, panjabis, polo shirts, and t-shirts online.</p>
+        <p style="font-size:14px;color:#56524C;">Please enable JavaScript to view this website and shop our collections.</p>
       </div>
     </div>
   </noscript>
+  <script>
+    (function() {
+      var typoCheck = setInterval(function() {
+        var grid = document.getElementById('product-grid');
+        if (window._turboFirstPaintDone || (grid && !grid.querySelector('.skeleton'))) {
+          clearInterval(typoCheck);
+          var content = document.getElementById('fashion-typo-content');
+          var skeleton = document.getElementById('fashion-typo-skeleton');
+          if (content) content.style.opacity = '1';
+          if (skeleton) skeleton.style.display = 'none';
+        }
+      }, 100);
+    })();
+  </script>
 </body>
 
 </html>
