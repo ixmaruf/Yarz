@@ -2149,10 +2149,13 @@ const YARZ = (() => {
     for (var i = 0; i < c.popupSlots.length; i++) {
       var slot = c.popupSlots[i];
       if (!slot.image) continue;
-      var sk = _dayKey(slot.start); if (sk !== null && sk > todayKey) continue;   // not started yet
-      var ek = _dayKey(slot.end);   if (ek !== null && ek < todayKey) continue;   // already ended (end day inclusive)
-      var dismissKey = 'yarz_popup_slot_' + (i + 1) + '_dismissed';
-      if (sessionStorage.getItem(dismissKey)) continue;
+      
+      var isTest = window.location.search.indexOf('test_popup=1') !== -1;
+      if (!isTest) {
+        var sk = _dayKey(slot.start); if (sk !== null && sk > todayKey) continue;   // not started yet
+        var ek = _dayKey(slot.end);   if (ek !== null && ek < todayKey) continue;   // already ended (end day inclusive)
+      }
+      
       _showPopupSlot(slot, i + 1);
       break; // Only one popup at a time
     }
@@ -2166,11 +2169,11 @@ const YARZ = (() => {
       overlay.className = 'yarz-popup-overlay';
       var imgSrc = escHtml(getImgSrc(slot.image));
       var clickHtml = slot.link
-        ? '<a href="' + escHtml(slot.link) + '" onclick="document.getElementById(\'yarz-promo-popup-' + idx + '\').remove();sessionStorage.setItem(\'yarz_popup_slot_' + idx + '_dismissed\',\'1\')"><img src="' + imgSrc + '" alt="Promo" style="display:block;width:100%;border-radius:12px"></a>'
+        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img src="' + imgSrc + '" alt="Promo" style="display:block;width:100%;border-radius:12px"></a>'
         : '<img src="' + imgSrc + '" alt="Promo" style="display:block;width:100%;border-radius:12px">';
       overlay.innerHTML =
         '<div class="yarz-popup-card promo-popup-card">' +
-        '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();sessionStorage.setItem(\'yarz_popup_slot_' + idx + '_dismissed\',\'1\')">✕</button>' +
+        '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();">✕</button>' +
         clickHtml +
         '</div>';
       document.body.appendChild(overlay);
@@ -2178,7 +2181,6 @@ const YARZ = (() => {
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
           overlay.remove();
-          sessionStorage.setItem('yarz_popup_slot_' + idx + '_dismissed', '1');
         }
       });
     };
@@ -6003,7 +6005,7 @@ const YARZ = (() => {
     _orderPollTimer = setInterval(function () {
       if (state.currentView !== 'tracking') { _stopOrderPoll(); return; }
       // Bypass cache for fresh status check
-      try { YARZ_API.clearCache(); } catch(e) {}
+      // Cache wipes removed
       searchOrders(true); // silent refresh
     }, 10000);
   }
@@ -6102,11 +6104,15 @@ const YARZ = (() => {
         var localChanged = false;
         secureApiOrders.forEach(function(ao) {
           allLocal.forEach(function(lo) {
-            var matchById   = (ao.orderId && lo.orderId && ao.orderId === lo.orderId);
-            var phoneMatch  = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");
-            var matchByMeta = phoneMatch &&
-                              ((ao.product || ao.productName) === (lo.product || lo.productName)) &&
-                              (String(ao.size||'') === String(lo.size||''));
+            var _id1 = String(ao.orderId || '').toLowerCase().trim();
+            var _id2 = String(lo.orderId || '').toLowerCase().trim();
+            var matchById = (_id1 && _id2 && _id1 === _id2);
+            var phoneMatch = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");
+            var _str1 = String(ao.product || ao.productName || '') + String(ao.size || '');
+            var _str2 = String(lo.product || lo.productName || '') + String(lo.size || '');
+            var _p1 = _str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+            var _p2 = _str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+            var matchByMeta = phoneMatch && (_p1 === _p2);
             if (matchById || matchByMeta) {
               if (ao.status   && lo.status   !== ao.status)   { lo.status   = ao.status;   localChanged = true; }
               if (ao.courier  && lo.courier  !== ao.courier)  { lo.courier  = ao.courier;  localChanged = true; }
@@ -6155,11 +6161,15 @@ const YARZ = (() => {
               if (_age > _CANCEL_GRACE) return;     // aged out of server window — not a cancellation
             }
             var stillThere = secureApiOrders.some(function(ao) {
-              var matchById  = (ao.orderId && lo.orderId && ao.orderId === lo.orderId);
+              var _id1 = String(ao.orderId || '').toLowerCase().trim();
+              var _id2 = String(lo.orderId || '').toLowerCase().trim();
+              var matchById = (_id1 && _id2 && _id1 === _id2);
               var phoneMatch = (ao.phone === lo.phone || ao.phone === "Hidden" || ao.phone === "***");
-              var matchByMeta = phoneMatch &&
-                                ((ao.product || ao.productName) === (lo.product || lo.productName)) &&
-                                (String(ao.size||'') === String(lo.size||''));
+              var _str1 = String(ao.product || ao.productName || '') + String(ao.size || '');
+              var _str2 = String(lo.product || lo.productName || '') + String(lo.size || '');
+              var _p1 = _str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+              var _p2 = _str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+              var matchByMeta = phoneMatch && (_p1 === _p2);
               return matchById || matchByMeta;
             });
             if (!stillThere) {
@@ -6181,10 +6191,16 @@ const YARZ = (() => {
         var exists = merged.some(function(mo) { 
           // Match by phone, product, and size to handle cases where backend generates a new Order ID
           // Note: API returns phone="Hidden" for privacy, so we must allow "Hidden" to match.
+          var _id1 = String(mo.orderId || '').toLowerCase().trim();
+          var _id2 = String(lo.orderId || '').toLowerCase().trim();
+          var matchById = (_id1 && _id2 && _id1 === _id2);
           var phoneMatch = (mo.phone === lo.phone || mo.phone === "Hidden" || mo.phone === "***");
-          var productMatch = ((mo.product || mo.productName) === (lo.product || lo.productName));
-          var sizeMatch = (String(mo.size||'') === String(lo.size||''));
-          return phoneMatch && productMatch && sizeMatch;
+          var _str1 = String(mo.product || mo.productName || '') + String(mo.size || '');
+          var _str2 = String(lo.product || lo.productName || '') + String(lo.size || '');
+          var _p1 = _str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+          var _p2 = _str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+          var matchByMeta = phoneMatch && (_p1 === _p2);
+          return matchById || matchByMeta;
         });
         if (!exists) merged.push(lo);
       });
@@ -6504,7 +6520,7 @@ const YARZ = (() => {
       if (found && found.status && String(found.status).toLowerCase() !== 'pending') {
         showToast('এই অর্ডারটি ইতিমধ্যে প্রসেসিং হচ্ছে — ক্যান্সেল করা যাবে না।', 'warning');
         // Force a refresh so user sees the new status
-        try { YARZ_API.clearCache(); } catch(e){}
+        // Cache wipes removed
         searchOrders(true);
         return;
       }
@@ -6547,7 +6563,7 @@ const YARZ = (() => {
     //   So we call the API FIRST and only remove from localStorage if server agrees.
     if (YARZ_API.isConfigured()) {
       // Force-fresh status check before delete
-      try { YARZ_API.clearCache(); } catch(e){}
+      // Cache wipes removed
       YARZ_API.deleteOrder(orderId).then(function(res) {
         // Server returns success:false + locked:true when status > Pending
         if (res && res.locked) {
@@ -7346,10 +7362,10 @@ const YARZ = (() => {
     // Pixel is NOT affected: PageView is gated by _initialized flag in pixel.js,
     // so re-rendering products via innerHTML never re-fires PageView.
     function _refreshProductsFromNetwork(reason) {
-      if (!window.YARZ_API || typeof YARZ_API.clearCache !== 'function') return;
-      try { YARZ_API.clearCache(); } catch (e) {}
-      try { YARZ_API.invalidateStoreInfo && YARZ_API.invalidateStoreInfo(); } catch (e) {}
-      try { localStorage.removeItem('yarz_instant_cache'); } catch (e) {}
+      if (!window.YARZ_API || typeof YARZ_API.getProducts !== 'function') return;
+      
+      
+      // Cache wipes removed for strict session bounds
       YARZ_API.getProducts().then(function (res) {
         if (!res || !res.success || !res.products) return;
         // Skip update if products haven't changed (avoid unnecessary re-render)
@@ -8093,16 +8109,8 @@ const YARZ = (() => {
     // ✅ v10.6: If turbo first paint already done, skip duplicate fetches.
     //          getGlobalControls (for non-product settings) still runs above.
     if (window._turboFirstPaintDone) {
-      // Background: fetch fresh data once after 30s in case admin updated
-      setTimeout(function() {
-        YARZ_API.getProducts().then(function(res) {
-          if (res && res.success && res.products && res.products.length !== state.products.length) {
-            state.products = res.products;
-            updateFilterUI();
-            renderProducts(state.products);
-          }
-        }).catch(function() {});
-      }, 30000);
+      // ✅ v16.12 STRICT SESSION CACHE: Background fetch disabled.
+      // Cache is only cleared on manual page reload.
     } else {
     // ✅ FIX v3.1: Parallel load — products, categories, AND storeInfo in ONE go
     // Previously: products loaded, then waited for storeInfo, causing Featured

@@ -26,6 +26,27 @@
 })();
 
 const YARZ_API = (() => {
+  // ✅ v16.12 STRICT SESSION CACHE: Detect manual page refresh to force fresh data
+  try {
+    var isReload = false;
+    if (window.performance && window.performance.navigation) {
+      if (window.performance.navigation.type === 1) isReload = true;
+    }
+    if (window.performance && window.performance.getEntriesByType) {
+      var navEntries = window.performance.getEntriesByType("navigation");
+      if (navEntries.length > 0 && navEntries[0].type === "reload") isReload = true;
+    }
+    if (isReload) {
+      // Clear ONLY API session caches to get fresh data when customer hits refresh
+      for (var i = sessionStorage.length - 1; i >= 0; i--) {
+        var key = sessionStorage.key(i);
+        if (key && key.indexOf('yarz_api_sess_') === 0) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    }
+  } catch(e) {}
+
   // ===== CONFIGURATION =====
   // ℹ️ Honest note about "client-side credentials":
   //   In ANY pure-frontend app (no server you control), these values WILL be
@@ -309,15 +330,16 @@ const YARZ_API = (() => {
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
     BASE_URL: APPS_SCRIPT_URL,
-    // ✅ ZERO LOCAL CACHING: Rely 100% on Cloudflare Edge SSR and Edge Cache.
-    // This guarantees customers NEVER see stale data that requires a refresh.
-    // Cloudflare Edge handles all the speed (returning data in <50ms).
-    CACHE_TTL: 0,
-    STALE_TTL: 0,
-    PRODUCT_CACHE_TTL: 0,             // 0s — always fetch live from Cloudflare
-    PRODUCT_STALE_TTL: 0,             // 0s — never show stale data
-    SETTINGS_CACHE_TTL: 0,            // 0s — always fetch live from Cloudflare
-    SETTINGS_STALE_TTL: 0,            // 0s — never show stale data
+    // ✅ v16.11 SESSION CACHING: Re-enabled short-term caching (5 min) using 
+    // ✅ v16.12 STRICT SESSION CACHE: Infinite cache within a single session.
+    // Removes the 5-minute background refresh. Cache is only cleared if customer 
+    // closes the tab or manually hits the refresh button.
+    CACHE_TTL: 999999999,             // Infinite within session
+    STALE_TTL: 999999999,             // Infinite within session
+    PRODUCT_CACHE_TTL: 999999999,     // Infinite within session
+    PRODUCT_STALE_TTL: 999999999,     // Infinite within session
+    SETTINGS_CACHE_TTL: 999999999,    // Infinite within session
+    SETTINGS_STALE_TTL: 999999999,    // Infinite within session
   };
 
   // ✅ v4.1: Action types that should NEVER be cached (real-time required)
@@ -439,35 +461,50 @@ const YARZ_API = (() => {
 
   function getCached(key, allowStale, action) {
     const ttl = _ttlFor(action || '');
-    // ✅ v15.98 ZERO-CACHE HARDENING: Memory-only. We NEVER read store data
-    // from localStorage anymore. Owner policy: every visit (new or returning)
-    // MUST show live data from the Cloudflare Worker edge — a customer must
-    // never be served products/prices/stock that were persisted on their
-    // device on a previous visit. memCache lives only for the CURRENT page
-    // session (wiped on refresh/navigation), so it just avoids duplicate
-    // fetches within one page view — it can never serve cross-visit stale data.
-    // The old localStorage read path was dead under TTL=0 but is removed
-    // outright so no future TTL edit can ever resurrect device-persisted data.
+    // ✅ v16.11: Use sessionStorage + memCache.
+    // We read from memCache first (fastest, no JSON parse).
     const memItem = memCache[key];
     if (memItem) {
       const age = Date.now() - memItem.time;
       if (age <= ttl.fresh) return { data: memItem.data, fresh: true };
       if (allowStale && age <= ttl.stale) return { data: memItem.data, fresh: false };
     }
+    
+    // Fallback to sessionStorage
+    try {
+      const sessionItemStr = sessionStorage.getItem('yarz_api_sess_' + btoa(key));
+      if (sessionItemStr) {
+        const sessionItem = JSON.parse(sessionItemStr);
+        const age = Date.now() - sessionItem.time;
+        if (age <= ttl.fresh) {
+          memCache[key] = sessionItem; // Prime memCache
+          return { data: sessionItem.data, fresh: true };
+        }
+        if (allowStale && age <= ttl.stale) {
+          memCache[key] = sessionItem;
+          return { data: sessionItem.data, fresh: false };
+        }
+      }
+    } catch (e) { }
+
     return null;
   }
 
   function setCache(key, data) {
-    // ✅ v15.98 ZERO-CACHE HARDENING: Memory-only, unconditionally. Never write
-    // store data to localStorage/IndexedDB — speed comes entirely from the
-    // Cloudflare Worker edge cache (purged on every admin Publish), never from
-    // device persistence. memCache is per-page-session only.
-    memCache[key] = { data, time: Date.now() };
+    // ✅ v16.11: Write to memCache AND sessionStorage.
+    const time = Date.now();
+    memCache[key] = { data, time };
+    try {
+      sessionStorage.setItem('yarz_api_sess_' + btoa(key), JSON.stringify({ data, time }));
+    } catch (e) { }
   }
 
   function clearCache() {
     Object.keys(memCache).forEach(k => delete memCache[k]);
     try {
+      Object.keys(sessionStorage).forEach(k => {
+        if (k.startsWith('yarz_api_sess_')) sessionStorage.removeItem(k);
+      });
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith('yarz_api_cache_')) localStorage.removeItem(k);
       });
@@ -608,6 +645,8 @@ const YARZ_API = (() => {
     return data;
   }
 
+  const _inflight = {};
+
   // ===== GET REQUEST (with stale-while-revalidate) =====
   async function apiGet(action, params = {}, opts = {}) {
     // ⚡ v6.0: Reads now go through Cloudflare Worker for sub-100ms edge cache.
@@ -627,12 +666,22 @@ const YARZ_API = (() => {
 
     // ✅ v4.2: explicit skipCache option (used by stock checks)
     if (opts && opts.skipCache) {
-      return _fetchFromNetwork(action, url.toString(), cacheKey, true);
+      if (_inflight[cacheKey]) return _inflight[cacheKey];
+      const p = _fetchFromNetwork(action, url.toString(), cacheKey, true).finally(() => {
+        delete _inflight[cacheKey];
+      });
+      _inflight[cacheKey] = p;
+      return p;
     }
 
     // ✅ v4.1: Real-time actions (order tracking) bypass cache entirely
     if (NO_CACHE_ACTIONS.indexOf(action) !== -1) {
-      return _fetchFromNetwork(action, url.toString(), cacheKey, true);
+      if (_inflight[cacheKey]) return _inflight[cacheKey];
+      const p = _fetchFromNetwork(action, url.toString(), cacheKey, true).finally(() => {
+        delete _inflight[cacheKey];
+      });
+      _inflight[cacheKey] = p;
+      return p;
     }
     const cached = getCached(cacheKey, true, action);
 
@@ -648,7 +697,15 @@ const YARZ_API = (() => {
       return cached.data;
     }
 
-    return _fetchFromNetwork(action, url.toString(), cacheKey);
+    if (_inflight[cacheKey]) {
+      return _inflight[cacheKey];
+    }
+
+    const p = _fetchFromNetwork(action, url.toString(), cacheKey).finally(() => {
+      delete _inflight[cacheKey];
+    });
+    _inflight[cacheKey] = p;
+    return p;
   }
 
   async function _fetchFromNetwork(action, urlStr, cacheKey, skipCache) {
