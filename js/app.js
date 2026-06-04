@@ -490,22 +490,18 @@ const YARZ = (() => {
         var mainBtn = document.getElementById('add-to-cart-btn');
         if (p && mainBtn) {
           $('#sbb-name').textContent = p.name;
-          $('#sbb-price').textContent = formatPrice(p.salePrice || p.sale || p.price);
+          $('#sbb-price').textContent = formatPrice(p.salePrice);
           var oldPrice = $('#sbb-old-price');
           if (oldPrice) {
-            oldPrice.textContent = (p.salePrice || p.sale) ? formatPrice(p.price) : '';
+            var hasDisc = parseFloat(p.discountPercent) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice);
+            oldPrice.textContent = hasDisc ? formatPrice(p.regularPrice) : '';
           }
           // Only enable buttons if in stock
           $$('.sbb-btn').forEach(btn => btn.disabled = !p.inStock);
 
           // Setup IntersectionObserver
           if (window._sbbObserver) window._sbbObserver.disconnect();
-          window._sbbObserver = new IntersectionObserver(function(entries) {
-            // Show sticky bar when main button is NOT intersecting (scrolled out of view)
-            var isVis = !entries[0].isIntersecting;
-            stickyBar.classList.toggle('visible', isVis);
-            document.body.classList.toggle('has-sticky-bar', isVis);
-          }, { threshold: 0 });
+          window._sbbObserver = new IntersectionObserver(function(entries) { var isVis = !entries[0].isIntersecting; stickyBar.classList.toggle('visible', isVis); if (document.body.getAttribute('data-sticky-buy') === '1') { document.body.classList.toggle('has-sticky-bar', isVis); } else { document.body.classList.remove('has-sticky-bar'); } }, { threshold: 0 });
           window._sbbObserver.observe(mainBtn);
         }
       } else {
@@ -2120,10 +2116,7 @@ const YARZ = (() => {
         var sh = document.documentElement.scrollHeight - window.innerHeight;
         if (sh > 0 && (window.scrollY / sh) > 0.5) show();
       }, { passive: true });
-    } else {
-      var seconds = parseInt(trig, 10) || 15;
-      setTimeout(show, seconds * 1000);
-    }
+    } else { var match = String(trig).match(/\d+/); var seconds = match ? parseInt(match[0], 10) : 15; setTimeout(show, seconds * 1000); }
   }
 
   // ----- Promo Popup Slots (date-scheduled) -----
@@ -2139,7 +2132,9 @@ const YARZ = (() => {
       // Plain YYYY-MM-DD from <input type="date"> → parse parts directly (no TZ shift)
       var m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (m) return parseInt(m[1] + m[2] + m[3], 10);
-      // Otherwise (e.g. Sheets coerced "Mon Jun 01 2026 ..." Date string) → local parts
+        var m2 = str.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+        if (m2) return parseInt(m2[3] + m2[2] + m2[1], 10);
+        // Otherwise (e.g. Sheets coerced "Mon Jun 01 2026 ..." Date string) → local parts
       var d = new Date(str);
       if (isNaN(d.getTime())) return null;
       return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
@@ -2191,9 +2186,7 @@ const YARZ = (() => {
         var sh = document.documentElement.scrollHeight - window.innerHeight;
         if (sh > 0 && (window.scrollY / sh) > 0.5) show();
       }, { passive: true });
-    } else {
-      setTimeout(show, (parseInt(trig, 10) || 10) * 1000);
-    }
+    } else { var match = String(trig).match(/\d+/); var seconds = match ? parseInt(match[0], 10) : 10; setTimeout(show, seconds * 1000); }
   }
 
   // ----- Master Apply Function -----
@@ -3222,7 +3215,7 @@ const YARZ = (() => {
     function parseStock(val) {
       if (val === undefined || val === null || val === '') return null;
       if (typeof val === 'boolean') return val ? 999 : 0;
-      var num = parseInt(val);
+      var num = parseInt(val, 10);
       return isNaN(num) ? null : Math.max(0, num);
     }
     
@@ -3294,7 +3287,7 @@ const YARZ = (() => {
             btn.style.display = 'none';
             return;
           }
-          var avail = parseInt(res['stock_'+sz]) || 0;
+          var avail = parseInt(res['stock_'+sz], 10) || 0;
           if (avail <= 0) {
             // ✅ v11.8: When admin enabled "Hide OOS", remove the button entirely
             // (so the size visually disappears mid-session if it sells out).
@@ -3311,7 +3304,7 @@ const YARZ = (() => {
         });
         // If selected size now has fewer items than current qty, gently clamp
         if (selectedSize) {
-          var newMax = parseInt(res['stock_'+selectedSize]) || 0;
+          var newMax = parseInt(res['stock_'+selectedSize], 10) || 0;
           if (newMax > 0 && selectedQty > newMax) {
             selectedQty = newMax;
             var qv = $('#qty-value');
@@ -3608,7 +3601,7 @@ const YARZ = (() => {
 
     // Stock Urgency Bar
     if (state.stockBar && product.inStock) {
-      var totalStock = (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v) || 0); }, 0) : 0);
+      var totalStock = (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
       if (totalStock > 0 && totalStock <= 20) {
         var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
         var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#F59E0B' : '#22C55E';
@@ -3638,7 +3631,7 @@ const YARZ = (() => {
     var expDeliveryMsg = state.expDelivery || (product.deliveryDays ? product.deliveryDays + ' delivery' : '2-3 days delivery');
     html += '<div class="pd-delivery-row">' + ICONS.package + '<span>' + escHtml(expDeliveryMsg) + '</span></div>';
     html += '<div class="pd-delivery-row">' + ICONS.refresh + '<span>Check on delivery — return via delivery man if not satisfied</span></div>';
-    html += '<div class="pd-delivery-row">' + ICONS.shield + '<span>Cash on Delivery available</span></div>';
+    if (isCODEnabled()) { html += '<div class="pd-delivery-row">' + ICONS.shield + '<span>Cash on Delivery available</span></div>'; }
     html += '</div>';
 
     html += '</div></div></section>';
@@ -3650,7 +3643,7 @@ const YARZ = (() => {
       // Admin has explicitly turned off — skip
     } else {
     try {
-      var catKey = (product.category || '').toLowerCase();
+      var catKey = (product.category || '').trim().toLowerCase();
       // ✅ v16.3: keep related products on the same side of the shop/accessory
       // divide as the product being viewed — never mix accessories into an
       // apparel product's related rail or vice versa.
@@ -3658,7 +3651,7 @@ const YARZ = (() => {
       var sameCatPool = state.products.filter(function (p) {
         return p && p.status === 'Active' && p.name !== product.name &&
                isAccessory(p) === viewingAccessory &&
-               (p.category || '').toLowerCase() === catKey;
+               (p.category || '').trim().toLowerCase() === catKey;
       });
 
       // ✅ v16.13: "You May Also Like" must show SIMILAR products — i.e. the
@@ -3668,14 +3661,14 @@ const YARZ = (() => {
       // products (so the section never sits empty). This stops a pant page
       // from showing unrelated latest t-shirts / panjabis when other pants
       // exist — the exact mixing the owner reported.
-      var latestRelated = sameCatPool.slice(-4).reverse();
+      sameCatPool.sort(function() { return 0.5 - Math.random(); }); var latestRelated = sameCatPool.slice(0, 4);
       if (latestRelated.length === 0) {
         var otherPool = state.products.filter(function (p) {
           return p && p.status === 'Active' && p.name !== product.name &&
                  isAccessory(p) === viewingAccessory &&
-                 (p.category || '').toLowerCase() !== catKey;
+                 (p.category || '').trim().toLowerCase() !== catKey;
         });
-        latestRelated = otherPool.slice(-4).reverse();
+        otherPool.sort(function() { return 0.5 - Math.random(); }); latestRelated = otherPool.slice(0, 4);
       }
 
       if (latestRelated.length > 0) {
@@ -4804,7 +4797,10 @@ const YARZ = (() => {
     document.getElementById('cod-modal-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     var escHandler = function (e) {
-      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); }
+      if (e.key === 'Escape') { close(); }
+    };
+    var originalClose = close;
+    close = function() { document.removeEventListener('keydown', escHandler); originalClose(); }
     };
     document.addEventListener('keydown', escHandler);
   }
@@ -4854,7 +4850,10 @@ const YARZ = (() => {
     document.getElementById('fs-advance-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     var fsEsc = function (e) {
-      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', fsEsc); }
+      if (e.key === 'Escape') { close(); }
+    };
+    var originalCloseFs = close;
+    close = function() { document.removeEventListener('keydown', fsEsc); originalCloseFs(); }
     };
     document.addEventListener('keydown', fsEsc);
   }
@@ -5169,7 +5168,7 @@ const YARZ = (() => {
     };
 
     var now = Date.now();
-    var lastOrderTime = parseInt(localStorage.getItem('yarz_last_order_time') || '0', 10);
+    var lastOrderTime = parseInt(localStorage.getItem('yarz_last_order_time', 10) || '0', 10);
     if (now - lastOrderTime < 30000) {
       showToast('You have already placed an order. Please wait 30 seconds.', 'warning');
       __resetOnExit();
@@ -5195,7 +5194,7 @@ const YARZ = (() => {
 
     if (payment === 'bKash' || payment === 'Nagad') {
       if (!trxid) {
-        showToast('অনুগ্রহ করে Transaction ID দিন।', 'warning');
+        showToast('অনুগ্রহ করে সেন্ডার নাম্বার দিন।', 'warning');
         __resetOnExit();
         return;
       }
@@ -5282,12 +5281,13 @@ const YARZ = (() => {
       return; 
     }
 
-    // 5. Address Length Validation
-    if (!address || address.length < 10) { 
-      showToast('সম্পূর্ণ ঠিকানা দিন (রোড/বাসা/এলাকা সহ কমপক্ষে ১০ অক্ষর)', 'warning'); 
-      __resetOnExit();
-      return; 
-    }
+    // 5. Address Validation (At least 3 words)
+      var _wordCount = address.split(/\s+/).filter(function(w){return w.length > 0;}).length;
+      if (!address || _wordCount < 3) { 
+        showToast('Please provide your full detailed address.', 'warning'); 
+        __resetOnExit();
+        return; 
+      }
 
     // 5.5: Minimum Order Amount (from admin settings)
     if (state.minOrder > 0) {
@@ -5318,7 +5318,7 @@ const YARZ = (() => {
     // 7. Rate Limiting (30 seconds) — second key (yarz_last_order) for legacy
     //    compatibility. ✅ v15.31: renamed to lastOrderTime2 to avoid var
     //    redeclaration shadowing the top-of-function check.
-    var lastOrderTime2 = parseInt(localStorage.getItem('yarz_last_order')) || 0;
+    var lastOrderTime2 = parseInt(localStorage.getItem('yarz_last_order', 10)) || 0;
     if (Date.now() - lastOrderTime2 < 30 * 1000) {
       showToast('আপনি একটি অর্ডার করেছেন, দয়া করে ৩০ সেকেন্ড অপেক্ষা করুন।', 'warning');
       __resetOnExit();
@@ -5329,7 +5329,7 @@ const YARZ = (() => {
     var cartHash = state.cart.map(function(c){ return c.name + c.size + c.qty; }).join('|');
     var orderSig = phone + '|' + cartHash;
     var lastOrderSig = localStorage.getItem('yarz_last_order_sig');
-    var lastOrderSigTime = parseInt(localStorage.getItem('yarz_last_order_sig_time')) || 0;
+    var lastOrderSigTime = parseInt(localStorage.getItem('yarz_last_order_sig_time', 10)) || 0;
     if (orderSig === lastOrderSig && (Date.now() - lastOrderSigTime < 30 * 60 * 1000)) {
       showToast('এই অর্ডারটি ইতিমধ্যে করা হয়েছে। অনুগ্রহ করে Track Order থেকে চেক করুন।', 'warning');
       __resetOnExit();
@@ -5581,7 +5581,7 @@ const YARZ = (() => {
     if (orderNotes) combinedNotes.push(orderNotes); // customer's typed instruction (top priority)
     if (customFieldValue) combinedNotes.push(customFieldValue);
     if (state.appliedCoupon) combinedNotes.push('Applied Coupon: ' + state.appliedCoupon.code);
-    if (trxid) combinedNotes.push('TrxID: ' + trxid);
+    if (trxid) combinedNotes.push('Sender No: ' + trxid);
 
     // ✅ v15.41 FREE-SHIP: Pull the milestone info computed at checkout
     // render time (calculateCartDeliveryCharge stamps it onto state).
@@ -5996,19 +5996,7 @@ const YARZ = (() => {
   function _stopOrderPoll() {
     if (_orderPollTimer) { clearInterval(_orderPollTimer); _orderPollTimer = null; }
   }
-  function _startOrderPoll(phone) {
-    _stopOrderPoll();
-    if (!phone) return;
-    // ✅ v4.7: Refresh every 10 seconds — keeps status in sync with admin panel.
-    //    Also forces a fresh request (bypasses cache) so admin status updates
-    //    appear within ~10 seconds for the customer.
-    _orderPollTimer = setInterval(function () {
-      if (state.currentView !== 'tracking') { _stopOrderPoll(); return; }
-      // Bypass cache for fresh status check
-      // Cache wipes removed
-      searchOrders(true); // silent refresh
-    }, 10000);
-  }
+  function _startOrderPoll(phone) { _stopOrderPoll(); }
 
   function openTracking() {
     var savedPhone = state.user ? (state.user.phone || '') : '';
@@ -6019,7 +6007,7 @@ const YARZ = (() => {
       '<p>Enter your phone number to view your orders</p>' +
       '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 30 days.</p></div>' +
       '<p style="font-size:12px;color:var(--text-muted);font-family:var(--font-bengali);margin-top:4px;">আপনার ফোন নম্বর দিয়ে অর্ডার খুঁজুন</p>' +
-      '<p style="font-size:11px;color:var(--text-muted);margin-top:6px;">🔄 Status auto-refreshes every 10s</p></div>' +
+      '</div>' +
       '<div class="tracking-card">' +
       '<div class="form-group"><label>Phone Number <span class="required">*</span></label>' +
       '<div style="display:flex;gap:8px;">' +
@@ -6378,7 +6366,7 @@ const YARZ = (() => {
       var price = parseFloat(o.price) || 0;
       var delivery = parseFloat(o.delivery) || 0;
       var total = parseFloat(o.total || o.totalAmount) || 0;
-      var qty = parseInt(o.qty) || 1;
+      var qty = parseInt(o.qty, 10) || 1;
       var payment = o.payment || 'COD';
       var isPaid = payment === 'bKash' || payment === 'Nagad';
 
@@ -6821,10 +6809,10 @@ const YARZ = (() => {
         //   v16: switches to "৳100 advance" wording when free-ship advance is active.
         _amountLine +
         '3. Reference: আপনার ফোন নম্বর<br>' +
-        '4. Transaction ID টি নিচের বক্সে দিন' +
+        '4. যে নাম্বার থেকে টাকা পাঠিয়েছেন সেটি নিচের বক্সে দিন' +
         '</div>' +
-        '<div style="margin-top:12px;"><label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Transaction ID <span class="required">*</span></label>' +
-        '<input type="text" id="co-trxid" class="form-input" placeholder="e.g. 9BXX082XX" style="border-color:#E2136E;"></div>';
+        '<div style="margin-top:12px;"><label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Sender Number (যে নাম্বার থেকে টাকা পাঠিয়েছেন) <span class="required">*</span></label>' +
+        '<input type="text" id="co-trxid" class="form-input" placeholder="e.g. 017XXXXXXX" style="border-color:#E2136E;"></div>';
       parent.appendChild(box);
     } else if (method === 'Nagad') {
       var box = document.createElement('div');
@@ -6855,10 +6843,10 @@ const YARZ = (() => {
         // ✅ v15.77: Amount line — delivery charge only (or ৳100 advance when free-ship active)
         _amountLine +
         '3. Reference: আপনার ফোন নম্বর<br>' +
-        '4. Transaction ID টি নিচের বক্সে দিন' +
+        '4. যে নাম্বার থেকে টাকা পাঠিয়েছেন সেটি নিচের বক্সে দিন' +
         '</div>' +
-        '<div style="margin-top:12px;"><label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Transaction ID <span class="required">*</span></label>' +
-        '<input type="text" id="co-trxid" class="form-input" placeholder="e.g. 7NXX123XX" style="border-color:#ED1C24;"></div>';
+        '<div style="margin-top:12px;"><label style="font-size:11px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px;">Sender Number (যে নাম্বার থেকে টাকা পাঠিয়েছেন) <span class="required">*</span></label>' +
+        '<input type="text" id="co-trxid" class="form-input" placeholder="e.g. 017XXXXXXX" style="border-color:#ED1C24;"></div>';
       parent.appendChild(box);
     } else if (method === 'COD') {
       // ✅ FIX v3.1: Use centralized isCODEnabled() check
@@ -8029,6 +8017,87 @@ const YARZ = (() => {
       }
 
       // (Promo Popup logic removed as variables are now strictly used for Bottom Showcase)
+      
+      // ✅ FIX: New Promo Popup Slots (Eid, Ramadan, etc)
+      (function() {
+        var raw = controls.raw || {};
+        var getVal = function(titleKey, snakeKey) {
+          if (raw[titleKey] !== undefined) return raw[titleKey];
+          if (raw[snakeKey] !== undefined) return raw[snakeKey];
+          return '';
+        };
+        var popupTriggered = false;
+        for (var i = 1; i <= 3; i++) {
+          if (popupTriggered) break;
+          var titlePrefix = 'Popup ' + i + ' ';
+          var snakePrefix = 'popup_' + i + '_';
+          
+          var pActiveStr = String(getVal(titlePrefix + 'Active', snakePrefix + 'active')).toLowerCase().trim();
+          var pActive = (pActiveStr === 'true' || pActiveStr === 'yes' || pActiveStr === '1');
+          if (!pActive) continue;
+          
+          var pImg = String(getVal(titlePrefix + 'Image', snakePrefix + 'image')).trim();
+          if (!pImg) continue;
+          
+          var pStart = String(getVal(titlePrefix + 'Start', snakePrefix + 'start')).trim();
+          var pEnd = String(getVal(titlePrefix + 'End', snakePrefix + 'end')).trim();
+          var today = new Date();
+          today.setHours(0,0,0,0);
+          
+          var validDate = true;
+          if (pStart) {
+            var sDate = new Date(pStart);
+            sDate.setHours(0,0,0,0);
+            if (today < sDate) validDate = false;
+          }
+          if (pEnd) {
+            var eDate = new Date(pEnd);
+            eDate.setHours(23,59,59,999);
+            if (today > eDate) validDate = false;
+          }
+          if (!validDate) continue;
+          
+          // Found a valid active popup
+          popupTriggered = true;
+          var pLink = String(getVal(titlePrefix + 'Link', snakePrefix + 'link')).trim();
+          var pTrigger = parseInt(getVal(titlePrefix + 'Trigger', snakePrefix + 'trigger')) || 3;
+          var pKey = 'yarz_promo_popup_' + i + '_dismissed';
+          
+          if (!sessionStorage.getItem(pKey)) {
+            (function(idx, img, link, delay, storageKey) {
+              setTimeout(function() {
+                if (document.getElementById('yarz-promo-popup-' + idx)) return;
+                var overlay = document.createElement('div');
+                overlay.id = 'yarz-promo-popup-' + idx;
+                overlay.className = 'yarz-popup-overlay';
+                
+                var innerHtml = '<div class="yarz-popup-card promo-popup-card">' +
+                  '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();sessionStorage.setItem(\'' + storageKey + '\',\'1\'); event.preventDefault();">&times;</button>';
+                  
+                if (link) {
+                  innerHtml += '<a href="' + link + '" onclick="sessionStorage.setItem(\'' + storageKey + '\',\'1\')"><img src="' + img + '" style="border-radius:12px;width:100%;display:block"></a>';
+                } else {
+                  innerHtml += '<img src="' + img + '" style="border-radius:12px;width:100%;display:block">';
+                }
+                
+                innerHtml += '</div>';
+                overlay.innerHTML = innerHtml;
+                
+                overlay.addEventListener('click', function(ev) {
+                  if (ev.target === overlay) { 
+                    overlay.remove(); 
+                    sessionStorage.setItem(storageKey, '1'); 
+                  }
+                });
+                
+                document.body.appendChild(overlay);
+                void overlay.offsetHeight; // force reflow
+                overlay.classList.add('visible'); // style.css uses .visible
+              }, delay * 1000);
+            })(i, pImg, pLink, pTrigger, pKey);
+          }
+        }
+      })();
 
       // ── Loyalty Points System (v9.8) ──
       if (controls.loyaltySystem) {
@@ -9158,6 +9227,21 @@ const YARZ = (() => {
 
 // Init on DOM ready
 document.addEventListener('DOMContentLoaded', YARZ.init);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

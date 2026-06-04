@@ -547,7 +547,7 @@ ol {
 
 .nav-dropdown-trigger {
   cursor: pointer;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
 }
 
 .dropdown-arrow {
@@ -612,7 +612,7 @@ ol {
   border: none;
   cursor: pointer;
   padding: 0;
-  z-index: 1000;
+  z-index: 350;
   margin-left: auto;
   margin-right: 8px;
 }
@@ -762,7 +762,7 @@ ol {
 /* Drag/swipe affordance — prevent native image-drag from hijacking touch swipe */
 .hero-slider {
   cursor: grab;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
   -webkit-user-select: none;
 }
 .hero-slider:active { cursor: grabbing; }
@@ -1489,7 +1489,7 @@ html body #hero-slider .slide .banner-overlay,
   padding: 7px 16px 7px 12px;
   font-size: 10px;
   letter-spacing: 0.12em;
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   text-decoration: none;
   box-shadow: 0 3px 10px rgba(0,0,0,0.3);
@@ -1672,7 +1672,7 @@ html body #hero-slider .slide .banner-overlay,
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);backdrop-filter: blur(20px) saturate(1.8);
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
   z-index: 200;
   display: none;
@@ -1689,7 +1689,7 @@ html body #hero-slider .slide .banner-overlay,
 
 .search-box {
   background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(40px) saturate(2);
+  -webkit-backdrop-filter: blur(40px) saturate(2);backdrop-filter: blur(40px) saturate(2);
   -webkit-backdrop-filter: blur(40px) saturate(2);
   border-radius: 20px;
   width: 100%;
@@ -3010,7 +3010,7 @@ textarea.form-input {
   cursor: pointer;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   -webkit-appearance: none;
-  appearance: none;
+  -webkit-appearance: none;appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='14' height='8' viewBox='0 0 14 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23634A8E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
@@ -3367,7 +3367,7 @@ textarea.form-input {
     left: 0;
     right: 0;
     background: rgba(255, 253, 248, 0.97);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-color);
     flex-direction: column;
@@ -3798,7 +3798,7 @@ textarea.form-input {
   letter-spacing: 0.04em;
   color: rgba(255, 0, 76, 0.045);
   pointer-events: none;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
   z-index: 0;
   white-space: nowrap;
 }
@@ -4376,7 +4376,7 @@ textarea.form-input {
   min-width: 0;
 }
 .payment-info-box .pay-number-value {
-  user-select: all;            /* one-tap selects entire number */
+  -webkit-user-select: all;user-select: all;            /* one-tap selects entire number */
   -webkit-user-select: all;
 }
 .pay-copy-btn {
@@ -5438,7 +5438,7 @@ textarea.form-input {
 /* ── Glassmorphism Modal ── */
 .modal-box {
   background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(232, 228, 220, 0.6);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0,0,0,0.06);
@@ -5502,7 +5502,7 @@ textarea.form-input {
 
 /* ── Premium Toast ── */
 .toast-msg {
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
@@ -5730,7 +5730,7 @@ body::before {
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.06);
   box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   animation: yarzToastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -5863,7 +5863,7 @@ body::before {
 
 /* ── Premium Modal Overlay ── */
 .modal-overlay {
-  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
@@ -5986,7 +5986,7 @@ body::before {
 @media (max-width: 768px) {
   /* Premium mobile header */
   .site-header {
-    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     background: rgba(255, 253, 248, 0.92);
   }
@@ -6085,7 +6085,7 @@ body::before {
 
   .modal-overlay:not(.yarz-info-modal) .modal-box {
     border-radius: 20px 20px 0 0;
-    max-height: 92vh;
+    max-height: 92dvh;
   }
 
   .modal-overlay:not(.yarz-info-modal) .modal-header {
@@ -6191,7 +6191,7 @@ select:focus-visible {
     height: 60px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-top: 1px solid rgba(99, 74, 142, 0.08);
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.06);
@@ -6223,7 +6223,7 @@ select:focus-visible {
     transition: color 0.2s ease;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    -webkit-user-select: none;user-select: none;
   }
 
   .mobile-bottom-nav .bnav-item:active {
@@ -6328,7 +6328,7 @@ select:focus-visible {
   gap: 10px;
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) 14px;
   background: rgba(20, 20, 30, 0.96);
-  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   color: #fff;
   border-top: 1px solid rgba(255,255,255,0.08);
@@ -6675,7 +6675,7 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
 }
 .flash-sale-bar .flash-digit {
   background: rgba(255,255,255,0.18);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);backdrop-filter: blur(4px);
   padding: 4px 8px;
   border-radius: 6px;
   font-family: 'Inter', monospace;
@@ -6720,7 +6720,7 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 9999;
   display: flex;
@@ -6839,7 +6839,7 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   height: 34px;
   border-radius: 50%;
   background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);backdrop-filter: blur(4px);
   color: #fff;
   border: none;
   font-size: 18px;
@@ -7339,7 +7339,7 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   border-radius: 50%;
   background: rgba(255,255,255,0.78);
   -webkit-backdrop-filter: blur(8px) saturate(1.4);
-          backdrop-filter: blur(8px) saturate(1.4);
+          -webkit-backdrop-filter: blur(8px) saturate(1.4);backdrop-filter: blur(8px) saturate(1.4);
   border: 1px solid rgba(255,255,255,0.65);
   display: inline-flex;
   align-items: center;
@@ -7733,7 +7733,7 @@ body[data-card-style="minimal"] .product-card {
 }
 body[data-card-style="glass"] .product-card {
   background: rgba(255,255,255,0.55) !important;
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255,255,255,0.6) !important;
 }
@@ -8058,7 +8058,7 @@ body[data-royal-frame="glow"] .product-card:hover {
   inset: 0;
   z-index: 9000;
   background: rgba(15, 15, 25, 0.72);
-  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -8261,7 +8261,7 @@ body.yarz-quickview-open { overflow: hidden; }
   gap: 5px;
   opacity: 0;
   transition: all 0.25s ease;
-  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 5;
   white-space: nowrap;
@@ -8684,7 +8684,7 @@ body.has-announcement::before { background: var(--yarz-ann-bg, var(--text-primar
 /* Sticky buy-bar — solid, no gold gradient */
 .sticky-buy-bar {
   background: rgba(26, 20, 17, 0.96) !important;
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 .sbb-btn-buy {
@@ -8851,7 +8851,7 @@ body {
    ════════════════════════════════════════════════════════════ */
 .cart-overlay {
   background: rgba(26, 20, 17, 0.45) !important;
-  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);backdrop-filter: blur(2px);
 }
 .cart-drawer {
   background: #FFFFFF !important;
@@ -8997,7 +8997,7 @@ body {
    ════════════════════════════════════════════════════════════ */
 .modal-overlay {
   background: rgba(26, 20, 17, 0.55) !important;
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);backdrop-filter: blur(4px);
 }
 .modal-box {
   border-radius: 4px !important;
@@ -10139,7 +10139,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   padding: 16px !important;
   z-index: 99999 !important;
   background: rgba(26, 20, 17, 0.55) !important;
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   /* Reserve safe-area on top + bottom so the box is visually
      centered between the URL bar and the home indicator on
@@ -10279,7 +10279,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -10830,7 +10830,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   background: var(--bg-card, #FFFFFF);
   cursor: pointer;
   transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
 }
 #checkout-modal .yarz-zone-card:hover {
   border-color: var(--text-secondary);
@@ -11389,7 +11389,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   color: #FFFFFF;
   text-transform: none;
   line-height: 1;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
   flex-shrink: 0;
   /* Subtle inner highlight + outer shadow gives the badge a slight
      "minted" depth — matches the rest of the v15.79 premium polish */
@@ -11496,8 +11496,8 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 .yarz-select-wrap > .form-select {
   /* Hide native chevron in WebKit/Blink/Firefox so our custom one shows. */
   -webkit-appearance: none;
-     -moz-appearance: none;
-          appearance: none;
+     -moz--webkit-appearance: none;appearance: none;
+          -webkit-appearance: none;appearance: none;
   padding-right: 38px !important;
   background-image: none !important;
   cursor: pointer;
@@ -12214,10 +12214,12 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   animation: ultra-fast-shimmer 1s ease-in-out infinite !important;
   border-radius: 6px;
   pointer-events: none;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
 }
 
 @keyframes ultra-fast-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+

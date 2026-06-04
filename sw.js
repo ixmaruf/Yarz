@@ -146,14 +146,14 @@ async function cacheFirst(req, cacheName) {
 }
 
 // Stale-While-Revalidate (for CSS/JS — instant + background update)
-async function staleWhileRevalidate(req, cacheName) {
+async function staleWhileRevalidate(req, cacheName, event) {
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(req);
   const network = fetch(req).then(res => {
     if (res && res.ok) cache.put(req, res.clone()).catch(()=>{});
     return res;
   }).catch(() => cached);
-  return cached || network;
+  if(event.waitUntil) event.waitUntil(network.catch(()=>{})); return cached || network.catch(()=>new Response('Not found', {status: 504}));
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -236,3 +236,4 @@ self.addEventListener('message', (event) => {
     caches.delete(API_CACHE);
   }
 });
+

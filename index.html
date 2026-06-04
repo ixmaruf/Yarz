@@ -404,7 +404,8 @@
          1) Edge-to-edge full-width on desktop AND mobile (no cream gaps)
          2) Taller, more prominent banner on mobile (4:5 aspect-ratio)
        Approach:
-         • Inline <style> AFTER main stylesheet so it always wins cascade
+         • Inline <style>
+ AFTER main stylesheet so it always wins cascade
          • Full-bleed break-out (width:100vw + negative margin) on the
            hero-section AND every ancestor that could ever clip it
          • Mobile uses aspect-ratio 4/5 → 400px phone shows ~500px tall
@@ -486,16 +487,26 @@
       bottom: 0 !important;
       width: 100% !important;
       height: 100% !important;
+      display: -webkit-box !important;
+      display: -ms-flexbox !important;
       display: flex !important;
-      flex-direction: row !important;
+      -webkit-box-orient: horizontal !important;
+      -webkit-box-direction: normal !important;
+          -ms-flex-direction: row !important;
+              flex-direction: row !important;
+      -webkit-transition: -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      transition: -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
       transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
     }
 
     /* ── 5. Each slide fills the wrapper completely. No aspect-ratio
        on the slide itself — it inherits its size from the section. */
     html body #hero-slider .slide,
     html body .hero-section #hero-slider .slide {
-      flex: 0 0 100% !important;
+      -webkit-box-flex: 0 !important;
+          -ms-flex: 0 0 100% !important;
+              flex: 0 0 100% !important;
       width: 100% !important;
       height: 100% !important;
       max-height: none !important;
@@ -539,8 +550,10 @@
       min-width: 0 !important;
       min-height: 0 !important;
       aspect-ratio: auto !important;
-      object-fit: cover !important;
-      object-position: center center !important;
+      -o-object-fit: cover !important;
+         object-fit: cover !important;
+      -o-object-position: center center !important;
+         object-position: center center !important;
       display: block !important;
       border: 0 !important;
       outline: 0 !important;
@@ -583,15 +596,18 @@
     html body #hero-slider,
     html body #hero-slider .slider-track,
     html body #hero-slider .slide {
-      touch-action: pan-y !important;
+      -ms-touch-action: pan-y !important;
+          touch-action: pan-y !important;
     }
     html body #hero-slider .slide a {
       pointer-events: auto !important;
     }
-  </style>
+  
+</style>
 
 
   <style>
+
     /* Inline critical styles for instant render */
     body {
       background: #FBF8F1;
@@ -619,12 +635,15 @@
     .site-header {
       background: #FFFDF8;
       border-bottom: 1px solid #E8E4DC;
-      box-sizing: content-box;
+      -webkit-box-sizing: content-box;
+              box-sizing: content-box;
       padding-top: env(safe-area-inset-top, 0px);
       height: 52px;
+      position: -webkit-sticky;
       position: sticky;
       top: 0;
       z-index: 100;
+      -webkit-transition: padding-top 0.25s ease;
       transition: padding-top 0.25s ease;
     }
     /* ✅ v13.0: Match mobile header height to avoid flicker (CSS overrides to 56px on mobile) */
@@ -662,6 +681,7 @@
       min-height: 0;
       overflow: hidden;
       max-height: 0;
+      -webkit-transition: max-height 0.3s ease, padding-top 0.25s ease;
       transition: max-height 0.3s ease, padding-top 0.25s ease;
     }
     .announcement-bar.active {
@@ -699,7 +719,8 @@
     .hero-slider .slide img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      -o-object-fit: cover;
+         object-fit: cover;
       display: block;
     }
 
@@ -762,13 +783,16 @@
          even when `.open` was on, leaving `transform:translateX(110%)`
          winning over `style.css`'s `.cart-drawer.open { right:0 }` —
          drawer never appeared. */
-      transform: translateX(110%);
+      -webkit-transform: translateX(110%);
+              transform: translateX(110%);
       visibility: hidden;
+      -webkit-transition: none;
       transition: none;
     }
     /* When JS opens them, the bigger stylesheet's rules apply (right:0 etc).
        This minimal off-canvas keeps them invisible until then. */
-  </style>
+  
+</style>
 
   <!-- Instant hash-route check: hide home content if on a product page -->
   <style id="hash-route-style"></style>
@@ -860,7 +884,7 @@
   animation: ultra-fast-shimmer 1s ease-in-out infinite !important;
   border-radius: 6px;
   pointer-events: none;
-  user-select: none;
+  -webkit-user-select: none;user-select: none;
 }
 
 @keyframes ultra-fast-shimmer {
@@ -1143,7 +1167,7 @@
         <div id="checkout-coupon-section" style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-light);display:none;">
           <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Have a Coupon Code?</div>
           <div style="display:flex;gap:8px;">
-            <input type="text" class="form-input" id="co-coupon-code" placeholder="Enter code here" style="text-transform:uppercase;">
+            <input type="text" class="form-input" id="co-coupon-code" placeholder="Enter code here (Optional)" style="text-transform:uppercase;">
             <button class="btn btn-outline" onclick="YARZ.applyCoupon()" style="padding:0 16px;white-space:nowrap;">Apply</button>
           </div>
           <div id="co-coupon-msg" style="font-size:11px;margin-top:6px;"></div>
@@ -1475,8 +1499,8 @@
       </div>
     </div>
     <div class="sbb-actions">
-      <button class="sbb-btn sbb-btn-cart" onclick="document.getElementById('add-to-cart-btn').click()">Cart</button>
-      <button class="sbb-btn sbb-btn-buy" onclick="document.getElementById('buy-now-btn').click()">Buy Now</button>
+      <button class="sbb-btn sbb-btn-cart" onclick="YARZ.addToCart()">Cart</button>
+      <button class="sbb-btn sbb-btn-buy" onclick="YARZ.buyNow()">Buy Now</button>
     </div>
   </div>
 
@@ -1753,6 +1777,8 @@
 </body>
 
 </html>
+
+
 
 
 
