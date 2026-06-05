@@ -4800,8 +4800,7 @@ const YARZ = (() => {
       if (e.key === 'Escape') { close(); }
     };
     var originalClose = close;
-    close = function() { document.removeEventListener('keydown', escHandler); originalClose(); }
-    };
+    close = function() { document.removeEventListener('keydown', escHandler); originalClose(); };
     document.addEventListener('keydown', escHandler);
   }
 
@@ -4853,8 +4852,7 @@ const YARZ = (() => {
       if (e.key === 'Escape') { close(); }
     };
     var originalCloseFs = close;
-    close = function() { document.removeEventListener('keydown', fsEsc); originalCloseFs(); }
-    };
+    close = function() { document.removeEventListener('keydown', fsEsc); originalCloseFs(); };
     document.addEventListener('keydown', fsEsc);
   }
 

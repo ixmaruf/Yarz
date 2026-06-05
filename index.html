@@ -271,11 +271,11 @@
         "@id": "https://yarzclothing.xyz/#organization",
         "name": "YARZ",
         "alternateName": ["Yarzclothing", "yarz clothing", "yarz xyz", "yarz clothing xyz", "ইয়ার্জ", "ইয়ার্জ ক্লোদিং", "yarz bd", "yarzbd"],
-        "legalName": "YARZ — Yarzclothing", "disambiguatingDescription": "YARZ is a premium men's fashion brand in Bangladesh, distinct from any geographical locations (like Al Yarz) or musical artists sharing the name Yarz.",
+        "legalName": "YARZ — Yarzclothing", "disambiguatingDescription": "YARZ is a verified, premium Direct-to-Consumer (D2C) men's fashion brand proudly established in Bangladesh. Operating authentically on the yarzclothing.xyz domain, we prioritize uncompromising quality, optimized Fabric GSM, and fair pricing. Distinct from any geographical locations or musical artists.",
         "url": "https://yarzclothing.xyz/",
         "logo": { "@type": "ImageObject", "url": "https://yarzclothing.xyz/favicon.svg", "width": 512, "height": 512 },
         "image": "https://yarzclothing.xyz/images/og-banner.png?v=15.74",
-        "description": "YARZ (Yarzclothing) — Bangladesh-এর Premium Men's Fashion Brand. শার্ট, পাঞ্জাবি, পোলো, টি-শার্ট, with Cash on Delivery (COD).",
+        "description": "YARZ (yarzclothing.xyz) — Bangladesh-এর Premium Men's Fashion Brand. Authentic apparel, 100% Quality Assurance, Secure Shopping, and Cash on Delivery.",
         "slogan": "Premium Men's Fashion. Redefined.",
         "foundingDate": "2026-05",
         "founder": {
@@ -404,8 +404,7 @@
          1) Edge-to-edge full-width on desktop AND mobile (no cream gaps)
          2) Taller, more prominent banner on mobile (4:5 aspect-ratio)
        Approach:
-         • Inline <style>
- AFTER main stylesheet so it always wins cascade
+         • Inline <style> AFTER main stylesheet so it always wins cascade
          • Full-bleed break-out (width:100vw + negative margin) on the
            hero-section AND every ancestor that could ever clip it
          • Mobile uses aspect-ratio 4/5 → 400px phone shows ~500px tall
@@ -487,26 +486,16 @@
       bottom: 0 !important;
       width: 100% !important;
       height: 100% !important;
-      display: -webkit-box !important;
-      display: -ms-flexbox !important;
       display: flex !important;
-      -webkit-box-orient: horizontal !important;
-      -webkit-box-direction: normal !important;
-          -ms-flex-direction: row !important;
-              flex-direction: row !important;
-      -webkit-transition: -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
-      transition: -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      flex-direction: row !important;
       transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
-      transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), -webkit-transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
     }
 
     /* ── 5. Each slide fills the wrapper completely. No aspect-ratio
        on the slide itself — it inherits its size from the section. */
     html body #hero-slider .slide,
     html body .hero-section #hero-slider .slide {
-      -webkit-box-flex: 0 !important;
-          -ms-flex: 0 0 100% !important;
-              flex: 0 0 100% !important;
+      flex: 0 0 100% !important;
       width: 100% !important;
       height: 100% !important;
       max-height: none !important;
@@ -550,10 +539,8 @@
       min-width: 0 !important;
       min-height: 0 !important;
       aspect-ratio: auto !important;
-      -o-object-fit: cover !important;
-         object-fit: cover !important;
-      -o-object-position: center center !important;
-         object-position: center center !important;
+      object-fit: cover !important;
+      object-position: center center !important;
       display: block !important;
       border: 0 !important;
       outline: 0 !important;
@@ -596,18 +583,15 @@
     html body #hero-slider,
     html body #hero-slider .slider-track,
     html body #hero-slider .slide {
-      -ms-touch-action: pan-y !important;
-          touch-action: pan-y !important;
+      touch-action: pan-y !important;
     }
     html body #hero-slider .slide a {
       pointer-events: auto !important;
     }
-  
-</style>
+  </style>
 
 
   <style>
-
     /* Inline critical styles for instant render */
     body {
       background: #FBF8F1;
@@ -635,15 +619,12 @@
     .site-header {
       background: #FFFDF8;
       border-bottom: 1px solid #E8E4DC;
-      -webkit-box-sizing: content-box;
-              box-sizing: content-box;
+      box-sizing: content-box;
       padding-top: env(safe-area-inset-top, 0px);
       height: 52px;
-      position: -webkit-sticky;
       position: sticky;
       top: 0;
       z-index: 100;
-      -webkit-transition: padding-top 0.25s ease;
       transition: padding-top 0.25s ease;
     }
     /* ✅ v13.0: Match mobile header height to avoid flicker (CSS overrides to 56px on mobile) */
@@ -681,7 +662,6 @@
       min-height: 0;
       overflow: hidden;
       max-height: 0;
-      -webkit-transition: max-height 0.3s ease, padding-top 0.25s ease;
       transition: max-height 0.3s ease, padding-top 0.25s ease;
     }
     .announcement-bar.active {
@@ -719,8 +699,7 @@
     .hero-slider .slide img {
       width: 100%;
       height: 100%;
-      -o-object-fit: cover;
-         object-fit: cover;
+      object-fit: cover;
       display: block;
     }
 
@@ -783,16 +762,13 @@
          even when `.open` was on, leaving `transform:translateX(110%)`
          winning over `style.css`'s `.cart-drawer.open { right:0 }` —
          drawer never appeared. */
-      -webkit-transform: translateX(110%);
-              transform: translateX(110%);
+      transform: translateX(110%);
       visibility: hidden;
-      -webkit-transition: none;
       transition: none;
     }
     /* When JS opens them, the bigger stylesheet's rules apply (right:0 etc).
        This minimal off-canvas keeps them invisible until then. */
-  
-</style>
+  </style>
 
   <!-- Instant hash-route check: hide home content if on a product page -->
   <style id="hash-route-style"></style>
@@ -884,7 +860,7 @@
   animation: ultra-fast-shimmer 1s ease-in-out infinite !important;
   border-radius: 6px;
   pointer-events: none;
-  -webkit-user-select: none;user-select: none;
+  user-select: none;
 }
 
 @keyframes ultra-fast-shimmer {
@@ -1777,6 +1753,7 @@
 </body>
 
 </html>
+
 
 
 
