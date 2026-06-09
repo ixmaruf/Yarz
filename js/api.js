@@ -250,6 +250,7 @@ var YARZ_API = (function() {
           categories = rawCatList.filter(function(c) { return c.count > 0; });
 
           _turboData = { products:products, storeInfo:storeInfo, categories:categories };
+          _storeInfoFetchedAt = Date.now(); // Set this so getStoreInfo() doesn't fire duplicate background fetch
           if (window.__DEV__) console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (CF Worker)');
           // ✅ v15.84: NO client-side snapshot. Owner policy requires every
           //   visit to fetch fresh data from Worker edge so admin updates
@@ -925,7 +926,7 @@ var YARZ_API = (function() {
     // ✅ Categories from products endpoint to get accurate counts
     // Falls back to the categories action if needed
     try {
-      const productsRes = await apiGet('products');
+      const productsRes = await getProducts();
       if (productsRes && productsRes.success && Array.isArray(productsRes.products)) {
         const counts = {};
         productsRes.products.forEach(function (p) {
@@ -971,6 +972,13 @@ var YARZ_API = (function() {
   const STORE_INFO_TTL_MS = 60 * 1000; // 60s — covers admin-update windows
 
   async function getStoreInfo() {
+    // If _turboPromise is in flight, wait for it first to populate storeInfo from it
+    if (_turboPromise) {
+      try {
+        await _turboPromise;
+      } catch (e) {}
+    }
+
     var now = Date.now();
     var hasTurbo = _turboData && _turboData.storeInfo && Object.keys(_turboData.storeInfo).length > 0;
 
@@ -1477,9 +1485,9 @@ var YARZ_API = (function() {
   // even though the data was already inlined in the HTML — wasted 50-100ms.
   function prefetchAll() {
     try {
-      // Skip if SSR data already in DOM (Worker injected on cold visits)
-      // _turboPreload above will populate `_turboData` from the inline state.
-      if (typeof window !== 'undefined' && window.__YARZ_INITIAL_STATE) {
+      // Skip if SSR data already in DOM or early fetch is in progress
+      // _turboPreload above will populate `_turboData` from the inline state/early fetch.
+      if (typeof window !== 'undefined' && (window.__YARZ_INITIAL_STATE || window.__YARZ_EARLY_FETCH)) {
         return;
       }
       // ✅ v10.2: Clear leftover snapshot from older versions
