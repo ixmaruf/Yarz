@@ -365,7 +365,9 @@ const YARZ = (() => {
     // ── Google Drive → SIZED CDN URL (per-call optimal size) ──
     if (url.indexOf('drive.google.com') !== -1) {
       var m = url.match(/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-      if (m) return 'https://lh3.googleusercontent.com/d/' + m[1] + '=s' + size + '-rw';
+      // ✅ v17.7: Google deprecated lh3.googleusercontent.com/d/ for 3rd party hosting.
+      // Use the standard uc endpoint instead.
+      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
     }
     // Already a lh3.googleusercontent.com URL — replace size param if present
     if (url.indexOf('lh3.googleusercontent.com') !== -1) {
@@ -2436,9 +2438,11 @@ const YARZ = (() => {
       overlay.id = 'yarz-promo-popup-' + idx;
       overlay.className = 'yarz-popup-overlay';
       var imgSrc = escHtml(getImgSrc(slot.image));
+      // ✅ v17.7: Add onerror handler to gracefully destroy popup if image fails to load (e.g. broken Google Drive link)
+      var errJs = 'this.onerror=null;var o=document.getElementById(\\'yarz-promo-popup-' + idx + '\\');if(o)o.remove();';
       var clickHtml = slot.link
-        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px"></a>'
-        : '<img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px">';
+        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '"></a>'
+        : '<img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '">';
       overlay.innerHTML =
         '<div class="yarz-popup-card promo-popup-card">' +
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();">✕</button>' +
@@ -5983,6 +5987,15 @@ const YARZ = (() => {
         // ✅ v1.0 Fortress: device fingerprint + risk score
         deviceId: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceId) ?
                   YARZ_FORTRESS.getDeviceId() : '',
+        // ✅ v17.6: Human-readable device info for admin panel
+        deviceName: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceProfile) ?
+                    (YARZ_FORTRESS.getDeviceProfile() || {}).deviceName || '' : '',
+        deviceOS: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceProfile) ?
+                  (YARZ_FORTRESS.getDeviceProfile() || {}).os || '' : '',
+        deviceBrowser: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceProfile) ?
+                       (YARZ_FORTRESS.getDeviceProfile() || {}).browser || '' : '',
+        deviceScreen: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceProfile) ?
+                      (YARZ_FORTRESS.getDeviceProfile() || {}).screen || '' : '',
         riskScore: (state && state._fortressResult) ? state._fortressResult.score : 0,
         riskSignals: (state && state._fortressResult && state._fortressResult.signals) ?
                      JSON.stringify(state._fortressResult.signals) : '[]',
