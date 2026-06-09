@@ -3,7 +3,7 @@
    ════════════════════════════════════════════════════════════════════
    Architecture:
      L1: In-memory Map      → 0ms reads
-     L2: IndexedDB          → 5-20ms reads, persistent
+     L2: (removed — persistent caching disabled by owner preference)
      L3: localStorage       → fallback for tiny config
      L4: Service Worker     → network-level cache
 
@@ -23,11 +23,6 @@
 (function (global) {
   'use strict';
 
-  const DB_NAME    = 'yarz_turbo';
-  const DB_VERSION = 2;
-  const STORE      = 'cache';
-  const META_STORE = 'meta';
-
   // Default TTLs (Time-To-Live) in milliseconds
   const TTL = {
     products:   60 * 1000,        // 60 sec — but show stale instantly via SWR
@@ -45,104 +40,21 @@
   const memCache = new Map();
 
   // ─────────────────────────────────────────────────────────────────
-  // L2: IndexedDB Cache (persistent, fast)
-  // ─────────────────────────────────────────────────────────────────
-  let dbPromise = null;
-
-  function openDB() {
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
-      if (!global.indexedDB) { resolve(null); return; }
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE, { keyPath: 'key' });
-        }
-        if (!db.objectStoreNames.contains(META_STORE)) {
-          db.createObjectStore(META_STORE, { keyPath: 'key' });
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror   = () => { console.warn('[TURBO] IDB open failed'); resolve(null); };
-      // Don't block forever
-      setTimeout(() => resolve(null), 1500);
-    });
-    return dbPromise;
-  }
-
-  async function idbGet(key) {
-    // ✅ v15.8: ZERO-CACHE MODE — never read from persistent IDB.
-    // Always returns null so callers fall through to live network fetch.
-    return null;
-    // eslint-disable-next-line no-unreachable
-    const db = await openDB();
-    if (!db) return null;
-    return new Promise((resolve) => {
-      try {
-        const tx  = db.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).get(key);
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror   = () => resolve(null);
-      } catch (e) { resolve(null); }
-    });
-  }
-
-  async function idbSet(key, value) {
-    // ✅ v15.8: Disabled persistent IDB writes — owner requires zero customer-side
-    // caching of store data. In-memory cache (memCache) still works for the current
-    // page session, but on navigation/refresh customers always fetch live from
-    // Cloudflare Worker. Comment out the next line to re-enable persistent cache.
-    return; // ZERO-CACHE MODE
-    // eslint-disable-next-line no-unreachable
-    const db = await openDB();
-    if (!db) return;
-    return new Promise((resolve) => {
-      try {
-        const tx  = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put({ key, ...value });
-        tx.oncomplete = () => resolve();
-        tx.onerror    = () => resolve();
-      } catch (e) { resolve(); }
-    });
-  }
-
-  async function idbDelete(keyOrPrefix) {
-    const db = await openDB();
-    if (!db) return;
-    return new Promise((resolve) => {
-      try {
-        const tx    = db.transaction(STORE, 'readwrite');
-        const store = tx.objectStore(STORE);
-        if (keyOrPrefix.endsWith('*')) {
-          const prefix = keyOrPrefix.slice(0, -1);
-          store.openCursor().onsuccess = (e) => {
-            const cur = e.target.result;
-            if (cur) {
-              if (cur.key.startsWith(prefix)) cur.delete();
-              cur.continue();
-            }
-          };
-        } else {
-          store.delete(keyOrPrefix);
-        }
-        tx.oncomplete = () => resolve();
-        tx.onerror    = () => resolve();
-      } catch (e) { resolve(); }
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────
   // Event Emitter (for 'turbo:update' notifications)
   // ─────────────────────────────────────────────────────────────────
   const listeners = {};
-  function on(event, fn)  { (listeners[event] = listeners[event] || []).push(fn); }
+  function on(event, fn) {
+    const arr = (listeners[event] = listeners[event] || []);
+    if (arr.length >= 20) {
+      console.warn('[TURBO] Warning: "' + event + '" has ' + arr.length + ' listeners (possible leak)');
+    }
+    arr.push(fn);
+  }
   function off(event, fn) { listeners[event] = (listeners[event]||[]).filter(x => x !== fn); }
   function emit(event, data) {
     (listeners[event] || []).forEach(fn => {
       try { fn(data); } catch (e) { console.error('[TURBO event]', e); }
     });
-    // Also dispatch a DOM event so plain HTML can listen
     try { global.dispatchEvent(new CustomEvent('turbo:' + event, { detail: data })); } catch(e){}
   }
 
@@ -181,31 +93,14 @@
     if (!opts.forceFresh && memCache.has(key)) {
       const m = memCache.get(key);
       if (now - m.ts < ttl) {
-        // Fresh — return immediately, no revalidation needed
         return m.value;
       }
-      // Stale — but if SWR, return stale and refresh in background
       if (swr) {
         revalidateBg(key, fetcher, opts, m.hash);
         return m.value;
       }
     }
 
-    // L2: IndexedDB
-    if (!opts.forceFresh) {
-      const idb = await idbGet(key);
-      if (idb) {
-        // Hydrate memory
-        memCache.set(key, { value: idb.value, ts: idb.ts, hash: idb.hash });
-        if (now - idb.ts < ttl) return idb.value;
-        if (swr) {
-          revalidateBg(key, fetcher, opts, idb.hash);
-          return idb.value;          // ← INSTANT return, even if stale
-        }
-      }
-    }
-
-    // No cache — must wait for network
     return doFetch(key, fetcher, opts);
   }
 
@@ -217,7 +112,6 @@
         const hash  = fastHash(value);
         const ts    = Date.now();
         memCache.set(key, { value, ts, hash });
-        idbSet(key, { value, ts, hash }).catch(()=>{});
         emit('update', { key, value, fresh: true });
         return value;
       } finally {
@@ -236,12 +130,10 @@
         const hash  = fastHash(value);
         const ts    = Date.now();
         memCache.set(key, { value, ts, hash });
-        idbSet(key, { value, ts, hash }).catch(()=>{});
         if (hash !== oldHash) {
           emit('update', { key, value, fresh: true, changed: true });
         }
       } catch (e) {
-        // Silent fail — cached data still served
       } finally {
         inflight.delete(key);
       }
@@ -256,7 +148,6 @@
     const hash = fastHash(value);
     const ts   = Date.now();
     memCache.set(key, { value, ts, hash, ttl });
-    await idbSet(key, { value, ts, hash });
     emit('update', { key, value, fresh: true });
   }
 
@@ -269,20 +160,10 @@
     } else {
       memCache.delete(keyOrPrefix);
     }
-    await idbDelete(keyOrPrefix);
   }
 
   async function clear() {
     memCache.clear();
-    const db = await openDB();
-    if (!db) return;
-    return new Promise((resolve) => {
-      try {
-        const tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).clear();
-        tx.oncomplete = () => resolve();
-      } catch(e){ resolve(); }
-    });
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -290,7 +171,6 @@
   // ─────────────────────────────────────────────────────────────────
   function prefetch(key, fetcher, opts) {
     if (memCache.has(key) || inflight.has(key)) return;
-    // Use requestIdleCallback for non-blocking prefetch
     const run = () => doFetch(key, fetcher, opts || {}).catch(()=>{});
     if (global.requestIdleCallback) {
       requestIdleCallback(run, { timeout: 2000 });
@@ -305,26 +185,26 @@
   const perf = {
     marks: {},
     mark(name) {
-      this.marks[name] = performance.now();
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        this.marks[name] = performance.now();
+      }
     },
     measure(name, fromMark) {
-      const t = performance.now() - (this.marks[fromMark] || 0);
-      console.log(`%c[TURBO] ${name}: ${t.toFixed(1)}ms`, 'color:#634A8E;font-weight:bold');
-      return t;
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        const t = performance.now() - (this.marks[fromMark] || 0);
+        if (window.__DEV__) console.log('%c[TURBO] ' + name + ': ' + t.toFixed(1) + 'ms', 'color:#634A8E;font-weight:bold');
+        return t;
+      }
+      return 0;
     }
   };
-
-  // Auto-init: warm up IDB connection
-  openDB().then(db => {
-    if (db) console.log('%c[TURBO] ⚡ Ready', 'color:#634A8E;font-weight:bold;font-size:14px');
-  });
 
   // Public API
   global.TURBO = {
     get, set, invalidate, clear, prefetch,
     on, off, emit,
     perf,
-    _memCache: memCache,   // for debugging
+    _memCache: memCache,
     version: '1.0.0'
   };
 

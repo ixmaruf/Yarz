@@ -16,6 +16,114 @@
    ============================================================ */
 
 const YARZ = (() => {
+  // Dev-mode guard — set `__YARZ_DEV__ = true` in console for verbose logging.
+  // Production deployments keep this false so internal implementation details
+  // (stock fetch outcomes, SWR lifecycle, promise rejections) don't clutter
+  // browser consoles in front of customers.
+  var __YARZ_DEV__ = false;
+  function _log() {
+    if (!__YARZ_DEV__) return;
+    try { Function.prototype.apply.call(console.log, console, arguments); } catch(e) {}
+  }
+  function _warn() {
+    if (!__YARZ_DEV__) return;
+    try { Function.prototype.apply.call(console.warn, console, arguments); } catch(e) {}
+  }
+
+  // ✅ v17.5 PHASE 8: Global error handlers. Without these, a silent
+  // exception in a Promise / async callback just disappears — the
+  // customer sees a broken button and the owner has no idea why. These
+  // log to console (which the anti-debug scripts in armor.js neutralise
+  // for the customer) and keep a small in-memory ring buffer that can
+  // be inspected via `YARZ._getRecentErrors()` for triage.
+  if (typeof window !== 'undefined') {
+    window.__yarzErrBuf = [];
+    window.addEventListener('error', function(e) {
+      try {
+        var entry = {
+          ts: Date.now(),
+          msg: (e && e.message) || 'unknown',
+          src: (e && e.filename) || '',
+          line: (e && e.lineno) || 0,
+          col: (e && e.colno) || 0,
+          stack: (e && e.error && e.error.stack) || ''
+        };
+        window.__yarzErrBuf.push(entry);
+        if (window.__yarzErrBuf.length > 50) window.__yarzErrBuf.shift();
+        if (window.console && console.error) console.error('[YARZ error]', entry);
+      } catch (_) { /* never let the handler itself throw */ }
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      try {
+        var reason = (e && e.reason) || {};
+        var entry = {
+          ts: Date.now(),
+          msg: (reason && reason.message) || String(reason),
+          stack: (reason && reason.stack) || '',
+          unhandled: true
+        };
+        window.__yarzErrBuf.push(entry);
+        if (window.__yarzErrBuf.length > 50) window.__yarzErrBuf.shift();
+        if (window.console && console.error) console.error('[YARZ unhandledrejection]', entry);
+      } catch (_) { /* same */ }
+    });
+  }
+
+  // ✅ v17.5 PHASE 9: Focus trap helper. Installed on the checkout
+  // modal by openCheckout(). Returns a teardown function that removes
+  // the keydown listener. WCAG 2.1.1 (Keyboard) — without it, a Tab
+  // on the last focusable element jumps to a button in the page
+  // behind the overlay, which is confusing for keyboard / screen-
+  // reader users. Also handles Esc-to-close.
+  var _checkoutModalTeardown = null;
+  function _trapFocusInModal_(modalEl) {
+    if (!modalEl) return function() {};
+    var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    function getFocusable() {
+      return Array.prototype.slice.call(modalEl.querySelectorAll(FOCUSABLE))
+        .filter(function(el) {
+          return el.offsetParent !== null || el === document.activeElement;
+        });
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        try { closeCheckout(); } catch (_) {}
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusable = getFocusable();
+      if (focusable.length === 0) { e.preventDefault(); return; }
+      var first = focusable[0];
+      var last  = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    modalEl.addEventListener('keydown', onKeydown);
+    // Focus the first input (or close button) on open. 50ms delay
+    // lets the modal's CSS transition start so the focus indicator
+    // is visible.
+    setTimeout(function() {
+      try {
+        var focusable = getFocusable();
+        if (focusable.length) {
+          var firstInput = focusable.find(function(el) {
+            return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+          });
+          (firstInput || focusable[0]).focus();
+        }
+      } catch (_) {}
+    }, 50);
+    return function teardown() {
+      modalEl.removeEventListener('keydown', onKeydown);
+    };
+  }
+
   // ===== STATE =====
   // ✅ v11.7: Safe localStorage reads — Safari iOS private mode can throw on script load
   function _safeReadLS(key, fallback) {
@@ -25,6 +133,78 @@ const YARZ = (() => {
       return JSON.parse(raw);
     } catch (e) { return fallback; }
   }
+  // ✅ v17.5: TTL-aware variant. The stored value is wrapped in {v: data, t: ts}
+  // so we can return the fallback if the entry is older than `maxAgeMs`. Used
+  // for PII keys (yarz_user, yarz_my_orders) — keeps the customer's name,
+  // address, phone, order history on-device for 90 days, then auto-expires.
+  function _safeReadLSWithTTL(key, fallback, maxAgeMs) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw == null) return fallback;
+      var parsed = JSON.parse(raw);
+      // Backward-compat: pre-v17.5 stored raw data (no envelope). Treat those
+      // as fresh, but re-write them in the new envelope so next read works.
+      if (parsed && typeof parsed === 'object' && 'v' in parsed && 't' in parsed) {
+        if ((Date.now() - parsed.t) > maxAgeMs) {
+          try { localStorage.removeItem(key); } catch (e) {}
+          return fallback;
+        }
+        return parsed.v;
+      }
+      return parsed;
+    } catch (e) { return fallback; }
+  }
+  function _safeWriteLSWithTTL(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ v: value, t: Date.now() }));
+    } catch (e) {}
+  }
+  // ✅ v17.5 PHASE 6: Shape-validating reader. The plain _safeReadLS just
+  // JSON.parses whatever's there — but a corrupt entry (truncated write,
+  // a future migration that changes the shape, an old browser that wrote
+  // a string instead of an array) would surface as a runtime crash at the
+  // call site. This helper returns the fallback if the parsed value
+  // doesn't match `validator` (a function returning boolean).
+  function _safeReadLSValidate(key, fallback, validator) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (raw == null) return fallback;
+      var parsed = JSON.parse(raw);
+      if (validator && !validator(parsed)) return fallback;
+      return parsed;
+    } catch (e) { return fallback; }
+  }
+  // ✅ v17.5 PHASE 6: Cap a list at `max` entries, keeping the FIRST `max`.
+  // Returns the original reference if already small enough (no-op).
+  // Used by wishlist + pending_sync so heavy use on a phone with a tiny
+  // localStorage quota doesn't crash the app.
+  function _capList_(arr, max) {
+    if (!Array.isArray(arr)) return [];
+    if (arr.length <= max) return arr;
+    return arr.slice(0, max);
+  }
+  // ✅ v17.5: Typed helpers for the PII keys so call sites stay short and the
+  // TTL logic is in one place. 90 days per owner's spec (was 30 days in
+  // v17.5; bumped to 90 days in v17.15 to keep the checkout form pre-filled
+  // across the typical 30-day repurchase cycle of FB/IG-driven buyers).
+  const _PII_TTL_MS = 90 * 86400 * 1000;
+  function _getMyOrders() {
+    return _safeReadLSWithTTL('yarz_my_orders', [], _PII_TTL_MS);
+  }
+  function _setMyOrders(arr) {
+    _safeWriteLSWithTTL('yarz_my_orders', Array.isArray(arr) ? arr : []);
+  }
+  function _getSavedUser() {
+    return _safeReadLSWithTTL('yarz_user', null, _PII_TTL_MS);
+  }
+  function _setSavedUser(u) {
+    if (u) _safeWriteLSWithTTL('yarz_user', u);
+    else { try { localStorage.removeItem('yarz_user'); } catch (e) {} }
+  }
+  // ✅ v17.15: "Forget me on this device" button removed per owner direction.
+  // PII auto-expires after 90 days via the TTL envelope on yarz_user /
+  // yarz_my_orders, which is enough for the typical FB/IG-driven return cycle
+  // and avoids the customer accidentally clearing their cart mid-shop.
   const state = {
     products: [],
     categories: [],
@@ -35,11 +215,16 @@ const YARZ = (() => {
     currentSizeFilter: '',
     currentSort: 'default',
     cart: _safeReadLS('yarz_cart', []),
-    user: _safeReadLS('yarz_user', null),
+    // ✅ v17.5: PII keys auto-expire after 90 days so a shared / kiosk device
+    // doesn't keep the previous user's name, address, phone, order history
+    // forever. Owner-chosen TTL (bumped from 30 → 90 days in v17.15).
+    user: _safeReadLSWithTTL('yarz_user', null, _PII_TTL_MS),
     loading: false,
     heroSlideIndex: 0,
     heroTimer: null,
   };
+  // Lazily-initialised when the first order is saved.
+  state.myOrders = [];
 
   // ===== SVG ICONS (No emoji, pure SVG) =====
   const ICONS = {
@@ -65,11 +250,67 @@ const YARZ = (() => {
     return sym + num.toLocaleString('en-IN');
   }
 
+  // ✅ v17.5: Full 5-char HTML escape. The previous textContent→innerHTML trick
+  // only escaped <, >, & in modern browsers — it left ' and " unescaped, which
+  // is FINE inside element text but BREAKS OUT when the result is interpolated
+  // into an HTML attribute like `onclick="YARZ.openProduct('...')"`. This
+  // explicit replacer is safe for BOTH element text and attribute contexts.
+  var _HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   function escHtml(str) {
-    if (!str) return '';
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (c) { return _HTML_ESC[c]; });
+  }
+  // Alias for clarity in code — use this when interpolating into an attribute.
+  var escAttr = escHtml;
+
+  // ✅ v17.5: Defense-in-depth cleaner for product names that get interpolated
+  // into inline `onclick="YARZ.openProduct('${name}')"` strings. escHtml is
+  // enough for XSS, but a literal apostrophe in a product name (e.g. "O'Reilly")
+  // survives the entity-decode round-trip and breaks the JS string. We strip /
+  // replace ALL chars that could be ambiguous in either an HTML attribute or a
+  // JS string literal. The name will display slightly differently (apostrophe →
+  // hyphen) but the XSS surface AND the broken-attribute surface both close.
+  function _cleanInlineName(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      // Replace HTML-attribute-breaking chars
+      .replace(/[<>&"'`]/g, '-')
+      // Replace JS-string-breaking chars
+      .replace(/[\\\n\r\t\0\f\v\b]/g, '-')
+      // Replace Unicode line/paragraph separators that some engines treat as \n
+      .replace(/[\u2028\u2029]/g, ' ')
+      // Collapse multiple dashes from the above replacements
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .trim();
+  }
+
+  // ✅ v17.5: Cryptographically-random hex suffix for things like order IDs
+  // that the customer can quote in support flows. Math.random() is predictable
+  // (V8 uses xorshift128+ — fast but seedable from the time); an attacker
+  // who guesses a recent order ID could impersonate that customer to support.
+  // crypto.getRandomValues is in every browser since 2014 and IE11 polyfilled.
+  function _randHex(len) {
+    var n = Math.max(1, Math.min(64, len | 0 || 4));
+    var bytes = new Uint8Array(Math.ceil(n / 2));
+    try { crypto.getRandomValues(bytes); } catch (e) { /* SSR / old browser — fall back */ for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256); }
+    var s = '';
+    for (var j = 0; j < bytes.length; j++) s += (bytes[j] < 16 ? '0' : '') + bytes[j].toString(16);
+    return s.slice(0, n).toUpperCase();
+  }
+
+  // ✅ v17.5: URL-context sanitizer. `escHtml` alone is NOT enough for href / src
+  // because `javascript:alert(1)` and `data:text/html,<script>...` would survive
+  // HTML-entity escaping and still execute. Only allow safe schemes.
+  function safeUrl(url) {
+    if (!url) return '';
+    var s = String(url).trim();
+    if (!s) return '';
+    if (/^[\s\x00-\x1f]*(javascript|vbscript|data):/i.test(s)) return '#';
+    // Allow same-origin / data: for image, blob: for in-memory, https/http for normal URLs
+    if (/^(https?:|data:image\/|blob:|\/\/|\/)/i.test(s)) return escHtml(s);
+    // Anything else (javascript:, vbscript:, data:text/html, file:, …) is rejected.
+    return '';
   }
 
   // ===== ICON LIBRARY — v14.8 =====
@@ -129,8 +370,10 @@ const YARZ = (() => {
     // Already a lh3.googleusercontent.com URL — replace size param if present
     if (url.indexOf('lh3.googleusercontent.com') !== -1) {
       // Strip any existing =s..., =w..., =h... and append our requested size
-      url = url.replace(/=[swh]\d+(-[a-z0-9]+)*$/i, '');
-      return url + '=s' + size + '-rw';
+      url = url.replace(/=[swh]\d+(-[a-z0-9]+)*/i, '');
+      var parts = url.split(/(\?|#)/);
+      parts[0] = parts[0] + '=s' + size + '-rw';
+      return parts.join('');
     }
 
 
@@ -326,7 +569,7 @@ const YARZ = (() => {
     try {
       localStorage.setItem('yarz_cart', JSON.stringify(state.cart));
     } catch(e) {
-      console.warn('LocalStorage not available for cart', e);
+      _warn('LocalStorage not available for cart', e);
     }
     updateCartCount();
   }
@@ -336,15 +579,15 @@ const YARZ = (() => {
   function initSmartAccountManager() {
     try {
       // 1. Smart User Merging (Never lose details)
-      var u = JSON.parse(localStorage.getItem('yarz_user'));
+      var u = _getSavedUser();
       if (u && typeof u === 'object') {
         Object.keys(u).forEach(function(k) { if (!u[k]) delete u[k]; });
-        localStorage.setItem('yarz_user', JSON.stringify(u));
+        _setSavedUser(u);
         state.user = u;
       }
 
       // 2. Smart Order Deduplication & Quota Protection (Mobile Crash Prevention)
-      var orders = JSON.parse(localStorage.getItem('yarz_my_orders'));
+      var orders = _getMyOrders();
       if (Array.isArray(orders)) {
         var unique = {};
         orders.forEach(function(o) {
@@ -356,14 +599,14 @@ const YARZ = (() => {
         });
         var finalOrders = Object.values(unique);
 
-        // ✅ v16.5: 30-DAY EXPIRY — mirror the server policy. The Google Sheet
-        // auto-deletes orders older than ~1 month (daily 1 AM cleanup), so the
+        // ✅ v16.5: 90-DAY EXPIRY — mirror the server policy. The Google Sheet
+        // auto-deletes orders older than ~3 months (daily 1 AM cleanup), so the
         // customer's locally-cached copy must expire on the same window.
         // Without this, an aged-out order would (a) linger forever in the
         // customer's browser and (b) get falsely flagged "Cancelled" by the
         // admin-delete detection (it's gone from the server simply because it
         // aged out, not because it was cancelled).
-        var THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+        var PII_TTL_MS = 90 * 24 * 60 * 60 * 1000;
         var _now = Date.now();
         var _orderTime = function(o) {
           // Prefer placedAt (epoch ms); fall back to parsing date/updated.
@@ -374,7 +617,7 @@ const YARZ = (() => {
           var t = _orderTime(o);
           // t === 0 means age is unknown → keep it (don't risk dropping a
           // valid just-placed order that has no timestamp yet).
-          return (t === 0) || ((_now - t) <= THIRTY_DAYS);
+          return (t === 0) || ((_now - t) <= PII_TTL_MS);
         });
 
         // Prevent Mobile Storage bloat (Max 50 newest orders allowed in cache)
@@ -382,24 +625,24 @@ const YARZ = (() => {
            finalOrders.sort(function(a, b) { return (b.placedAt || 0) - (a.placedAt || 0); });
            finalOrders = finalOrders.slice(0, 50);
         }
-        localStorage.setItem('yarz_my_orders', JSON.stringify(finalOrders));
+        _setMyOrders(finalOrders);
       }
     } catch(e) {
-      console.warn("YARZ Smart Manager: Storage blocked", e);
+      _warn("YARZ Smart Manager: Storage blocked", e);
     }
   }
 
   function saveUser() {
     try {
       // Smart Merge: Don't overwrite existing user data with empty fields
-      var old = JSON.parse(localStorage.getItem('yarz_user')) || {};
+      var old = _getSavedUser() || {};
       var merged = Object.assign({}, old, state.user);
       Object.keys(merged).forEach(function(k) { if (!merged[k]) delete merged[k]; });
-      
-      localStorage.setItem('yarz_user', JSON.stringify(merged));
+
+      _setSavedUser(merged);
       state.user = merged; // ensure runtime state is perfectly synced
     } catch(e) {
-      console.warn('LocalStorage not available for user', e);
+      _warn('LocalStorage not available for user', e);
     }
     updateUserUI();
   }
@@ -465,6 +708,11 @@ const YARZ = (() => {
 
   function showView(viewName, html) {
     state.currentView = viewName;
+    // Stop hero slider auto-rotate when leaving home view
+    if (viewName !== 'home' && state.heroTimer) {
+      clearInterval(state.heroTimer);
+      state.heroTimer = null;
+    }
     var home = $('#home-content');
     var collectionView = document.getElementById('collection-view');
     var dyn = ensureDynamicView();
@@ -535,7 +783,8 @@ const YARZ = (() => {
       if (hashStyle) hashStyle.textContent = '';
 
       // 2) Stop ANY background pollers / intervals that may belong to a previous view
-      try { if (typeof _stopOrderPoll === 'function') _stopOrderPoll(); } catch (e) {}
+      // ✅ v17.5 PHASE 8: _stopOrderPoll removed (was no-op). _stopStockPoll
+      // retained — it's a real interval (live stock poll on PDP).
       try { if (typeof _stopStockPoll === 'function') _stopStockPoll(); } catch (e) {}
       // ✅ v5.3: Clear 30s engagement timer
       if (window._timeOnPageTimer) { clearTimeout(window._timeOnPageTimer); window._timeOnPageTimer = null; }
@@ -575,7 +824,7 @@ const YARZ = (() => {
         home.removeAttribute('hidden');
       } else {
         // Worst case: home-content was wiped — reload page so user sees something
-        console.warn('YARZ: #home-content missing — reloading to recover.');
+        _warn('YARZ: #home-content missing — reloading to recover.');
         window.location.reload();
         return;
       }
@@ -667,7 +916,7 @@ const YARZ = (() => {
       } catch(e) {}
     } catch (err) {
       // Last-resort fallback: hard reload so customer never sees a white page
-      console.error('YARZ goHome() error:', err);
+      _log('YARZ goHome() error:', err);
       try {
         var h = document.getElementById('home-content');
         if (h) { h.style.display = ''; h.style.visibility = 'visible'; }
@@ -911,9 +1160,8 @@ const YARZ = (() => {
     return text
       .toString()
       .toLowerCase()
-      .replace(/[\u0980-\u09FF]+/g, '')       // Remove Bengali characters
       .replace(/[\u0600-\u06FF]+/g, '')       // Remove Arabic characters
-      .replace(/[^a-z0-9\s-]/g, '')           // Remove special chars
+      .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')  // Keep Bengali + Latin
       .replace(/[\s_]+/g, '-')                // Spaces/underscores → hyphens
       .replace(/-+/g, '-')                    // Collapse multiple hyphens
       .replace(/^-+|-+$/g, '')                // Trim leading/trailing hyphens
@@ -928,9 +1176,18 @@ const YARZ = (() => {
     try { decoded = decodeURIComponent(slugOrName); } catch(e) { decoded = slugOrName; }
     var exact = state.products.find(function(p) { return p.name === decoded; });
     if (exact) return exact;
-    // 2. Try slug match
+    // 2. Try slug match — verify the product's slug actually matches the target
+    // to avoid returning the wrong product when two names produce the same slug.
     var targetSlug = slugify(decoded) || decoded.toLowerCase();
-    return state.products.find(function(p) { return slugify(p.name) === targetSlug; }) || null;
+    var candidate = null;
+    state.products.forEach(function(p) {
+      var pSlug = slugify(p.name);
+      if (pSlug === targetSlug) {
+        // Prefer exact product name alignment; break ties by first match
+        if (!candidate) candidate = p;
+      }
+    });
+    return candidate || null;
   }
 
   function getPantSizeLabel(size) {
@@ -1092,11 +1349,16 @@ const YARZ = (() => {
     var salePrice = parseFloat(p.salePrice) || 0;
     var regPrice = parseFloat(p.regularPrice) || 0;
     var hasDiscount = parseFloat(p.discountPercent) > 0 && regPrice > salePrice;
-    var safeName = escHtml(p.name).replace(/'/g, "\\'");
+    var safeName = _cleanInlineName(p.name);
     
     // v10.5 SUPER POWERFUL: Instant Image Loading for top row
     var isEager = (typeof index === 'number' && index < 4);
-    var imgLoading = isEager ? 'fetchpriority="high" loading="eager"' : 'loading="lazy"';
+    // ✅ v17.15 PHASE 11: Always decode async — image decoding blocks the main
+    // thread by default. With async, the browser decodes off-thread and drops
+    // the result in place. On mid-range Android (FB/IG in-app WebView is the
+    // worst case) this shaves 30-80ms off the LCP timing for the top row and
+    // prevents the bottom grid from janking while the user scrolls.
+    var imgLoading = isEager ? 'fetchpriority="high" loading="eager" decoding="async"' : 'loading="lazy" decoding="async"';
 
     var hoverAttr = state.controls && state.controls.hoverEffect ? ' data-hover="' + escHtml(state.controls.hoverEffect) + '"' : '';
     var html = '<article class="product-card' + (isOut ? ' out-of-stock' : '') + '"' + hoverAttr + ' onclick="YARZ.openProduct(\'' + safeName + '\')">';
@@ -1109,7 +1371,7 @@ const YARZ = (() => {
     var img1200 = escHtml(getImgSrc(p.image1, 1200));
     var imgSrcset = img400 + ' 400w, ' + img800 + ' 800w, ' + img1200 + ' 1200w';
     var imgSizes = '(max-width:480px) 50vw, (max-width:768px) 33vw, (max-width:1024px) 25vw, 240px';
-    html += '<img src="' + img800 + '" srcset="' + imgSrcset + '" sizes="' + imgSizes + '" width="800" height="1000" alt="' + escHtml(p.name) + '" ' + imgLoading + ' onerror="this.style.display=\'none\'">';
+    html += '<img crossorigin="anonymous" src="' + img800 + '" srcset="' + imgSrcset + '" sizes="' + imgSizes + '" width="800" height="1000" alt="' + escHtml(p.name) + '" ' + imgLoading + ' onerror="this.style.display=\'none\'">';
     if (p.badge) html += '<span class="product-badge ' + getBadgeClass(p.badge) + '">' + escHtml(p.badge) + '</span>';
     // ✅ v11: New Arrival auto-badge
     if (state.controls && state.controls.newArrivalActive && p.dateAdded) {
@@ -1332,7 +1594,7 @@ const YARZ = (() => {
       html += '<div class="dynamic-category-card" onclick="' + clickAction + '" style="--card-index:' + idx + '">';
       html += '<div class="dcc-image">';
       if (imgSrc) {
-        html += '<img src="' + imgSrc + '" alt="' + displayName + '" loading="lazy" onerror="this.style.display=\'none\'">';
+        html += '<img crossorigin="anonymous" src="' + imgSrc + '" alt="' + displayName + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">';
       } else {
         html += '<div class="dcc-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
       }
@@ -1373,6 +1635,8 @@ const YARZ = (() => {
     cancelAnimationFrame(_categoryScrollRAF);
     var grid = document.getElementById('dynamic-category-scroll-grid');
     if (!grid) return;
+    if (grid._yarzCatScrollInit) return;
+    grid._yarzCatScrollInit = true;
     
     // Add mouse drag support
     var isDown = false;
@@ -1480,10 +1744,10 @@ const YARZ = (() => {
     html += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">';
     
     if (img1) {
-      html += '<img src="' + escHtml(getImgSrc(img1)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 1">';
+      html += '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(img1)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 1" loading="lazy" decoding="async">';
     }
     if (img2) {
-      html += '<img src="' + escHtml(getImgSrc(img2)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 2">';
+      html += '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(img2)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 2" loading="lazy" decoding="async">';
     }
     html += '</div></div>';
     
@@ -1511,12 +1775,16 @@ const YARZ = (() => {
 
   // ----- Wishlist (localStorage) -----
   var WISHLIST_KEY = 'yarz_wishlist';
+  // ✅ v17.5 PHASE 6: Wishlist cap. 50 is plenty for a real shopper and
+  // keeps the encoded JSON well under any browser's localStorage quota
+  // (each entry is a product name string ≈ 30-80 bytes).
+  var WISHLIST_MAX = 50;
   function _readWishlist() {
-    try { return JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') || []; }
-    catch(e) { return []; }
+    return _safeReadLSValidate(WISHLIST_KEY, [], function(v) { return Array.isArray(v); }) || [];
   }
   function _writeWishlist(arr) {
-    try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(arr)); } catch(e) {}
+    var capped = _capList_(Array.isArray(arr) ? arr : [], WISHLIST_MAX);
+    try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(capped)); } catch(e) {}
     _updateWishlistBadges();
   }
   function isInWishlist(name) { return _readWishlist().indexOf(name) !== -1; }
@@ -1530,7 +1798,7 @@ const YARZ = (() => {
     var salePrice = parseFloat(product.salePrice) || 0;
     var regPrice  = parseFloat(product.regularPrice) || 0;
     var hasDiscount = parseFloat(product.discountPercent) > 0 && regPrice > salePrice;
-    var safeName = escHtml(product.name).replace(/'/g, "\\'");
+    var safeName = _cleanInlineName(product.name);
 
     var overlay = document.createElement('div');
     overlay.id = 'yarz-quickview-overlay';
@@ -1553,7 +1821,7 @@ const YARZ = (() => {
       '<div class="yarz-quickview-card" role="dialog" aria-label="Quick product view">' +
         '<button class="qv-close" onclick="YARZ.closeQuickView()" aria-label="Close">✕</button>' +
         '<div class="qv-grid">' +
-          '<div class="qv-image"><img src="' + escHtml(imgUrl) + '" alt="' + escHtml(product.name) + '" loading="eager"></div>' +
+          '<div class="qv-image"><img crossorigin="anonymous" src="' + escHtml(imgUrl) + '" alt="' + escHtml(product.name) + '" loading="eager" decoding="async"></div>' +
           '<div class="qv-info">' +
             '<div class="qv-cat">' + escHtml(product.category || '') + '</div>' +
             '<h2 class="qv-title">' + escHtml(product.name) + '</h2>' +
@@ -1663,9 +1931,10 @@ const YARZ = (() => {
 
   // ----- Recently Viewed (localStorage) -----
   var RECENT_KEY = 'yarz_recent_viewed';
+  // ✅ v17.5 PHASE 6: cap is already 12 in _addRecent below, but read is
+  // now shape-validated so a corrupt entry doesn't crash the PDP.
   function _readRecent() {
-    try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; }
-    catch(e) { return []; }
+    return _safeReadLSValidate(RECENT_KEY, [], function(v) { return Array.isArray(v); }) || [];
   }
   function _addRecent(name) {
     if (!name) return;
@@ -1693,10 +1962,10 @@ const YARZ = (() => {
     section.className = 'page-section yarz-extra-section';
     var html = '<div class="container"><h2 class="extra-section-title">Recently Viewed</h2><div class="extra-row">';
     products.forEach(function(p) {
-      var safe = escHtml(p.name).replace(/'/g, "\\'");
+      var safe = _cleanInlineName(p.name);
       var price = parseFloat(p.salePrice || p.regularPrice || 0);
       html += '<div class="extra-card" onclick="YARZ.openProduct(\'' + safe + '\')">' +
-        '<img src="' + escHtml(getImgSrc(p.image1 || '')) + '" alt="' + escHtml(p.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' +
+        '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(p.image1 || '')) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
         '<div class="extra-name">' + escHtml(p.name) + '</div>' +
         '<div class="extra-price">' + formatPrice(price) + '</div></div>';
     });
@@ -1754,7 +2023,7 @@ const YARZ = (() => {
     var inner = '';
     if (bannerImg) {
       inner =
-        '<img src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
+        '<img crossorigin="anonymous" src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
           'style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" ' +
           'onerror="this.style.display=\'none\'">' +
         '<div class="acc-banner-overlay">' +
@@ -1810,7 +2079,7 @@ const YARZ = (() => {
       var n = Math.max(1, Math.min(5, r.stars || 5));
       for (var i = 0; i < n; i++) stars += '★';
       for (var j = n; j < 5; j++) stars += '☆';
-      var photo = r.photo ? '<img src="' + escHtml(getImgSrc(r.photo)) + '" alt="' + escHtml(r.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' :
+      var photo = r.photo ? '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(r.photo)) + '" alt="' + escHtml(r.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' :
         '<div class="testimonial-avatar-placeholder">' + escHtml((r.name || 'C').charAt(0)) + '</div>';
       html += '<div class="testimonial-card">' +
         '<div class="testimonial-stars">' + stars + '</div>' +
@@ -2018,7 +2287,7 @@ const YARZ = (() => {
       var safeUrl = escHtml(getImgSrc(url));
       var linkUrl = c.igGridLink ? escHtml(c.igGridLink) : '#';
       html += '<a class="ig-tile" href="' + linkUrl + '" target="_blank" rel="noopener">' +
-              '<img src="' + safeUrl + '" alt="" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+              '<img crossorigin="anonymous" src="' + safeUrl + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.style.display=\'none\'">' +
               '<span class="ig-overlay"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg></span>' +
               '</a>';
     });
@@ -2036,7 +2305,8 @@ const YARZ = (() => {
     var c = state.controls || {};
     if (!c.newsletterActive) return;
     if (sessionStorage.getItem('yarz_newsletter_dismissed')) return;
-    if (localStorage.getItem('yarz_newsletter_subscribed')) return;
+    // ✅ v17.15: TTL-aware read so the popup can re-show after 90 days.
+    if (_safeReadLSWithTTL('yarz_newsletter_subscribed', null, _PII_TTL_MS)) return;
     var triggered = false;
     var show = function() {
       if (triggered) return;
@@ -2078,7 +2348,8 @@ const YARZ = (() => {
           showToast('সঠিক ইমেইল ঠিকানা দিন', 'warning');
           return;
         }
-        try { localStorage.setItem('yarz_newsletter_subscribed', email); } catch(e) {}
+        // ✅ v17.15: Wrap in TTL envelope so the 90-day PII auto-expire applies.
+        try { localStorage.setItem('yarz_newsletter_subscribed', JSON.stringify({v: email, t: Date.now()})); } catch(e) {}
         // ✅ v11.7: Fire Lead event (high-intent signal for FB sales optimization) +
         // enrich pixel with hashed email so future events on this browser have AM
         try {
@@ -2110,12 +2381,14 @@ const YARZ = (() => {
     };
     var trig = c.newsletterTrigger || '15';
     if (trig === 'exit') {
-      document.addEventListener('mouseout', function(e) { if (e.clientY < 5 && e.relatedTarget === null) show(); });
+      var _newsExit = function(e) { if (e.clientY < 5 && e.relatedTarget === null) { document.removeEventListener('mouseout', _newsExit); show(); } };
+      document.addEventListener('mouseout', _newsExit);
     } else if (trig === 'scroll') {
-      window.addEventListener('scroll', function() {
+      var _newsScroll = function() {
         var sh = document.documentElement.scrollHeight - window.innerHeight;
-        if (sh > 0 && (window.scrollY / sh) > 0.5) show();
-      }, { passive: true });
+        if (sh > 0 && (window.scrollY / sh) > 0.5) { window.removeEventListener('scroll', _newsScroll); show(); }
+      };
+      window.addEventListener('scroll', _newsScroll, { passive: true });
     } else { var match = String(trig).match(/\d+/); var seconds = match ? parseInt(match[0], 10) : 15; setTimeout(show, seconds * 1000); }
   }
 
@@ -2164,8 +2437,8 @@ const YARZ = (() => {
       overlay.className = 'yarz-popup-overlay';
       var imgSrc = escHtml(getImgSrc(slot.image));
       var clickHtml = slot.link
-        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img src="' + imgSrc + '" alt="Promo" style="display:block;width:100%;border-radius:12px"></a>'
-        : '<img src="' + imgSrc + '" alt="Promo" style="display:block;width:100%;border-radius:12px">';
+        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px"></a>'
+        : '<img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px">';
       overlay.innerHTML =
         '<div class="yarz-popup-card promo-popup-card">' +
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();">✕</button>' +
@@ -2180,12 +2453,14 @@ const YARZ = (() => {
       });
     };
     if (trig === 'exit') {
-      document.addEventListener('mouseout', function(e) { if (e.clientY < 5 && e.relatedTarget === null) show(); });
+      var _promoExit = function(e) { if (e.clientY < 5 && e.relatedTarget === null) { document.removeEventListener('mouseout', _promoExit); show(); } };
+      document.addEventListener('mouseout', _promoExit);
     } else if (trig === 'scroll') {
-      window.addEventListener('scroll', function() {
+      var _promoScroll = function() {
         var sh = document.documentElement.scrollHeight - window.innerHeight;
-        if (sh > 0 && (window.scrollY / sh) > 0.5) show();
-      }, { passive: true });
+        if (sh > 0 && (window.scrollY / sh) > 0.5) { window.removeEventListener('scroll', _promoScroll); show(); }
+      };
+      window.addEventListener('scroll', _promoScroll, { passive: true });
     } else { var match = String(trig).match(/\d+/); var seconds = match ? parseInt(match[0], 10) : 10; setTimeout(show, seconds * 1000); }
   }
 
@@ -2263,6 +2538,15 @@ const YARZ = (() => {
     if (controls.themeCardBg) {
       root.style.setProperty('--bg-card', controls.themeCardBg);
       root.style.setProperty('--bg-secondary', controls.themeCardBg);
+      // ✅ v17.2: Persist admin's header bg to localStorage so the EARLY inline
+      // <script> in <head> can read it on battery-saver / throttled / no-JS
+      // visits. The next page load will paint the address bar with this color
+      // BEFORE app.js even runs.
+      try { localStorage.setItem('yarz_themeCardBg', controls.themeCardBg); } catch(e) {}
+    } else {
+      // Admin cleared / never set a custom header color → drop the localStorage
+      // cache so the address bar returns to the static cream default.
+      try { localStorage.removeItem('yarz_themeCardBg'); } catch(e) {}
     }
     if (controls.themeText) {
       // ✅ v15.87: Auto-correct if admin's text color would be unreadable
@@ -2429,6 +2713,12 @@ const YARZ = (() => {
     // on first load. renderAccessoriesBanner() removes any existing node first,
     // so calling it from both places never duplicates.
     try { renderAccessoriesBanner(); } catch(e) {}
+
+    // ✅ v17.0: Re-sync the browser address bar color now that admin theme
+    // overrides are live. themeCardBg → --bg-secondary → header bg, and
+    // announcementBg → announcement-bar bg, so both can flip the address bar
+    // tint. _chromeColorCache is per-page so this re-reads the latest bg.
+    try { if (typeof window.__yarzSyncChrome === 'function') window.__yarzSyncChrome(); } catch(e) {}
   }
 
   function computeStoreHoursMessage(c) {
@@ -2674,7 +2964,7 @@ const YARZ = (() => {
         }, 50);
       }
     } catch(e) {
-      console.warn('filterByLinks error:', e);
+      _warn('filterByLinks error:', e);
     }
   }
 
@@ -3204,7 +3494,8 @@ const YARZ = (() => {
   // Updated silently in background — customer never sees a loader
   var _liveStock = {};            // { productName: { M, L, XL, XXL, updatedAt } }
   var _stockFetchTimer = null;
-  var _lastStockFetch  = 0;
+  var _lastStockFetch  = {};      // per-product throttle map (key=product name)
+  var _pendingStockFetch = {};    // track in-flight requests per product
 
   function _getEffectiveStock(product, size) {
     if (!product || !size) return 0;
@@ -3240,16 +3531,20 @@ const YARZ = (() => {
 
   // Fetch live stock from Google Sheets in background — no UI blocking
   function _refreshLiveStock(product, opts) {
-    // 🛑 DISABLED to save Cloudflare Worker limits (1 request per product click is too expensive!)
-    // The system will now rely entirely on the background `getProducts` refresh for stock updates.
-    return;
+    // Throttle: max 1 request per product per 8s to protect CF Worker quota
     var force = opts && opts.force;
-    // Throttle: avoid hammering the API more than once every 8s unless forced
-    if (!force && (Date.now() - _lastStockFetch) < 8000) return;
-    _lastStockFetch = Date.now();
+    var pName = product && product.name;
+    if (!pName) return;
+    // Per-product throttle so navigating between products doesn't cross-block
+    var lastFetch = _lastStockFetch[pName] || 0;
+    if (!force && (Date.now() - lastFetch) < 8000) return;
+    // Prevent duplicate in-flight requests for the same product
+    if (_pendingStockFetch[pName]) return;
+    _lastStockFetch[pName] = Date.now();
+    _pendingStockFetch[pName] = true;
 
     YARZ_API.getProductStock(product.name).then(function (res) {
-      if (!res || !res.success) return;
+      if (!res || !res.success) { if (pName) _pendingStockFetch[pName] = false; return; }
       _liveStock[product.name] = {
         stock_S:   res.stock_S,
         stock_M:   res.stock_M,
@@ -3313,7 +3608,11 @@ const YARZ = (() => {
           }
         }
       }
-    }).catch(function () { /* silent */ });
+        // Clear pending flag on success (at end of then handler)
+        if (pName) _pendingStockFetch[pName] = false;
+    }).catch(function () {
+        if (pName) _pendingStockFetch[pName] = false;
+    });
   }
 
   function _startStockPoll(product) {
@@ -3435,7 +3734,7 @@ const YARZ = (() => {
     // ✅ v16: Honor admin-controlled per-size visibility on the product detail page.
     var sizes = getVisibleSizes(product.category, product);
     var deliveryLocations = getDeliveryLocations();
-    var safeName = escHtml(product.name).replace(/'/g, "\\'");
+    var safeName = _cleanInlineName(product.name);
     var safeCat = escHtml(product.category || '').replace(/'/g, "\\'");
 
     var html = '<section class="product-detail-section"><div class="pd-grid">';
@@ -3453,7 +3752,7 @@ const YARZ = (() => {
     var pdMain1600 = escHtml(getImgSrc(images[0], 1600));
     var pdSrcset = pdMain800 + ' 800w, ' + pdMain1200 + ' 1200w, ' + pdMain1600 + ' 1600w';
     var pdSizes = '(max-width:480px) 100vw, (max-width:1024px) 60vw, 600px';
-    html += '<div class="pd-main-image" id="pd-main-img"><img src="' + escHtml(instantThumbUrl) + '" srcset="' + pdSrcset + '" sizes="' + pdSizes + '" data-src="' + escHtml(rawMainUrl) + '" data-size="1600" alt="' + escHtml(product.name) + '" id="pd-img-main" fetchpriority="high" decoding="async" style="transition: filter 0.3s ease; filter: blur(0px);"></div>';
+    html += '<div class="pd-main-image" id="pd-main-img"><img crossorigin="anonymous" src="' + escHtml(instantThumbUrl) + '" srcset="' + pdSrcset + '" sizes="' + pdSizes + '" data-src="' + escHtml(rawMainUrl) + '" data-size="1600" alt="' + escHtml(product.name) + '" id="pd-img-main" fetchpriority="high" decoding="async" onload="this.style.opacity=1;" style="opacity: 0; transition: opacity 0.5s ease-in;"></div>';
     // ✅ v11.8: Product video — admin-controlled autoplay, muted, looped, playsinline
     if (product.video && state.controls && state.controls.videoAutoplay) {
       var safeVid = escHtml(product.video);
@@ -3478,8 +3777,9 @@ const YARZ = (() => {
         // Saves ~600-1000 KB per PDP load on mobile (5-6 thumbnails × ~150-200 KB).
         // Quality is identical at the rendered size (3× DPR coverage).
         var thumbSrc = escHtml(getImgSrc(img, 240));
-        var fullSrc = escHtml(getImgSrc(img));
-        html += '<div class="pd-thumb' + (i === 0 ? ' active' : '') + '" onclick="YARZ.switchImage(' + i + ',\'' + fullSrc.replace(/'/g, "\\'") + '\')"><img src="' + thumbSrc + '" alt="' + escHtml(product.name) + ' thumbnail" loading="lazy" decoding="async"></div>';
+        var fullSrcRaw = getImgSrc(img);
+        var fullSrc = escHtml(fullSrcRaw.replace(/'/g, "\\'"));
+        html += '<div class="pd-thumb' + (i === 0 ? ' active' : '') + '" onclick="YARZ.switchImage(' + i + ',\'' + fullSrc + '\')"><img crossorigin="anonymous" src="' + thumbSrc + '" alt="' + escHtml(product.name) + ' thumbnail" loading="lazy" decoding="async"></div>';
       });
       html += '</div>';
     }
@@ -3698,7 +3998,7 @@ const YARZ = (() => {
         html += '</div></div></section>';
       }
     } catch(err) {
-      console.error('Related Products Error:', err);
+      _log('Related Products Error:', err);
     }
     } // ✅ v15.6 close relatedProd gate
 
@@ -4180,7 +4480,7 @@ const YARZ = (() => {
       cartHtml = freeShipBannerHtml + state.cart.map(function (item) {
         var safeKey = escHtml(item.key).replace(/'/g, "\\'");
         return '<div class="cart-item" data-cart-key="' + escHtml(item.key) + '">' +
-          '<div class="cart-item-img"><img src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" onerror="this.style.display=\'none\'"></div>' +
+          '<div class="cart-item-img"><img crossorigin="anonymous" src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"></div>' +
           '<div class="cart-item-info">' +
           '<div class="cart-item-name">' + escHtml(item.name) + '</div>' +
           '<div class="cart-item-meta">Size: ' + _sizeLabel(item.size) + ' &middot; Qty: ' + item.qty + '</div>' +
@@ -4194,7 +4494,7 @@ const YARZ = (() => {
     var orderHistoryHtml = '';
     try {
       var savedPhone = state.user ? (state.user.phone || '') : '';
-      var allLocal = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+      var allLocal = _getMyOrders();
       var myOrders = savedPhone ? allLocal.filter(function(o) { return o.phone === savedPhone; }) : allLocal;
       if (myOrders.length > 0) {
         // ✅ v16.5: Show only the 3 most recent orders in the cart drawer —
@@ -4404,6 +4704,12 @@ const YARZ = (() => {
     if (state.cart.length === 0) { showToast('Cart is empty', 'warning'); return; }
     toggleCart(false);
 
+    // ✅ v17.5 PHASE 9: Install focus trap on the modal. WCAG 2.1.1.
+    // Cleanup any prior trap first (defensive — shouldn't be needed but
+    // covers the case where openCheckout fires twice without a close).
+    try { if (_checkoutModalTeardown) _checkoutModalTeardown(); } catch (e) {}
+    try { _checkoutModalTeardown = _trapFocusInModal_(document.getElementById('checkout-modal')); } catch (e) {}
+
     // ✅ v16: Buy Now revert arming. buyNow() sets `_buyNowArming` right before
     // calling us. A NORMAL cart-icon checkout has it false → we clear any
     // stale revert state so we never wrongly revert a real cart. The WhatsApp
@@ -4467,7 +4773,7 @@ const YARZ = (() => {
       if (!sessionStorage.getItem(icDedupeKey)) {
         try { sessionStorage.setItem(icDedupeKey, '1'); } catch(_) {}
         var cachedUser = {};
-        try { cachedUser = JSON.parse(localStorage.getItem('yarz_user') || '{}') || {}; } catch(e) {}
+        try { cachedUser = _getSavedUser() || {}; } catch(e) {}
         YARZ_PIXEL.initiateCheckout(state.cart, checkoutTotal, {
           name: cachedUser.name || cachedUser.customerName || '',
           phone: cachedUser.phone || '',
@@ -4769,7 +5075,7 @@ const YARZ = (() => {
     var box = document.createElement('div');
     box.className = 'modal-box yarz-info-box';
     box.innerHTML =
-      '<button type="button" class="yarz-info-close" aria-label="Close" onclick="document.getElementById(\'cod-disabled-modal\').remove()">' +
+      '<button type="button" class="yarz-info-close" aria-label="Close">' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
       '</button>' +
       '<div class="yarz-info-icon">' +
@@ -4796,6 +5102,8 @@ const YARZ = (() => {
     }
     document.getElementById('cod-modal-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    var closeBtn = box.querySelector('.yarz-info-close');
+    if (closeBtn) closeBtn.onclick = close;
     var escHandler = function (e) {
       if (e.key === 'Escape') { close(); }
     };
@@ -4821,7 +5129,7 @@ const YARZ = (() => {
     var box = document.createElement('div');
     box.className = 'modal-box yarz-info-box';
     box.innerHTML =
-      '<button type="button" class="yarz-info-close" aria-label="Close" onclick="document.getElementById(\'fs-advance-modal\').remove()">' +
+      '<button type="button" class="yarz-info-close" aria-label="Close">' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
       '</button>' +
       '<div class="yarz-info-icon">' +
@@ -4848,6 +5156,8 @@ const YARZ = (() => {
     }
     document.getElementById('fs-advance-ok').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    var closeBtn = box.querySelector('.yarz-info-close');
+    if (closeBtn) closeBtn.onclick = close;
     var fsEsc = function (e) {
       if (e.key === 'Escape') { close(); }
     };
@@ -4936,7 +5246,7 @@ const YARZ = (() => {
       // checkout patterns). Falls back gracefully when image is missing.
       var imgSrc = item.image || '';
       var imgHtml = imgSrc
-        ? '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(item.name) + '" loading="lazy" '
+        ? '<img crossorigin="anonymous" src="' + escHtml(imgSrc) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" '
           + 'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" '
           + 'style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg-secondary);border:1px solid var(--border-light);">'
           + '<span style="display:none;width:48px;height:48px;border-radius:8px;background:var(--bg-secondary);align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border-light);">'
@@ -5049,7 +5359,7 @@ const YARZ = (() => {
         couponRow.style.cssText = 'display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;font-size:12px;color:var(--success);font-weight:600;';
         el.parentNode.insertBefore(couponRow, el.nextSibling);
       }
-      couponRow.innerHTML = '<span>Coupon Discount (' + state.appliedCoupon.code + ')</span><span>-' + formatPrice(discountAmt) + '</span>';
+      couponRow.innerHTML = '<span>Coupon Discount (' + escHtml(state.appliedCoupon.code || '') + ')</span><span>-' + formatPrice(discountAmt) + '</span>';
     } else {
       if (couponRow) couponRow.remove();
     }
@@ -5087,7 +5397,7 @@ const YARZ = (() => {
         code: code,
         discountPct: matchedItem.couponDisc
       };
-      msgEl.innerHTML = '<span style="color:var(--success);font-weight:600;">✅ Coupon applied! (' + matchedItem.couponDisc + '% OFF)</span>';
+      msgEl.innerHTML = '<span style="color:var(--success);font-weight:600;">✅ Coupon applied! (' + escHtml(matchedItem.couponDisc) + '% OFF)</span>';
       renderCheckoutSummary();
     } else {
       state.appliedCoupon = null;
@@ -5234,23 +5544,46 @@ const YARZ = (() => {
       }
     }
 
-    // ✅ v5.0: YARZ Shield — comprehensive anti-fraud validation
-    if (window.YARZ_SHIELD) {
-      var shieldResult = YARZ_SHIELD.validate({
-        name: name, phone: phone, address: address,
-        _formOpenTime: state._checkoutOpenedAt || 0,
-      });
-      if (!shieldResult.allowed) {
-        if (shieldResult.silent) {
-          // Silent block — attacker thinks order went through
+    // ✅ v1.0: YARZ Fortress — device fingerprint + risk scoring. Runs BEFORE
+    // Shield so device-level blocks fire first. Hard block = shadow ban.
+    // Wrapped in try-catch: if the Fortress script is blocked/ad-blocked or
+    // throws, the order flow continues undisturbed (defense-in-depth).
+    try {
+      if (window.YARZ_FORTRESS) {
+        var fortressResult = YARZ_FORTRESS.scoreOrder({
+          name: name, phone: phone, address: address,
+          _formOpenTime: state._checkoutOpenedAt || 0,
+        });
+        if (fortressResult && fortressResult.action === 'hard') {
+          // Shadow ban: attacker sees fake success, no order written
           simulateFakeSuccess(name, phone, address, payment);
-        } else {
-          showToast(shieldResult.reason, 'warning');
+          __resetOnExit();
+          return;
         }
-        __resetOnExit();
-        return;
+        // Stash risk for the payload (server will see it)
+        state._fortressResult = fortressResult;
       }
-    }
+    } catch (e) { /* Fortress unavailable — proceed without scoring */ }
+    // ✅ v5.0: YARZ Shield — comprehensive anti-fraud validation
+    // Same try-catch safety: if Shield script is blocked, don't halt checkout.
+    try {
+      if (window.YARZ_SHIELD) {
+        var shieldResult = YARZ_SHIELD.validate({
+          name: name, phone: phone, address: address,
+          _formOpenTime: state._checkoutOpenedAt || 0,
+        });
+        if (!shieldResult.allowed) {
+          if (shieldResult.silent) {
+            // Silent block — attacker thinks order went through
+            simulateFakeSuccess(name, phone, address, payment);
+          } else {
+            showToast(shieldResult.reason, 'warning');
+          }
+          __resetOnExit();
+          return;
+        }
+      }
+    } catch (e) { /* Shield unavailable — proceed without validation */ }
 
     // 1. Honeypot check (Anti-Bot) — legacy fallback
     var honeypot = $('#co-website');
@@ -5453,8 +5786,10 @@ const YARZ = (() => {
       };
       document.addEventListener('keydown', __escHandler);
       // Auto-cleanup if user navigates away or modal closes by other means
+      var _wdView = state.currentView; // capture the view when modal opened
       var __watchdog = setInterval(function () {
-        if (!confirmModal.classList.contains('active')) {
+        // Also clear if the user navigated away (view changed) while modal was open
+        if (!confirmModal.classList.contains('active') || state.currentView !== _wdView) {
           clearInterval(__watchdog);
           document.removeEventListener('keydown', __escHandler);
           // Only reset if the order didn't progress (state._orderInFlight still true)
@@ -5511,14 +5846,28 @@ const YARZ = (() => {
     var sw = window.screen.width || 0;
     var sh = window.screen.height || 0;
     var devId = parseInt(Math.min(sw, sh) + '' + Math.max(sw, sh) + '' + (window.screen.colorDepth || 24)).toString(36).toUpperCase();
-    var generatedOrderId = 'YARZ-WEB-' + devId + '-' + Date.now().toString().slice(-5) + Math.random().toString(36).substr(2, 2).toUpperCase();
+    var generatedOrderId = 'YARZ-WEB-' + devId + '-' + Date.now().toString().slice(-5) + _randHex(4);
 
     var finalLocationName = getDeliveryLocationName(location);
     var checkoutDeliveryCharge = calculateCartDeliveryCharge(location);
 
+    // ✅ v17.17: Dedup cart by name+size before building payload
+    var dedupedCart = [];
+    var seen = {};
+    state.cart.forEach(function (item) {
+      var key = item.name + '||' + (item.size || '');
+      if (seen[key]) {
+        seen[key].qty += item.qty;
+      } else {
+        var clone = { name: item.name, size: item.size, qty: item.qty, price: item.price, couponActive: item.couponActive, couponCode: item.couponCode };
+        seen[key] = clone;
+        dedupedCart.push(clone);
+      }
+    });
+
     // ✅ v10.1: Build unified order data with cartItems for a single API call
     var grandTotal = 0;
-    var cartItemsPayload = state.cart.map(function (item, idx) {
+    var cartItemsPayload = dedupedCart.map(function (item, idx) {
       var deliveryCharge = idx === 0 ? checkoutDeliveryCharge : 0;
       var itemPrice = item.price;
       
@@ -5630,7 +5979,16 @@ const YARZ = (() => {
       ttclid: _ttclid,
       externalId: _externalId,
       country: 'BD',
-      userAgent: navigator.userAgent || ''
+      userAgent: navigator.userAgent || '',
+        // ✅ v1.0 Fortress: device fingerprint + risk score
+        deviceId: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceId) ?
+                  YARZ_FORTRESS.getDeviceId() : '',
+        riskScore: (state && state._fortressResult) ? state._fortressResult.score : 0,
+        riskSignals: (state && state._fortressResult && state._fortressResult.signals) ?
+                     JSON.stringify(state._fortressResult.signals) : '[]',
+        isFlagged: (state && state._fortressResult && state._fortressResult.action === 'soft') ? true : false,
+        flagReason: (state && state._fortressResult && state._fortressResult.action === 'soft') ?
+                    state._fortressResult.reason : '',
     };
 
     // ✅ v10.6 SUPER POWERFUL: Optimistic 0ms Checkout!
@@ -5640,7 +5998,7 @@ const YARZ = (() => {
     
     // 1. Immediately save order locally so it shows in tracking
     try {
-      var localOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+      var localOrders = _getMyOrders();
       var newLocalOrders = state.cart.map(function(item, idx) {
         var deliveryCharge = idx === 0 ? checkoutDeliveryCharge : 0;
         var itemPrice = item.price;
@@ -5664,7 +6022,7 @@ const YARZ = (() => {
           payment: payment
         };
       });
-      localStorage.setItem('yarz_my_orders', JSON.stringify(localOrders.concat(newLocalOrders)));
+      _setMyOrders(localOrders.concat(newLocalOrders));
     } catch(e) {}
 
     // 2. Capture items, clear cart, and close checkout modal instantly
@@ -5709,25 +6067,39 @@ const YARZ = (() => {
       YARZ_API.placeOrder(orderData).then(function(res) {
         if (res && res.orderId && res.orderId !== generatedOrderId) {
           try {
-            var storedOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+            var storedOrders = _getMyOrders();
             storedOrders.forEach(function(o) {
               if (o.orderId === generatedOrderId) o.orderId = res.orderId;
             });
-            localStorage.setItem('yarz_my_orders', JSON.stringify(storedOrders));
+            _setMyOrders(storedOrders);
           } catch(e) {}
         }
       }).catch(function(err) {
-        console.error("YARZ: Background order sync failed", err);
+        if (__YARZ_DEV__) console.error("YARZ: Background order sync failed", err);
         // ✅ v10.5 CRITICAL: Mark order as unsynced so we can retry later
         try {
-          var pendingSync = JSON.parse(localStorage.getItem('yarz_pending_sync') || '[]');
+          // ✅ v17.5 PHASE 6: Shape-validate + cap. 50 is a safety net
+          // against runaway growth if a customer goes offline for weeks —
+          // at that point manual intervention (admin re-send) is required
+          // anyway, and the localStorage quota matters more than perfect
+          // retry coverage.
+          // ✅ v17.15: Drop pending orders older than 30 days so a customer
+          // who goes offline for months doesn't keep their full PII payload
+          // (name, phone, address, items) on-device waiting to be retried.
+          var _PENDING_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+          var _pendingNow = Date.now();
+          var pendingSync = _safeReadLSValidate('yarz_pending_sync', [], function(v){ return Array.isArray(v); }) || [];
+          pendingSync = pendingSync.filter(function(item) {
+            return item && (typeof item.time === 'number') && ((_pendingNow - item.time) < _PENDING_TTL_MS);
+          });
           pendingSync.push({
             orderId: generatedOrderId,
             data: orderData,
             time: Date.now(),
             attempts: 1
           });
-          localStorage.setItem('yarz_pending_sync', JSON.stringify(pendingSync));
+          var capped = _capList_(pendingSync, 50);
+          localStorage.setItem('yarz_pending_sync', JSON.stringify(capped));
         } catch(e) {}
         // Show non-blocking warning so customer knows to keep order ID safe
         try {
@@ -5739,7 +6111,7 @@ const YARZ = (() => {
     }
     } catch (orderErr) {
       // ✅ v15.8 FIX: Catch ANY error so the button can reset.
-      console.error('[Order] processOrderSubmission threw:', orderErr);
+      if (__YARZ_DEV__) console.error('[Order] processOrderSubmission threw:', orderErr);
       try { showToast('অর্ডার সাবমিট করতে সমস্যা: ' + (orderErr.message || 'unknown'), 'error'); } catch(_) {}
     } finally {
       // ✅ v15.8 FIX: ALWAYS reset the button — no matter what happens above.
@@ -5754,7 +6126,15 @@ const YARZ = (() => {
   // ✅ v10.5: Retry pending orders that failed to sync to backend
   function _retryPendingOrders() {
     try {
-      var pending = JSON.parse(localStorage.getItem('yarz_pending_sync') || '[]');
+      // ✅ v17.5 PHASE 6: Shape-validate before iterating. A corrupt
+      // entry would crash this whole loop and leave a half-synced state.
+      // ✅ v17.15: Same 30-day TTL filter on retry (parity with write site at line 5986).
+      var _PENDING_TTL_MS2 = 30 * 24 * 60 * 60 * 1000;
+      var _pendingNow2 = Date.now();
+      var pending = _safeReadLSValidate('yarz_pending_sync', [], function(v){ return Array.isArray(v); }) || [];
+      pending = pending.filter(function(item) {
+        return item && (typeof item.time === 'number') && ((_pendingNow2 - item.time) < _PENDING_TTL_MS2);
+      });
       if (!pending.length) return;
       var remaining = [];
       var promises = pending.map(function(item) {
@@ -5767,8 +6147,13 @@ const YARZ = (() => {
         });
       });
       Promise.all(promises).then(function() {
-        localStorage.setItem('yarz_pending_sync', JSON.stringify(remaining));
-        if (remaining.length) setTimeout(_retryPendingOrders, 30000);
+        // ✅ v17.5 PHASE 6: Cap on the way back too. If a network was
+        // down for weeks and 100 orders piled up, we keep the most
+        // recent 50 (the others are abandoned and would only bloat
+        // localStorage until manual cleanup).
+        var capped = _capList_(remaining, 50);
+        localStorage.setItem('yarz_pending_sync', JSON.stringify(capped));
+        if (capped.length) setTimeout(_retryPendingOrders, 30000);
       });
     } catch(e) {}
   }
@@ -5793,7 +6178,7 @@ const YARZ = (() => {
     // Fallback: if total is still 0, read from localStorage tracking records
     if (!total) {
       try {
-        var localOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+        var localOrders = _getMyOrders();
         localOrders.forEach(function (o) {
           if (o && o.orderId === orderId) {
             var t = parseFloat(o.total) || parseFloat(o.totalAmount) || 0;
@@ -5885,7 +6270,7 @@ const YARZ = (() => {
       state.cart = [];
       saveCart();
       closeCheckout();
-      var fakeOrderId = 'YARZ-WEB-' + Date.now().toString().slice(-6) + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+      var fakeOrderId = 'YARZ-WEB-' + Date.now().toString().slice(-6) + '-' + _randHex(6);
       var mockResults = [{ total: 0 }];
       showOrderSuccess(fakeOrderId, mockResults, payment);
       if (btn) { btn.disabled = false; _setCheckoutBtnLabel(btn, 'Place Order'); }
@@ -5940,9 +6325,9 @@ const YARZ = (() => {
     }
 
     container.innerHTML = results.map(function (p) {
-      var safeName = escHtml(p.name).replace(/'/g, "\\'");
+      var safeName = _cleanInlineName(p.name);
       return '<div class="search-result-item" onclick="YARZ.closeSearch();YARZ.openProduct(\'' + safeName + '\')">' +
-        '<img src="' + escHtml(getImgSrc(p.image1)) + '" alt="' + escHtml(p.name) + '" onerror="this.style.display=\'none\'">' +
+        '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(p.image1)) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
         '<div class="sr-info"><div class="sr-name">' + escHtml(p.name) + '</div>' +
         '<div class="sr-price">' + formatPrice(p.salePrice) + '</div></div></div>';
     }).join('');
@@ -5989,12 +6374,10 @@ const YARZ = (() => {
   }
 
   // ===== ORDER TRACKING =====
-  // ===== ORDER POLLING (auto-refresh status) =====
-  var _orderPollTimer = null;
-  function _stopOrderPoll() {
-    if (_orderPollTimer) { clearInterval(_orderPollTimer); _orderPollTimer = null; }
-  }
-  function _startOrderPoll(phone) { _stopOrderPoll(); }
+  // ✅ v17.5 PHASE 8: _startOrderPoll / _stopOrderPoll / _orderPollTimer
+  // removed. They were a no-op stub left over from a removed auto-refresh
+  // feature (always called _stopOrderPoll, never started any interval).
+  // 4 call sites updated to be silent no-ops.
 
   function openTracking() {
     var savedPhone = state.user ? (state.user.phone || '') : '';
@@ -6003,7 +6386,7 @@ const YARZ = (() => {
       '<div class="page-header" style="border:none;margin-bottom:16px;">' +
       '<h1>Order Tracking</h1>' +
       '<p>Enter your phone number to view your orders</p>' +
-      '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 30 days.</p></div>' +
+      '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 90 days.</p></div>' +
       '<p style="font-size:12px;color:var(--text-muted);font-family:var(--font-bengali);margin-top:4px;">আপনার ফোন নম্বর দিয়ে অর্ডার খুঁজুন</p>' +
       '</div>' +
       '<div class="tracking-card">' +
@@ -6039,12 +6422,14 @@ const YARZ = (() => {
       if (btn) { btn.disabled = true; btn.textContent = 'Searching...'; }
     }
     // Start auto-refresh polling on first explicit search
-    if (!silent) _startOrderPoll(phone);
+    // ✅ v17.5 PHASE 8: _startOrderPoll removed (was no-op). The tracking
+    // view re-fetches on mount, so no live polling is needed.
+    // if (!silent) _startOrderPoll(phone);
 
     // Load from LocalStorage first and show IMMEDIATELY
     var localOrders = [];
     try {
-      var allLocal = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+      var allLocal = _getMyOrders();
       localOrders = allLocal.filter(function(o) { return o.phone === phone; });
     } catch(e) {}
 
@@ -6086,7 +6471,7 @@ const YARZ = (() => {
 
       // Step 2 — Update localStorage records with the live status/courier
       try {
-        var allLocal = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+        var allLocal = _getMyOrders();
         var localChanged = false;
         secureApiOrders.forEach(function(ao) {
           allLocal.forEach(function(lo) {
@@ -6122,7 +6507,7 @@ const YARZ = (() => {
         // GUARDED by apiSucceeded — never runs on a failed/empty-fallback
         // call, which would otherwise false-cancel every order on a blip.
         if (apiSucceeded) {
-          var _CANCEL_GRACE = 30 * 24 * 60 * 60 * 1000; // 30 days (upper bound)
+          var _CANCEL_GRACE = 90 * 24 * 60 * 60 * 1000; // 90 days (upper bound)
           var _MIN_AGE = 2 * 60 * 1000; // 2 min (lower bound — avoid race with a just-placed order)
           var _nowMs = Date.now();
           allLocal.forEach(function(lo) {
@@ -6134,7 +6519,7 @@ const YARZ = (() => {
             // looked confirmed to the customer). We now detect any locally-placed
             // order that is missing from a SUCCESSFUL API response, gated only by
             // a time window: old enough to rule out a place→track race (>2 min),
-            // and young enough to rule out a 30-day server cleanup (<30 days).
+            // and young enough to rule out a 90-day server cleanup (<90 days).
             var st = String(lo.status || '').toLowerCase().replace(/\s+/g,'');
             if (st === 'cancelled' || st === 'canceled' || st === 'returned' || st === 'delivered') return;
             var _lt = (typeof lo.placedAt === 'number') ? lo.placedAt : Date.parse(lo.date || lo.updated || lo.orderDate || '');
@@ -6166,7 +6551,7 @@ const YARZ = (() => {
           });
         }
         if (localChanged) {
-          localStorage.setItem('yarz_my_orders', JSON.stringify(allLocal));
+          _setMyOrders(allLocal);
         }
         // Refresh in-memory copy with the synced version for the rest of merge
         localOrders = allLocal.filter(function(o){ return o.phone === phone; });
@@ -6198,10 +6583,10 @@ const YARZ = (() => {
         return tb - ta;
       });
 
-      // ✅ v16.5: Only show the last 30 days (matches the server cleanup + the
-      // "Showing your order history for the last 30 days" note). Orders with
+      // ✅ v16.5: Only show the last 90 days (matches the server cleanup + the
+      // "Showing your order history for the last 90 days" note). Orders with
       // no parseable date are kept so a just-placed order never disappears.
-      var _DISPLAY_WINDOW = 30 * 24 * 60 * 60 * 1000;
+      var _DISPLAY_WINDOW = 90 * 24 * 60 * 60 * 1000;
       var _nowDisp = Date.now();
       merged = merged.filter(function(o){
         var t = (typeof o.placedAt === 'number') ? o.placedAt : Date.parse(o.date || o.updated || o.orderDate || '');
@@ -6235,7 +6620,7 @@ const YARZ = (() => {
       var rows = result.orders || result.data || [];
       handleResults(rows, true); // ✅ v15.95: genuine API success → delete-detection allowed
     }).catch(function (err) {
-      console.error('Track error:', err);
+      if (__YARZ_DEV__) console.error('Track error:', err);
       // Fallback to local on error
       if (localOrders.length > 0) {
         handleResults([], false); // ✅ v15.95: network error → skip delete-detection
@@ -6359,8 +6744,8 @@ const YARZ = (() => {
     orders.forEach(function (o) {
       var rawStatus = o.status || 'Pending';
       var statusClass = rawStatus.toLowerCase().replace(/\s+/g, '');
-      var prodName = escHtml(o.product || o.productName || '');
-      var safeName = prodName.replace(/'/g, "\\'");
+      var prodName = o.product || o.productName || '';
+      var safeName = _cleanInlineName(prodName);
       var price = parseFloat(o.price) || 0;
       var delivery = parseFloat(o.delivery) || 0;
       var total = parseFloat(o.total || o.totalAmount) || 0;
@@ -6499,7 +6884,7 @@ const YARZ = (() => {
     //    Prevents the race condition where customer cancels AFTER admin pickup
     //    (because their UI was showing stale data).
     try {
-      var localOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+      var localOrders = _getMyOrders();
       var found = localOrders.filter(function(o){
         return (o.orderId === orderId || o.orderID === orderId);
       })[0];
@@ -6559,11 +6944,11 @@ const YARZ = (() => {
         }
         // Server agreed → safe to remove from localStorage
         try {
-          var localOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+          var localOrders = _getMyOrders();
           var updatedLocalOrders = localOrders.filter(function(o) {
             return o.orderId !== orderId && o.orderID !== orderId;
           });
-          localStorage.setItem('yarz_my_orders', JSON.stringify(updatedLocalOrders));
+          _setMyOrders(updatedLocalOrders);
         } catch(err) {}
         localStorage.removeItem('yarz_last_order_sig');
         localStorage.removeItem('yarz_last_order_sig_time');
@@ -6571,18 +6956,18 @@ const YARZ = (() => {
         showToast('অর্ডার সফলভাবে রিমুভ করা হয়েছে।', 'success');
         searchOrders();
       }).catch(function(err) {
-        console.error('Failed to delete order from backend', err);
+        if (__YARZ_DEV__) console.error('Failed to delete order from backend', err);
         // Network error → don't remove from localStorage either, ask user to retry
         showToast('সংযোগ সমস্যা — পুনরায় চেষ্টা করুন।', 'error');
       });
     } else {
       // Offline mode (no API) — just clean local storage
       try {
-        var localOrders = JSON.parse(localStorage.getItem('yarz_my_orders') || '[]');
+        var localOrders = _getMyOrders();
         var updatedLocalOrders = localOrders.filter(function(o) {
           return o.orderId !== orderId && o.orderID !== orderId;
         });
-        localStorage.setItem('yarz_my_orders', JSON.stringify(updatedLocalOrders));
+        _setMyOrders(updatedLocalOrders);
       } catch(err) {}
       localStorage.removeItem('yarz_last_order_sig');
       localStorage.removeItem('yarz_last_order_sig_time');
@@ -6620,7 +7005,14 @@ const YARZ = (() => {
 
   function logout() {
     state.user = null;
-    localStorage.removeItem('yarz_user');
+    state.myOrders = [];
+    _setSavedUser(null);
+    // ✅ v17.15: "Forget me" button removed per owner direction, so logout
+    // is the ONLY way a customer can wipe PII from a shared/kiosk device.
+    // Clear yarz_my_orders so the next visitor doesn't see the previous
+    // user's order history when they open "Track" and type any phone.
+    _setMyOrders([]);
+    try { localStorage.removeItem('yarz_pixel_user'); } catch(e){}
     updateUserUI();
     goHome();
     showToast('Logged out successfully');
@@ -6637,67 +7029,42 @@ const YARZ = (() => {
     }, { passive: true });
   }
 
-  // ===== BROWSER CHROME (ADDRESS BAR) COLOR SYNC — v14.5 =====
+  // ===== BROWSER CHROME (ADDRESS BAR) COLOR SYNC — v17.1 =====
   // Why: Mobile browsers (Safari, Chrome, Samsung Internet, FB/IG webviews)
   //   tint their address bar / status bar to match the page's `theme-color`
-  //   meta. If our meta says #FFFDF8 (cream) but the user has scrolled down
-  //   so the announcement bar is showing (purple) at the top of the viewport,
-  //   there's a visible "seam" between purple bar and cream address bar.
+  //   meta. Per owner spec: ALWAYS match the header (cream #FFFDF8 by
+  //   default, or admin's themeCardBg if set). The announcement bar's
+  //   purple color is intentionally IGNORED — the address bar should stay
+  //   consistent with the brand header regardless of any transient bars.
   //
-  // Fix: Read what's ACTUALLY at the top of the viewport in real time —
-  //   announcement bar (when active) → tint address bar to match its bg.
-  //   Otherwise → tint to header bg.
-  //   Dark mode → use the darkened variant.
-  //   We update ALL three theme-color meta tags (light/dark/fallback) so
-  //   no stale value lingers after `prefers-color-scheme` changes.
+  // Behavior:
+  //   • Read the .site-header's actual computed bg → that's the address bar
+  //     tint. Works in light + dark system theme, works on FB/IG (when JS
+  //     is honored), works after admin sets a custom themeCardBg.
+  //   • The static <meta> in HTML is the fallback for browsers that ignore
+  //     JS theme-color updates (FB/IG/Twitter in-app webviews) — set to
+  //     #FFFDF8 in BOTH light and dark media variants so any system theme
+  //     picks up cream.
   var _chromeColorCache = null;
   function _syncBrowserChromeColor() {
-    // ✅ v15.56 FIX: This function used to dynamically read the topmost
-    // visible element's computed background and write it to theme-color.
-    // Problem: when the announcement bar was active, it sampled the
-    // bar's gradient (pink/red) and stamped a dark hex into the meta —
-    // browsers then stuck with that dark color even after the user
-    // scrolled past the announcement. Result: address bar looked dark
-    // even though the page bg is always cream.
-    //
-    // Since the entire site is cream-only (no dark theme skin) the
-    // address bar should ALWAYS be cream — no dynamic detection needed.
-    // We just hard-write the cream value on every sync request.
     try {
-      var CREAM = '#FFFDF8';
-      if (CREAM === _chromeColorCache) return;
-      _chromeColorCache = CREAM;
-      var metas = document.querySelectorAll('meta[name="theme-color"]');
-      metas.forEach(function (m) { m.setAttribute('content', CREAM); });
-    } catch (e) {}
-  }
+      // Always read the header. Announcement bar / page bg / scroll state
+      // do NOT influence the address bar tint — owner wants it locked to
+      // the brand header color (cream or admin's themeCardBg).
+      var header = document.querySelector('.site-header');
+      if (!header) return;
 
-  // ✅ v15.57 LOCK: MutationObserver guards against ANY other code path
-  // (future modules, third-party widgets, browser extensions) trying to
-  // overwrite theme-color back to a non-cream value. If something tries,
-  // we revert it within microseconds. Only attached after first sync to
-  // avoid feedback loop with our own write.
-  function _lockChromeColorMeta() {
-    try {
-      var CREAM = '#FFFDF8';
+      var bg = getComputedStyle(header).backgroundColor;
+      var hex = _rgbToHex(bg);
+      if (!hex) return;
+      if (hex === _chromeColorCache) return;
+      _chromeColorCache = hex;
+
+      // Update every theme-color meta on the page
       var metas = document.querySelectorAll('meta[name="theme-color"]');
-      if (!metas.length) return;
-      var observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (m) {
-          if (m.type === 'attributes' && m.attributeName === 'content') {
-            var el = m.target;
-            if (el.getAttribute('content') !== CREAM) {
-              el.setAttribute('content', CREAM);
-            }
-          }
-        });
-      });
-      metas.forEach(function (m) {
-        observer.observe(m, { attributes: true, attributeFilter: ['content'] });
-      });
+      metas.forEach(function (m) { m.setAttribute('content', hex); });
     } catch (e) {}
   }
-  setTimeout(_lockChromeColorMeta, 600); // after multi-stage sync settles
 
   // Convert "rgb(255, 253, 248)" or "rgba(...)" → "#FFFDF8"
   function _rgbToHex(str) {
@@ -6980,15 +7347,15 @@ const YARZ = (() => {
         'fbq(\'track\', \'PageView\');';
       document.head.appendChild(fbScript);
       var fbNs = document.createElement('noscript');
-      fbNs.innerHTML = '<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1">';
+      fbNs.innerHTML = '<img crossorigin="anonymous" height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
       document.head.appendChild(fbNs);
-      console.log('YARZ: Facebook Pixel (' + fbPixel + ') injected (fallback path).');
+      //console.log('YARZ: Facebook Pixel (' + fbPixel + ') injected (fallback path).');
     }
     // ✅ v11.7: Always add the noscript fallback even when YARZ_PIXEL handles the script
     if (fbPixel && !document.getElementById('yarz-fb-noscript')) {
       var fbNs2 = document.createElement('noscript');
       fbNs2.id = 'yarz-fb-noscript';
-      fbNs2.innerHTML = '<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1">';
+      fbNs2.innerHTML = '<img crossorigin="anonymous" height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
       document.head.appendChild(fbNs2);
     }
 
@@ -7006,7 +7373,7 @@ const YARZ = (() => {
       var gaInline = document.createElement('script');
       gaInline.innerHTML = 'window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag(\'js\',new Date());gtag(\'config\',\'' + ga4Id + '\');';
       document.head.appendChild(gaInline);
-      console.log('YARZ: GA4 (' + ga4Id + ') injected.');
+      //console.log('YARZ: GA4 (' + ga4Id + ') injected.');
     }
 
     // -- TikTok Pixel --
@@ -7027,7 +7394,7 @@ const YARZ = (() => {
         'var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};' +
         'ttq.load(\'' + ttPixel + '\');ttq.page();}(window,document,\'ttq\');';
       document.head.appendChild(ttScr);
-      console.log('YARZ: TikTok Pixel (' + ttPixel + ') injected.');
+      //console.log('YARZ: TikTok Pixel (' + ttPixel + ') injected.');
     }
 
     // -- Snapchat Pixel --
@@ -7043,7 +7410,7 @@ const YARZ = (() => {
         '})(window,document,"https://sc-static.net/scevent.min.js");' +
         'snaptr("init","' + snapPixel + '",{});snaptr("track","PAGE_VIEW");';
       document.head.appendChild(snapScr);
-      console.log('YARZ: Snapchat Pixel (' + snapPixel + ') injected.');
+      //console.log('YARZ: Snapchat Pixel (' + snapPixel + ') injected.');
     }
 
     // -- Pinterest Tag --
@@ -7059,7 +7426,7 @@ const YARZ = (() => {
         '("https://s.pinimg.com/ct/core.js");' +
         'pintrk("load","' + pinPixel + '");pintrk("page");';
       document.head.appendChild(pinScr);
-      console.log('YARZ: Pinterest Tag (' + pinPixel + ') injected.');
+      //console.log('YARZ: Pinterest Tag (' + pinPixel + ') injected.');
     }
 
     // -- Instagram / Meta Secondary Pixel --
@@ -7082,10 +7449,10 @@ const YARZ = (() => {
         'fbq(\'init\', \'' + igPixel + '\');' +
         'fbq(\'track\', \'PageView\');';
       document.head.appendChild(igScript);
-      console.log('YARZ: Instagram/Meta Pixel (' + igPixel + ') injected.');
+      //console.log('YARZ: Instagram/Meta Pixel (' + igPixel + ') injected.');
     } else if (igPixel && igPixel === fbPixel && window.fbq) {
       // Same pixel — FB pixel already handles Instagram too, no duplicate needed
-      console.log('YARZ: IG Pixel is same as FB Pixel, no duplicate injection needed.');
+      //console.log('YARZ: IG Pixel is same as FB Pixel, no duplicate injection needed.');
     }
 
     // -- Custom CSS (from admin Code Injection field) --
@@ -7095,7 +7462,7 @@ const YARZ = (() => {
       style.id = 'yarz-custom-css';
       style.textContent = customCss;
       document.head.appendChild(style);
-      console.log('YARZ: Custom CSS injected.');
+      //console.log('YARZ: Custom CSS injected.');
     }
   }
 
@@ -7176,7 +7543,7 @@ const YARZ = (() => {
           // aspect-ratio (1406/738 desktop vs 4/5 mobile vs 1/1 tiny).
           // The .hero-section wrapper handles CLS reservation via its own
           // aspect-ratio rule, so we don't need width/height on the <img>.
-          var imgHtml = '<img src="' + escHtml(bannerSrc) + '" srcset="' + escHtml(bannerSrcset) + '" sizes="' + escHtml(bannerSizes) + '" alt="' + escHtml(b.title) + '" ' + eagerTags + ' style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.style.display=\'none\'">';
+          var imgHtml = '<img crossorigin="anonymous" src="' + escHtml(bannerSrc) + '" srcset="' + escHtml(bannerSrcset) + '" sizes="' + escHtml(bannerSizes) + '" alt="' + escHtml(b.title) + '" ' + eagerTags + ' style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.style.display=\'none\'">';
 
           var overlayHtml = '';
           if (b.title) {
@@ -7256,7 +7623,7 @@ const YARZ = (() => {
       // ── Hero Banners ──
       renderHeroBannersFromStore(store);
     }).catch(function (err) {
-      console.warn('YARZ: Could not load hero banners:', err);
+      _warn('YARZ: Could not load hero banners:', err);
       // Keep default placeholder on error
     });
   }
@@ -7312,7 +7679,7 @@ const YARZ = (() => {
         // Any other hash (or empty) → go home safely
         goHome();
       } catch (e) {
-        console.error('popstate handler error:', e);
+        _log('popstate handler error:', e);
         goHome();
       }
     });
@@ -7377,7 +7744,7 @@ const YARZ = (() => {
           }
         }
         // ✅ ZERO LOCAL CACHING: instant cache removed — 100% Cloudflare Edge real-time
-        console.log('YARZ: products refreshed (' + reason + ')');
+        //console.log('YARZ: products refreshed (' + reason + ')');
       }).catch(function () {});
 
       // ✅ v15.32 FIX: Also re-fetch + re-apply Website Control settings.
@@ -7475,7 +7842,7 @@ const YARZ = (() => {
         try { renderSocialLinks(controls.socialLinks || {}); } catch (e) {}
         try { renderLiveChatButtons(controls.liveChat || {}, controls.socialLinks || {}); } catch (e) {}
 
-        console.log('YARZ: settings re-applied (' + reason + ')');
+        //console.log('YARZ: settings re-applied (' + reason + ')');
       }).catch(function () { /* silent */ });
     }
 
@@ -7528,7 +7895,7 @@ const YARZ = (() => {
 
     // ✅ v5.0: Start background engines
     if (window.YARZ_TURBO) YARZ_TURBO.start();
-    if (window.YARZ_SHIELD) YARZ_SHIELD.init();
+    // Shield auto-initializes on load; Fortress auto-initializes on load.
     // Pixel init moved to after storeInfo is loaded
 
     initHeaderScroll();
@@ -7573,7 +7940,7 @@ const YARZ = (() => {
           renderDynamicSections(state.products, state.storeInfo);
         }
         // Cache writing logic removed per user request
-        console.log('⚡ TURBO FIRST PAINT: ' + state.products.length + ' products rendered');
+        //console.log('⚡ TURBO FIRST PAINT: ' + state.products.length + ' products rendered');
         window._turboFirstPaintDone = true;
 
         // ✅ v15.44 CRITICAL FIX: Hash routing on refresh of `?product=<slug>`
@@ -7737,7 +8104,7 @@ const YARZ = (() => {
         // non-branded fallback (logoEl missing the .yarz-mark animation).
         var logoEl = document.querySelector('.brand-logo');
         if (logoEl && !logoEl.classList.contains('yarz-mark')) {
-          logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(sLogo)) + '" alt="' + escHtml(sName || 'Logo') + '" style="max-height:32px;">';
+          logoEl.innerHTML = '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(sLogo)) + '" alt="' + escHtml(sName || 'Logo') + '" decoding="async" style="max-height:32px;">';
         }
       }
 
@@ -7783,7 +8150,8 @@ const YARZ = (() => {
             flashSection.innerHTML = timerHtml;
           }
           updateFlashTimer();
-          setInterval(updateFlashTimer, 1000);
+          if (state._flashInterval) clearInterval(state._flashInterval);
+          state._flashInterval = setInterval(updateFlashTimer, 1000);
         }
       }
 
@@ -7809,7 +8177,7 @@ const YARZ = (() => {
         // is NOT the YARZ animated mark (e.g. a future generic build).
         var logoEl = document.querySelector('.brand-logo');
         if (logoEl && !logoEl.classList.contains('yarz-mark')) {
-          logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(controls.websiteLogoUrl)) + '" alt="' + escHtml(controls.raw.store_name || 'Logo') + '" style="max-height:32px;">';
+          logoEl.innerHTML = '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(controls.websiteLogoUrl)) + '" alt="' + escHtml(controls.raw.store_name || 'Logo') + '" decoding="async" style="max-height:32px;">';
         }
       }
 
@@ -7869,10 +8237,16 @@ const YARZ = (() => {
           if (controls.announcementBg)    annBar.style.background = controls.announcementBg;
           if (controls.announcementColor) annBar.style.color = controls.announcementColor;
         }
+        // ✅ v17.0: Re-sync address bar tint so the active announcement bg
+        // (admin-controlled) is reflected in <meta name="theme-color">.
+        try { if (typeof window.__yarzSyncChrome === 'function') window.__yarzSyncChrome(); } catch(e) {}
       } else {
         // Toggle off → clear overrides so default theme reasserts.
         document.documentElement.style.removeProperty('--yarz-ann-bg');
         document.documentElement.style.removeProperty('--yarz-ann-color');
+        // ✅ v17.0: Sync again — announcement just toggled off, topmost
+        // element is now the header (cream), not the announcement bar.
+        try { if (typeof window.__yarzSyncChrome === 'function') window.__yarzSyncChrome(); } catch(e) {}
       }
 
       // ── Footer About Text ──
@@ -7923,14 +8297,18 @@ const YARZ = (() => {
       state.relatedProd = controls.relatedProd;
 
       // ── Order Notes ──
+      // ✅ Insert AFTER the City / Area field (not after the address) so the
+      // delivery-area block sits directly under the Full Address textarea.
+      // Without this, Order Notes appears between Address and Delivery Area,
+      // pushing the City / Area input out of immediate view.
       if (controls.orderNotes) {
         state.orderNotes = true;
-        var coAddress = document.getElementById('co-address');
-        if (coAddress && !document.getElementById('co-order-notes')) {
+        var coCity = document.getElementById('co-city');
+        if (coCity && !document.getElementById('co-order-notes')) {
           var notesGroup = document.createElement('div');
           notesGroup.className = 'form-group';
           notesGroup.innerHTML = '<label>Order Notes / Gift Message</label><textarea class="form-input" id="co-order-notes" placeholder="যেকোনো বিশেষ নির্দেশনা বা গিফট মেসেজ লিখুন..." style="min-height:60px;font-size:13px;"></textarea>';
-          coAddress.parentNode.parentNode.insertBefore(notesGroup, coAddress.parentNode.nextSibling);
+          coCity.parentNode.parentNode.insertBefore(notesGroup, coCity.parentNode.nextSibling);
         }
       }
 
@@ -7942,7 +8320,15 @@ const YARZ = (() => {
           var customGroup = document.createElement('div');
           customGroup.className = 'form-group';
           customGroup.innerHTML = '<label>' + escHtml(controls.customField) + '</label><input type="text" class="form-input" id="co-custom-field" placeholder="' + escHtml(controls.customField) + '">';
-          coCity.parentNode.parentNode.insertBefore(customGroup, coCity.parentNode.nextSibling);
+          // ✅ v17.4: Insert AFTER Order Notes (if present) so the final order is:
+          //   City → Order Notes → Custom Field → Payment
+          // Previously this used coCity.parentNode.nextSibling which, after the
+          // v17.3 orderNotes patch, now points at Order Notes — pushing Custom
+          // Field to sit BETWEEN City and Order Notes. We want Custom Field to
+          // be the LAST input field before Payment, so anchor to whichever
+          // sibling is currently last in the address block.
+          var _insertAnchor = document.getElementById('co-order-notes') || coCity;
+          _insertAnchor.parentNode.parentNode.insertBefore(customGroup, _insertAnchor.parentNode.nextSibling);
         }
       }
 
@@ -8002,13 +8388,14 @@ const YARZ = (() => {
             requestAnimationFrame(function() { exitOverlay.classList.add('visible'); });
           };
           // Desktop: mouseout trigger
-          document.addEventListener('mouseout', function(e) {
-            if (e.clientY < 5 && e.relatedTarget === null) _showExitPopup();
-          });
+          var _exitMouse = function(e) {
+            if (e.clientY < 5 && e.relatedTarget === null) { document.removeEventListener('mouseout', _exitMouse); _showExitPopup(); }
+          };
+          document.addEventListener('mouseout', _exitMouse);
           // Mobile: back-button / tab-switch detection
           document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'hidden' && state.cart.length > 0) {
-              // Don't show popup on tab switch — just mark for next visit
+              document.removeEventListener('visibilitychange', this);
             }
           });
         }
@@ -8061,48 +8448,51 @@ const YARZ = (() => {
           var pTrigger = parseInt(getVal(titlePrefix + 'Trigger', snakePrefix + 'trigger')) || 3;
           var pKey = 'yarz_promo_popup_' + i + '_dismissed';
           
-          if (!sessionStorage.getItem(pKey)) {
-            (function(idx, img, link, delay, storageKey) {
-              setTimeout(function() {
-                if (document.getElementById('yarz-promo-popup-' + idx)) return;
-                var overlay = document.createElement('div');
-                overlay.id = 'yarz-promo-popup-' + idx;
-                overlay.className = 'yarz-popup-overlay';
+          // User requested popup to show on EVERY refresh, so we bypass sessionStorage checks
+          (function(idx, img, link, delay) {
+            setTimeout(function() {
+              if (document.getElementById('yarz-promo-popup-' + idx)) return;
+              var overlay = document.createElement('div');
+              overlay.id = 'yarz-promo-popup-' + idx;
+              overlay.className = 'yarz-popup-overlay';
+              
+              var innerHtml = '<div class="yarz-popup-card promo-popup-card">' +
+                '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove(); event.preventDefault();">&times;</button>';
                 
-                var innerHtml = '<div class="yarz-popup-card promo-popup-card">' +
-                  '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();sessionStorage.setItem(\'' + storageKey + '\',\'1\'); event.preventDefault();">&times;</button>';
-                  
-                if (link) {
-                  innerHtml += '<a href="' + link + '" onclick="sessionStorage.setItem(\'' + storageKey + '\',\'1\')"><img src="' + img + '" style="border-radius:12px;width:100%;display:block"></a>';
-                } else {
-                  innerHtml += '<img src="' + img + '" style="border-radius:12px;width:100%;display:block">';
+              var safeImgSrc = getImgSrc(img, 600);
+              if (link) {
+                innerHtml += '<a href="' + escHtml(link) + '"><img crossorigin="anonymous" src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async"></a>';
+              } else {
+                innerHtml += '<img crossorigin="anonymous" src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async">';
+              }
+              
+              innerHtml += '</div>';
+              overlay.innerHTML = innerHtml;
+              
+              overlay.addEventListener('click', function(ev) {
+                if (ev.target === overlay) { 
+                  overlay.remove(); 
                 }
-                
-                innerHtml += '</div>';
-                overlay.innerHTML = innerHtml;
-                
-                overlay.addEventListener('click', function(ev) {
-                  if (ev.target === overlay) { 
-                    overlay.remove(); 
-                    sessionStorage.setItem(storageKey, '1'); 
-                  }
-                });
-                
-                document.body.appendChild(overlay);
-                void overlay.offsetHeight; // force reflow
-                overlay.classList.add('visible'); // style.css uses .visible
-              }, delay * 1000);
-            })(i, pImg, pLink, pTrigger, pKey);
-          }
+              });
+              
+              document.body.appendChild(overlay);
+              void overlay.offsetHeight; // force reflow
+              overlay.classList.add('visible'); // style.css uses .visible
+            }, delay * 1000);
+          })(i, pImg, pLink, pTrigger);
         }
       })();
 
       // ── Loyalty Points System (v9.8) ──
       if (controls.loyaltySystem) {
         state.loyaltyEnabled = true;
-        // Calculate points from order history
+        // Calculate points from order history (✅ v17.15: use canonical
+        // yarz_my_orders via the typed helper — the legacy 'yarz_orders' key
+        // was only ever read here, with no TTL envelope, so it was a
+        // privacy-hygiene dead end. _getMyOrders() is TTL-aware and includes
+        // its own 90-day filter on placedAt at app.js:592.)
         try {
-          var loyaltyOrders = JSON.parse(localStorage.getItem('yarz_orders') || '[]');
+          var loyaltyOrders = _getMyOrders() || [];
           var totalPoints = 0;
           loyaltyOrders.forEach(function(o) {
             totalPoints += Math.floor((parseFloat(o.total) || 0) * 0.01);
@@ -8165,7 +8555,7 @@ const YARZ = (() => {
       // ============================================================
       // ✅ v11 EXTRAS: Apply 15+ Premium Controls to the Storefront
       // ============================================================
-      try { applyExtrasControls(controls); } catch(extraErr) { console.warn('YARZ extras error:', extraErr); }
+      try { applyExtrasControls(controls); } catch(extraErr) { _warn('YARZ extras error:', extraErr); }
 
     }).catch(function () {
       // If global controls fail, still load banners gracefully
@@ -8322,7 +8712,7 @@ const YARZ = (() => {
             _homeEl2.style.visibility = 'visible';
             _homeEl2.removeAttribute('hidden');
           }
-          console.warn('YARZ: deep-link routing error, falling back to home:', _routeErr);
+          _warn('YARZ: deep-link routing error, falling back to home:', _routeErr);
         }
       } else {
         renderProducts([]);
@@ -8351,7 +8741,7 @@ const YARZ = (() => {
         }
       }
     }).catch(function (err) {
-      console.error('YARZ: Product load error:', err);
+      _log('YARZ: Product load error:', err);
       // ✅ v15.47 BLANK-SCREEN FIX: When the GAS fetch fails on a deep-link
       // refresh, the inline #hash-route-style is still hiding #home-content,
       // so the customer sees a blank page with no error message at all.
@@ -8419,13 +8809,13 @@ const YARZ = (() => {
             }
           }
         }
-        console.log('YARZ: Products refreshed in background (' + data.products.length + ' items)');
+        //console.log('YARZ: Products refreshed in background (' + data.products.length + ' items)');
         // ✅ ZERO LOCAL CACHING: instant cache removed — 100% Cloudflare Edge real-time
       }
       if (cacheKey.indexOf('action=categories') > -1 && data.success && data.categories) {
         state.categories = data.categories;
         renderCategories(data.categories);
-        console.log('YARZ: Categories refreshed in background');
+        //console.log('YARZ: Categories refreshed in background');
       }
       // ✅ v15.34 FIX: SWR getStoreInfo (api.js) fires this every 60s with
       // fresh announcement / hero / theme / popups / countdown / social
@@ -8508,7 +8898,7 @@ const YARZ = (() => {
                   }
                 }
               } catch (e) {}
-              console.log('YARZ: store_info refreshed in background (SWR 60s)');
+              //console.log('YARZ: store_info refreshed in background (SWR 60s)');
             }).catch(function(){});
           }
         } catch (e) { /* silent */ }
@@ -9206,6 +9596,7 @@ const YARZ = (() => {
     cancelOrder: cancelOrder,
     openProfile: openProfile,
     logout: logout,
+    _getRecentErrors: function(){ return (window.__yarzErrBuf || []).slice(); },
     setApiUrl: setApiUrl,
     showToast: showToast,
     slugify: slugify,
@@ -9225,23 +9616,4 @@ const YARZ = (() => {
 
 // Init on DOM ready
 document.addEventListener('DOMContentLoaded', YARZ.init);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

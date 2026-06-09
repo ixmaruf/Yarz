@@ -105,9 +105,16 @@ const YARZ_SHIELD = (() => {
       var data = JSON.parse(localStorage.getItem(CFG.ORDER_TRACKING_KEY) || '[]');
       var now = Date.now();
       // Keep only last 24 hours
-      return data.filter(function(entry) {
+      var filtered = data.filter(function(entry) {
         return (now - entry.time) < 24 * 60 * 60 * 1000;
       });
+      // ✅ v17.15: If anything was pruned, write the trimmed list back so
+      // expired entries (phone + device fingerprint) don't linger in
+      // localStorage until the user clears browser data manually.
+      if (filtered.length !== data.length) {
+        try { localStorage.setItem(CFG.ORDER_TRACKING_KEY, JSON.stringify(filtered)); } catch (e) {}
+      }
+      return filtered;
     } catch(e) { return []; }
   }
 
@@ -160,7 +167,7 @@ const YARZ_SHIELD = (() => {
 
   // ===== E. ADDRESS QUALITY =====
   function _isAddressGarbage(address) {
-    if (!address) return true;
+    if (!address) return 'short';
     address = address.trim();
 
     // Word count check (minimum 6 words)
@@ -227,9 +234,29 @@ const YARZ_SHIELD = (() => {
       return { allowed: false, reason: 'সঠিক বাংলাদেশি ফোন নম্বর দিন (যেমন: 017XXXXXXXX)', silent: false };
     }
 
-    // 5. Phone rate limit - REMOVED
-    // 6. Phone rate limit (day) - REMOVED
-    // 7. Device rate limit (day) - REMOVED
+    // 5. Phone rate limit (hour) — max 5 orders per phone per hour
+    var phoneHourCount = _countOrders(function(entry) {
+      return entry.phone === phone;
+    }, 60 * 60 * 1000);
+    if (phoneHourCount >= 5) {
+      return { allowed: false, reason: 'phone_hour_limit', silent: true };
+    }
+
+    // 6. Phone rate limit (day) — max 10 orders per phone per day
+    var phoneDayCount = _countOrders(function(entry) {
+      return entry.phone === phone;
+    }, 24 * 60 * 60 * 1000);
+    if (phoneDayCount >= 10) {
+      return { allowed: false, reason: 'phone_day_limit', silent: true };
+    }
+
+    // 7. Device rate limit (day) — max 15 orders per device per day
+    var deviceDayCount = _countOrders(function(entry) {
+      return entry.deviceId === _getDeviceId();
+    }, 24 * 60 * 60 * 1000);
+    if (deviceDayCount >= 15) {
+      return { allowed: false, reason: 'device_day_limit', silent: true };
+    }
 
     // 8. Address Quality
     var addressResult = _isAddressGarbage(address);
@@ -277,14 +304,23 @@ const YARZ_SHIELD = (() => {
     if (_initialized) return;
     _initialized = true;
     _initBehaviorTracking();
-    console.log('YARZ Shield: Anti-fraud protection active');
+    //console.log('YARZ Shield: Anti-fraud protection active');
   }
 
   // ===== PUBLIC API =====
-  return {
+  var publicApi = {
     init: init,
     validate: validate,
     getBehaviorScore: function() { return _behaviorScore; },
     getDeviceId: _getDeviceId,
   };
+
+  // Auto-init when script loads
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init();
+  } else {
+    document.addEventListener('DOMContentLoaded', init);
+  }
+
+  return publicApi;
 })();

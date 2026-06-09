@@ -73,11 +73,15 @@
     return; // No-op
   }
 
-  // ---------- 3) APPLY GLOBAL CONTROLS (Social Links) ----------
+  // ---------- 3) APPLY GLOBAL CONTROLS (Social Links + Theme) ----------
   function applyGlobalControls() {
     if (typeof YARZ_API === 'undefined') return;
     YARZ_API.getGlobalControls().then(function (controls) {
       if (!controls) return;
+      // ✅ Apply subpage theme palette + custom CSS from the SAME controls
+      // object to eliminate a duplicate API call (the old wrapper at line 276
+      // fired two separate getGlobalControls() fetches).
+      applySubpageTheme(controls);
       var s = controls.socialLinks || {};
 
       // ✅ v11.7: Init YARZ_PIXEL on static pages (about/privacy/terms/...)
@@ -266,21 +270,11 @@
             var m = imgUrl.match(/d\/([a-zA-Z0-9_-]+)/) || imgUrl.match(/id=([a-zA-Z0-9_-]+)/);
             if (m) imgUrl = 'https://lh3.googleusercontent.com/d/' + m[1] + '=s400-rw';
           }
-          logoEl.innerHTML = '<img src="' + imgUrl.replace(/"/g, '&quot;') + '" alt="Logo" style="max-height:32px;">';
+          logoEl.innerHTML = '<img src="' + imgUrl.replace(/"/g, '&quot;') + '" alt="Logo" decoding="async" style="max-height:32px;">';
         }
       }
     } catch(e) { /* silent */ }
   }
-
-  // Wrap the existing applyGlobalControls so we also apply theme to subpages
-  var _origApplyGlobalControls = applyGlobalControls;
-  applyGlobalControls = function() {
-    if (typeof YARZ_API === 'undefined') return;
-    YARZ_API.getGlobalControls().then(function(controls) {
-      if (controls) applySubpageTheme(controls);
-    }).catch(function(){});
-    _origApplyGlobalControls();
-  };
 
   // ---------- 4) BROWSER ADDRESS BAR COLOR SYNC — v14.5 ----------
   // Lightweight version of app.js's chrome-sync — keeps the address bar

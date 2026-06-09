@@ -25,7 +25,7 @@
   } catch (e) {}
 })();
 
-const YARZ_API = (() => {
+var YARZ_API = (function() {
   // ✅ v16.12 STRICT SESSION CACHE: Detect manual page refresh to force fresh data
   try {
     var isReload = false;
@@ -84,15 +84,20 @@ const YARZ_API = (() => {
       if (override) return override;
     } catch (e) {}
     try {
+      if (typeof window !== 'undefined' && window.__YARZ_WORKER_URL) return window.__YARZ_WORKER_URL;
+    } catch (e) {}
+    try {
       var host = (typeof location !== 'undefined' && location.hostname) || '';
-      // Same-origin if running on a real domain (not GitHub Pages preview).
-      // GitHub Pages preview must keep using workers.dev because it can't
-      // host the Worker itself.
-      if (host && host !== 'localhost' && host !== '127.0.0.1' &&
-          host.indexOf('github.io') === -1 && host.indexOf('githubpreview.dev') === -1) {
-        // Same-origin: '' makes URL constructor use the page's origin.
-        // We use location.origin + '/' explicitly to keep the URL absolute
-        // (some Worker code paths expect a full URL, not a relative one).
+      // Same-origin if running on a real domain (not a preview/dev domain).
+      // Preview domains (GitHub Pages, Netlify, Vercel, etc.) cannot host
+      // the Worker, so requests must go cross-origin to workers.dev.
+      var isPreview = !host || host === 'localhost' || host === '127.0.0.1' ||
+        host.indexOf('github.io') !== -1 || host.indexOf('githubpreview.dev') !== -1 ||
+        host.indexOf('netlify.app') !== -1 || host.indexOf('vercel.app') !== -1 ||
+        host.indexOf('pages.dev') !== -1 || host.indexOf('gitpod.io') !== -1 ||
+        host.indexOf('csb.app') !== -1 || host.indexOf('stackblitz.io') !== -1 ||
+        host.indexOf('glitch.me') !== -1 || host.indexOf('repl.co') !== -1;
+      if (host && !isPreview) {
         return location.origin + '/';
       }
     } catch (e) {}
@@ -245,7 +250,7 @@ const YARZ_API = (() => {
           categories = rawCatList.filter(function(c) { return c.count > 0; });
 
           _turboData = { products:products, storeInfo:storeInfo, categories:categories };
-          console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (CF Worker)');
+          if (window.__DEV__) console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (CF Worker)');
           // ✅ v15.84: NO client-side snapshot. Owner policy requires every
           //   visit to fetch fresh data from Worker edge so admin updates
           //   show on the very next page load (not stuck behind a stale
@@ -315,7 +320,7 @@ const YARZ_API = (() => {
               }
               var catList = Object.keys(cats).map(function(n) { return {name:n, count:cats[n]}; });
               _turboData = { products:products, storeInfo:storeInfo, categories:catList };
-              console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (Sheets fallback)');
+              if (window.__DEV__) console.log('⚡ TURBO: ' + products.length + ' products in ' + (Date.now()-_turboStart) + 'ms (Sheets fallback)');
               // ✅ v15.84: NO client-side snapshot — see policy note above.
               return _turboData;
             })
@@ -390,13 +395,27 @@ const YARZ_API = (() => {
         // 2. Force Service Worker to clear old caches
         if ('caches' in window) {
           caches.keys().then(function(keys) {
-            keys.forEach(function(k) { caches.delete(k); });
+            keys.forEach(function(k) { if (k.startsWith('yarz-')) caches.delete(k); });
           });
         }
-        // 3. Unregister old service worker so new one installs fresh
+        // 3. ✅ v17.15: Don't blanket-unregister ALL service workers — this
+        // raced with boot.js's registration in multi-tab scenarios, killing
+        // the SW in the *other* tab and breaking offline for the next
+        // navigation. Instead, just unregister the registrations whose
+        // scriptURL doesn't match the current sw.js?v=17.15 (i.e., the
+        // genuinely-old one). The new SW's own activate handler at
+        // sw.js:83-85 already purges old `yarz-*` caches automatically.
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(regs) {
-            regs.forEach(function(r) { r.unregister(); });
+            regs.forEach(function(r) {
+              try {
+                if (r.active && r.active.scriptURL &&
+                    r.active.scriptURL.indexOf('sw.js') !== -1 &&
+                    r.active.scriptURL.indexOf(DEPLOY_VERSION) === -1) {
+                  r.unregister();
+                }
+              } catch (e) { /* registration gone, ignore */ }
+            });
           });
         }
         // 4. Save new version
@@ -472,7 +491,7 @@ const YARZ_API = (() => {
     
     // Fallback to sessionStorage
     try {
-      const sessionItemStr = sessionStorage.getItem('yarz_api_sess_' + btoa(key));
+      const sessionItemStr = sessionStorage.getItem('yarz_api_sess_' + encodeURIComponent(key));
       if (sessionItemStr) {
         const sessionItem = JSON.parse(sessionItemStr);
         const age = Date.now() - sessionItem.time;
@@ -495,8 +514,9 @@ const YARZ_API = (() => {
     const time = Date.now();
     memCache[key] = { data, time };
     try {
-      sessionStorage.setItem('yarz_api_sess_' + btoa(key), JSON.stringify({ data, time }));
+      sessionStorage.setItem('yarz_api_sess_' + encodeURIComponent(key), JSON.stringify({ data, time }));
     } catch (e) { }
+    try { if (window.TURBO) window.TURBO.set(key, data); } catch (e) {}
   }
 
   function clearCache() {
@@ -509,6 +529,17 @@ const YARZ_API = (() => {
         if (k.startsWith('yarz_api_cache_')) localStorage.removeItem(k);
       });
     } catch (e) { }
+    try { if (window.TURBO) window.TURBO.clear(); } catch (e) {}
+  }
+
+  function flushAllCaches() {
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'PURGE_CACHE' });
+      }
+    } catch (e) { }
+    clearCache();
+    invalidateStoreInfo();
   }
 
   // ✅ v9.7: Targeted invalidation for store_info — used after admin saves settings.
@@ -708,6 +739,21 @@ const YARZ_API = (() => {
     return p;
   }
 
+  // ✅ v17.5: Fetch with AbortController timeout. Without this, a hung GAS /
+  // Worker connection would make the customer wait the full 12s exponential
+  // backoff chain (1.5s + 3s + 4.5s) on every retry — for `place_order` that
+  // could mean 5 orders × 12s = 60 seconds of UI time.
+  const _NETWORK_TIMEOUT_MS = 8000;
+  function _fetchWithTimeout(url, opts) {
+    opts = opts || {};
+    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    if (ctl) opts.signal = ctl.signal;
+    const p = fetch(url, opts);
+    if (!ctl) return p;
+    const t = setTimeout(function () { try { ctl.abort(); } catch (e) {} }, _NETWORK_TIMEOUT_MS);
+    return p.finally(function () { clearTimeout(t); });
+  }
+
   async function _fetchFromNetwork(action, urlStr, cacheKey, skipCache) {
     const maxRetries = 4; // Increased for high concurrency
     let attempt = 0;
@@ -715,23 +761,23 @@ const YARZ_API = (() => {
     while (attempt < maxRetries) {
       try {
         const bustUrl = urlStr + (urlStr.includes('?') ? '&' : '?') + '_t=' + Date.now();
-        const response = await fetch(bustUrl, {
+        const response = await _fetchWithTimeout(bustUrl, {
           method: 'GET',
           redirect: 'follow',
           cache: 'no-store',
         });
-        
+
         // If Google hits a rate limit, it might return 429 or 500
         if (!response.ok) {
            throw new Error(`HTTP Error: ${response.status}`);
         }
-        
+
         let data = await response.json();
 
         // ✅ CRITICAL: Normalize response so app.js works regardless of API format
         data = _normalizeResponse(action, data);
 
-        if (data.success && !skipCache) {
+        if ((data.success || data.ok) && !skipCache) {
           setCache(cacheKey, data);
           _notifyRefresh(cacheKey, data);
         }
@@ -741,8 +787,8 @@ const YARZ_API = (() => {
         if (attempt >= maxRetries) {
           throw err;
         }
-        // Exponential backoff: 1.5s, 3s, 4.5s
-        const delay = (attempt * 1500) + Math.floor(Math.random() * 1000);
+        // Exponential backoff with full jitter: 2s, 4s, cap@8s
+        const delay = Math.min(Math.pow(2, attempt) * 1000, _NETWORK_TIMEOUT_MS) + Math.floor(Math.random() * 1000);
         await new Promise(r => setTimeout(r, delay));
       }
     }
@@ -785,7 +831,7 @@ const YARZ_API = (() => {
 
     while (attempt < maxRetries) {
       try {
-        const response = await fetch(base, {
+        const response = await _fetchWithTimeout(base, {
           method: 'POST',
           redirect: 'follow',
           keepalive: true, // v10.6: Guarantees delivery even if user closes tab instantly
@@ -809,8 +855,8 @@ const YARZ_API = (() => {
         if (attempt >= maxRetries) {
           throw err;
         }
-        // Exponential backoff: 1.5s, 3s, 4.5s
-        const delay = (attempt * 1500) + Math.floor(Math.random() * 1000);
+        // Exponential backoff with full jitter: 2s, 4s, cap@8s
+        const delay = Math.min(Math.pow(2, attempt) * 1000, _NETWORK_TIMEOUT_MS) + Math.floor(Math.random() * 1000);
         await new Promise(r => setTimeout(r, delay));
       }
     }
@@ -1470,10 +1516,29 @@ const YARZ_API = (() => {
     } catch (e) { /* fail silently */ }
   }
 
+  // ✅ Error buffer flush — sends buffered errors to the health endpoint
+  // every 50 errors or every 5 minutes as a background fire-and-forget request.
+  function _flushErrorBuffer() {
+    try {
+      if (typeof window === 'undefined' || !window.__yarzErrBuf || !window.__yarzErrBuf.length) return;
+      var entries = window.__yarzErrBuf.splice(0);
+      var payload = JSON.stringify({ errors: entries, ts: Date.now(), url: location.href, ua: navigator.userAgent });
+      var flushUrl = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=health';
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(flushUrl, payload);
+      } else {
+        var img = new Image();
+        img.src = flushUrl + '&data=' + encodeURIComponent(payload.slice(0, 2048));
+      }
+    } catch (e) {}
+  }
+
   // ✅ v4.1: Fire prefetch IMMEDIATELY (don't wait for DOMContentLoaded)
   // This runs in parallel with HTML/CSS/font parsing — saves 200-500ms.
   if (typeof window !== 'undefined') {
+    if (!window.__yarzErrBuf) window.__yarzErrBuf = [];
     prefetchAll();
+    setInterval(_flushErrorBuffer, 300000);
   }
 
   return {
@@ -1484,6 +1549,7 @@ const YARZ_API = (() => {
     setBaseUrl,
     isConfigured,
     clearCache,
+    flushAllCaches,
     invalidateStoreInfo,
     getProducts,
     getProduct,
@@ -1510,5 +1576,4 @@ const YARZ_API = (() => {
     _getTurboPromise: function() { return _turboPromise || (_turboData ? Promise.resolve(_turboData) : null); },
   };
 })();
-
 

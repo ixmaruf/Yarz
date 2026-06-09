@@ -46,41 +46,39 @@
     return false;
   }
 
-  // ===== A. CONSOLE NEUTRALIZATION =====
+  // ===== A. CONSOLE NEUTRALIZATION (instant — runs on script load) =====
   function _neutralizeConsole() {
-    setTimeout(function() {
-      if (window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1' ||
-          window.location.search.indexOf('debug=1') > -1) {
-        return;
-      }
-      try {
-        window.__yc = {
-          log: console.log.bind(console),
-          warn: console.warn.bind(console),
-          error: console.error.bind(console)
-        };
-        var noop = function() {};
-        console.log = noop;
-        console.warn = noop;
-        console.info = noop;
-        console.debug = noop;
-        console.dir = noop;
-        console.dirxml = noop;
-        console.table = noop;
-        console.trace = noop;
-        console.group = noop;
-        console.groupCollapsed = noop;
-        console.groupEnd = noop;
-        console.count = noop;
-        console.countReset = noop;
-        console.time = noop;
-        console.timeEnd = noop;
-        console.timeLog = noop;
-        console.profile = noop;
-        console.profileEnd = noop;
-      } catch (e) {}
-    }, 3000);
+    if (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.search.indexOf('debug=1') > -1) {
+      return;
+    }
+    try {
+      window.__yc = {
+        log: console.log.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+      };
+      var noop = function() {};
+      console.log = noop;
+      console.warn = noop;
+      console.info = noop;
+      console.debug = noop;
+      console.dir = noop;
+      console.dirxml = noop;
+      console.table = noop;
+      console.trace = noop;
+      console.group = noop;
+      console.groupCollapsed = noop;
+      console.groupEnd = noop;
+      console.count = noop;
+      console.countReset = noop;
+      console.time = noop;
+      console.timeEnd = noop;
+      console.timeLog = noop;
+      console.profile = noop;
+      console.profileEnd = noop;
+    } catch (e) {}
   }
 
   // ===== B. DEVTOOLS DETECTION (DESKTOP ONLY) =====
@@ -180,16 +178,6 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  // ===== G. IMAGE DRAG PREVENTION (REMOVED v15.58) =====
-  // Customers want to take screenshots and share product images on
-  // Facebook/Messenger to friends — that's free word-of-mouth advertising
-  // for the store. Blocking image-drag was misinterpreted as blocking
-  // screenshots. We now allow drag, long-press save, and copy-image so
-  // customers can share freely.
-  function _preventDrag() {
-    // No-op — kept for backward-compat init() call ordering
-  }
-
   // ===== H. GLOBAL PROTECTION =====
   function _protectGlobals() {
     setTimeout(function() {
@@ -206,19 +194,22 @@
     if (window.location.pathname.indexOf('admin') > -1) return;
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
 
-    _neutralizeConsole();
+    // Console already neutralized at script load (see IIFE level)
     _blockShortcuts();
     _blockContextMenu();
     _antiIframe();
     _monitorScripts();
     _protectGlobals();
-    _preventDrag();
+    // _preventDrag removed — no longer needed
 
     // DevTools check — DESKTOP ONLY, no popup
     if (!_isMobileOrTablet()) {
       setInterval(_checkDevTools, _cfg.CHECK_INTERVAL);
     }
   }
+
+  // Console neutralization runs IMMEDIATELY — before any other script can log
+  _neutralizeConsole();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

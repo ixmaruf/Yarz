@@ -156,9 +156,8 @@ const YARZ_PIXEL = (() => {
   // route correctly across browser pixel ↔ server CAPI ↔ catalog feed ↔ deep-link.
   function _slug(s) {
     return String(s || '').toLowerCase().trim()
-      .replace(/[\u0980-\u09FF]+/g, '')        // strip Bengali (matches app.js slugify)
       .replace(/[\u0600-\u06FF]+/g, '')        // strip Arabic
-      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')  // keep Bengali + Latin
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
@@ -257,7 +256,9 @@ const YARZ_PIXEL = (() => {
       try {
         var cachedRaw = localStorage.getItem('yarz_user');
         if (cachedRaw) {
+          // ✅ v17.15: Unwrap TTL envelope ({v, t, d}) if present, fall back to raw.
           var c = JSON.parse(cachedRaw) || {};
+          if (c && typeof c === 'object' && 'v' in c && 't' in c) c = c.v || {};
           if (c.name)    ud.name    = c.name;
           if (c.phone)   ud.phone   = c.phone;
           if (c.email)   ud.email   = c.email;
@@ -415,18 +416,33 @@ const YARZ_PIXEL = (() => {
     try {
       // Persist plaintext-ish identity for cross-page enrichment (used by _sendCapiMirror)
       try {
+        // ✅ v17.15: Use TTL envelope so app.js's _safeReadLSWithTTL honours
+        // the 90-day PII auto-expire. Before this, pixel.js wrote raw JSON,
+        // which app.js parsed as malformed and treated the entry as missing
+        // — silently breaking pre-fill AND the 90-day TTL.
         var stored = {};
-        try { stored = JSON.parse(localStorage.getItem('yarz_user') || '{}') || {}; } catch (e) {}
+        try {
+          var raw = localStorage.getItem('yarz_user');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && 'v' in parsed && 't' in parsed) {
+              stored = parsed.v || {};
+            } else {
+              stored = parsed || {};
+            }
+          }
+        } catch (e) {}
         ['name','phone','email','city','state','zip','country'].forEach(function(k){
           if (userData[k]) stored[k] = userData[k];
         });
-        localStorage.setItem('yarz_user', JSON.stringify(stored));
+        localStorage.setItem('yarz_user', JSON.stringify({v: stored, t: Date.now()}));
       } catch (e) {}
 
       var am = await _buildAdvancedMatch(userData);
       if (am && Object.keys(am).length) {
         _userMatchHashed = am;
-        try { localStorage.setItem('yarz_pixel_user', JSON.stringify(am)); } catch (e) {}
+        // ✅ v17.15: Wrap hashed PII in TTL envelope too (was raw JSON).
+        try { localStorage.setItem('yarz_pixel_user', JSON.stringify({v: am, t: Date.now()})); } catch (e) {}
         // Re-init pixel with advanced matching (FB allows re-init)
         var pixelId = _storeInfo && _storeInfo.fbPixel;
         if (pixelId && _hasFbq()) {
@@ -440,7 +456,16 @@ const YARZ_PIXEL = (() => {
     if (_userMatchHashed) return _userMatchHashed;
     try {
       var raw = localStorage.getItem('yarz_pixel_user');
-      if (raw) { _userMatchHashed = JSON.parse(raw); return _userMatchHashed; }
+      if (raw) {
+        // ✅ v17.15: Unwrap TTL envelope ({v, t}) if present, fall back to raw.
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && 'v' in parsed && 't' in parsed) {
+          _userMatchHashed = parsed.v;
+        } else {
+          _userMatchHashed = parsed;
+        }
+        return _userMatchHashed;
+      }
     } catch (e) {}
     return null;
   }
@@ -906,29 +931,53 @@ const YARZ_PIXEL = (() => {
     pintrk('load', pinId); pintrk('page');
   }
 
-  // ===== INIT =====
+  // ===== INIT (with retry if storeInfo not loaded) =====
+  var _initRetries = 0;
+  var _initMaxRetries = 5;
+  var _initQueue = [];
+  function _flushInitQueue() {
+    var q = _initQueue.slice();
+    _initQueue = [];
+    for (var i = 0; i < q.length; i++) {
+      try { q[i](); } catch (e) {}
+    }
+  }
+
+  // Normalize: accept multiple admin key formats
+  function _pick() {
+    for (var i = 0; i < arguments.length; i++) {
+      var v = _storeInfo[arguments[i]];
+      if (v != null && String(v).trim()) return String(v).trim();
+    }
+    return '';
+  }
+
   function init(storeInfo) {
+    if (_initialized && storeInfo) return;
+    _storeInfo = storeInfo || _storeInfo || {};
+
+    // Check if we have enough data to proceed
+    var hasData = !!(_pick('fbPixel', 'FB Pixel', 'fb_pixel') ||
+                     _pick('ga4Id', 'GA4', 'ga4') ||
+                     _pick('tiktokPixel', 'TT Pixel', 'tt_pixel', 'tiktok_pixel'));
+    if (!hasData && _initRetries < _initMaxRetries) {
+      _initRetries++;
+      setTimeout(function(){ init(); }, _initRetries * 1000);
+      return;
+    }
+    if (!hasData) return; // give up after max retries
     if (_initialized) return;
     _initialized = true;
-    _storeInfo = storeInfo || {};
 
     // ✅ v14.0: Load toggle states FIRST (before any pixel inject), so disabled
     //   networks never even load their script tags. Saves bandwidth + DevTools clean.
     _loadToggles(_storeInfo);
 
-    // Normalize: accept multiple admin key formats
-    function pick() {
-      for (var i = 0; i < arguments.length; i++) {
-        var v = _storeInfo[arguments[i]];
-        if (v != null && String(v).trim()) return String(v).trim();
-      }
-      return '';
-    }
-    var fbPixelId   = pick('fbPixel', 'FB Pixel', 'fb_pixel');
-    var ga4Id       = pick('ga4Id', 'GA4', 'ga4');
-    var tiktokId    = pick('tiktokPixel', 'TT Pixel', 'tt_pixel', 'tiktok_pixel');
-    var snapId      = pick('snapchatPixel', 'Snapchat Pixel', 'snap_pixel', 'snapchat_pixel');
-    var pinId       = pick('pinterestPixel', 'Pinterest Pixel', 'pinterest_pixel');
+    var fbPixelId   = _pick('fbPixel', 'FB Pixel', 'fb_pixel');
+    var ga4Id       = _pick('ga4Id', 'GA4', 'ga4');
+    var tiktokId    = _pick('tiktokPixel', 'TT Pixel', 'tt_pixel', 'tiktok_pixel');
+    var snapId      = _pick('snapchatPixel', 'Snapchat Pixel', 'snap_pixel', 'snapchat_pixel');
+    var pinId       = _pick('pinterestPixel', 'Pinterest Pixel', 'pinterest_pixel');
     if (fbPixelId) _storeInfo.fbPixel = fbPixelId; // keep cached id
 
     // Restore any cached advanced-matching from a previous session before pixel init
@@ -983,7 +1032,9 @@ const YARZ_PIXEL = (() => {
       // Also enrich with cached identity from prior session if available
       var cachedRaw = localStorage.getItem('yarz_user');
       if (cachedRaw) {
+        // ✅ v17.15: Unwrap TTL envelope ({v, t}) if present, fall back to raw.
         var u = JSON.parse(cachedRaw) || {};
+        if (u && typeof u === 'object' && 'v' in u && 't' in u) u = u.v || {};
         if (u && (u.email || u.phone || u.name)) {
           _setUserData(u); // re-inits FB pixel with AM, no duplicate PageView
         }

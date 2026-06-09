@@ -24,7 +24,7 @@
     .yarz-img-lazy{
       background:linear-gradient(135deg,#f0ebf7 0%,#e6dff3 100%);
       transition:opacity .35s ease, filter .35s ease;
-      opacity:.0;
+      opacity:0;
       filter:blur(8px);
     }
     .yarz-img-loaded{opacity:1!important;filter:none!important}
@@ -62,19 +62,11 @@
   function optimize(url, size) {
     if (!url) return url;
     size = size || 1200;
-    // ✅ v15.8 FIX: DPR multiplier was inflating product card images on mobile.
-    // The srcset triplet (400w/800w/1200w) already provides DPR variants — the
-    // browser picks the right one. Multiplying by DPR INSIDE optimize() caused
-    // mobile to fetch 2000-px images for every product card (~1.5 MB JPG).
-    // Now: only multiply for hero/detail images (size >= 1600).
-    var dpr = (window.devicePixelRatio || 1);
-    var realSize;
-    if (size >= 1600) {
-      realSize = Math.round(size * Math.min(dpr, 2)); // hero gets retina
-      if (realSize > 2000) realSize = 2000;
-    } else {
-      realSize = size; // product cards: trust the srcset
-    }
+    // NOTE: DPR is NOT applied here — srcset on the <img> tag provides
+    // responsive variants. This function returns the same URL for a given
+    // size regardless of device pixel ratio.
+    var realSize = size;
+    if (realSize > 2000) realSize = 2000;
     const id = extractDriveId(url);
     if (id) {
       // lh3 CDN — s{size} = max dimension
@@ -126,11 +118,12 @@
   // ──────────────────────────────────────────────────────────────
   function upgradeExistingImg(img) {
     if (!img || img.dataset.turboUpgraded === '1') return;
+    if (img.complete && img.naturalWidth > 0) return;
     const src = img.getAttribute('src');
     if (!src) return;
     // ✅ v15.6: Skip if image has srcset — the browser already picks the right
     // size, and double-upgrading wastes bandwidth on product cards.
-    if (img.srcset || img.getAttribute('srcset')) {
+    if (img.srcset) {
       img.dataset.turboUpgraded = '1';
       return;
     }
@@ -165,35 +158,48 @@
   function recheckSizesOnLayout() {
     var imgs = document.querySelectorAll('img[data-turbo-upgraded="1"]');
     imgs.forEach(function(img) {
+      var recheckCount = parseInt(img.dataset.turboRecheckCount || '0', 10);
+      if (recheckCount >= 3) return;
+      img.dataset.turboRecheckCount = recheckCount + 1;
       var orig = img.dataset.turboOriginal;
       if (!orig) return;
-      // ✅ v12.1: Don't waste bandwidth replacing an already-loaded image.
-      //   Only re-upgrade if image hasn't finished loading yet OR if rendered
-      //   significantly larger than what we fetched.
       if (img.complete && img.naturalWidth > 0) return;
       var id = extractDriveId(orig);
       if (!id) return;
-      // Compute the size that would be picked NOW that layout is ready
       var idealSize = smartSizeFor(img);
-      // Get the size that's currently in src
       var m = (img.src || '').match(/=s(\d+)/);
       var currentSize = m ? parseInt(m[1], 10) : 0;
-      // If our layout-aware ideal is significantly bigger, upgrade the image
-      if (idealSize * (window.devicePixelRatio || 1) > currentSize * 1.3) {
+      if (idealSize > currentSize * 1.3) {
         img.src = optimize(orig, idealSize);
       }
     });
   }
 
   // Run rechecks after a tiny delay so DOM has time to lay out
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(recheckSizesOnLayout, 600); });
-  } else {
-    setTimeout(recheckSizesOnLayout, 600);
+  if (document.querySelectorAll('img[data-turbo-upgraded="1"]').length > 0) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { setTimeout(recheckSizesOnLayout, 600); });
+    } else {
+      setTimeout(recheckSizesOnLayout, 600);
+    }
+    window.addEventListener('load', function() { setTimeout(recheckSizesOnLayout, 100); });
   }
-  window.addEventListener('load', function() { setTimeout(recheckSizesOnLayout, 100); });
 
   let observer = null;
+  let observedCount = 0;
+  let _mo = null;
+  let _moDisconnectTimer = null;
+  function _disconnectMo() {
+    if (_moDisconnectTimer) { clearTimeout(_moDisconnectTimer); _moDisconnectTimer = null; }
+    if (_mo) { _mo.disconnect(); _mo = null; }
+  }
+  function _resetMoDisconnectTimer() {
+    if (_moDisconnectTimer) clearTimeout(_moDisconnectTimer);
+    _moDisconnectTimer = setTimeout(function() {
+      if (_mo) { _mo.disconnect(); _mo = null; }
+      _moDisconnectTimer = null;
+    }, 30000);
+  }
   function getObserver() {
     if (observer) return observer;
     if (!('IntersectionObserver' in window)) return null;
@@ -202,6 +208,8 @@
         if (entry.isIntersecting) {
           load(entry.target);
           observer.unobserve(entry.target);
+          observedCount = Math.max(0, observedCount - 1);
+          if (observedCount === 0) { observer.disconnect(); observer = null; }
         }
       });
     }, { rootMargin: '200px 0px', threshold: 0.01 });
@@ -245,6 +253,7 @@
       img.classList.add('yarz-img-lazy');
       if (obs) {
         obs.observe(img);
+        observedCount++;
       } else {
         // No IO support — load immediately
         load(img);
@@ -260,33 +269,40 @@
     autoScan();
   }
 
-  // MutationObserver — pick up dynamically-added images
+  // MutationObserver — pick up dynamically-added images (debounced per frame)
+  // Auto-disconnects after 30s of inactivity to prevent memory leaks.
   if (window.MutationObserver) {
-    const mo = new MutationObserver((mutations) => {
-      let needsScanLazy = false;
-      let needsUpgrade  = false;
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node.nodeType === 1) {
-            if (node.matches && node.matches('img[data-src]')) needsScanLazy = true;
-            else if (node.querySelector && node.querySelector('img[data-src]')) needsScanLazy = true;
-            if (node.matches && node.matches('img[src]')) {
-              upgradeExistingImg(node);
-            } else if (node.querySelector) {
-              const inner = node.querySelectorAll('img[src]');
-              if (inner && inner.length) { inner.forEach(upgradeExistingImg); needsUpgrade = true; }
+    let moScheduled = false;
+    _mo = new MutationObserver((mutations) => {
+      if (moScheduled) return;
+      moScheduled = true;
+      requestAnimationFrame(() => {
+        moScheduled = false;
+        let needsScanLazy = false;
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType === 1) {
+              if (node.matches && node.matches('img[data-src]')) needsScanLazy = true;
+              else if (node.querySelector && node.querySelector('img[data-src]')) needsScanLazy = true;
+              if (node.matches && node.matches('img[src]')) {
+                upgradeExistingImg(node);
+              } else if (node.querySelector) {
+                const inner = node.querySelectorAll('img[src]');
+                if (inner && inner.length) { inner.forEach(upgradeExistingImg); }
+              }
             }
           }
         }
-      }
-      if (needsScanLazy) observe();
+        if (needsScanLazy) { observe(); _resetMoDisconnectTimer(); }
+      });
     });
-    mo.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    _mo.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    _resetMoDisconnectTimer();
   }
 
   // Public API
-  global.ImageTurbo = { optimize, observe, extractDriveId, upgradeExistingImg, upgradeAllImages };
+  global.ImageTurbo = { optimize, observe, extractDriveId, upgradeExistingImg, upgradeAllImages, disconnect: _disconnectMo };
 
-  console.log('%c[IMAGE-TURBO] ⚡ Ready', 'color:#634A8E;font-weight:bold');
+  if (window.__DEV__) console.log('%c[IMAGE-TURBO] ⚡ Ready', 'color:#634A8E;font-weight:bold');
 
 })(window);

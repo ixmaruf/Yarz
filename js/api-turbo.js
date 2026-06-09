@@ -1,172 +1,136 @@
 /* ════════════════════════════════════════════════════════════════════
-   YARZ API TURBO v1.0 — Cached Google Apps Script Wrapper
+   YARZ API TURBO v2.0 — Event Bridge + Mutation Invalidation
    ════════════════════════════════════════════════════════════════════
-   This file WRAPS your existing api.js calls with the TURBO cache.
+   This file bridges YARZ_API (api.js) with TURBO CORE (turbo-core.js).
    
-   How to integrate:
-     1. Include AFTER turbo-core.js but BEFORE app.js:
-        <script src="js/turbo-core.js"></script>
-        <script src="js/api.js"></script>
-        <script src="js/api-turbo.js"></script>   ← installs wrappers
-        <script src="js/app.js"></script>
-
-     2. Your existing app.js code does NOT need to change.
-        e.g. window.api.getProducts() still works,
-        but now returns INSTANTLY from cache on 2nd+ visits.
-
-   What's cached:
-     ✅ Products list                 (5 min TTL, SWR)
-     ✅ Categories                    (30 min TTL)
-     ✅ Site settings / banners       (10 min TTL)
-     ✅ Coupon validation             (5 min TTL per code)
-     ❌ Order placement (POST)         — never cached (always fresh)
-     ❌ Stock check                    — short cache (10s)
+   It does NOT wrap API methods with caching — api.js has its own
+   memCache + sessionStorage layer. Instead this provides:
+   
+     1. Mutation hooks   — invalidate turbo-core's cache after writes
+     2. Event bridge     — forward turbo:update events as yarz:data-updated
+     3. prefetchAll()    — delegates to api.js's own prefetch (no turbo duplication)
+   
+   Load order:
+     <script src="js/turbo-core.js"></script>
+     <script src="js/api.js"></script>
+     <script src="js/api-turbo.js"></script>   ← thin integration
+     <script src="js/app.js"></script>
    ════════════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
   if (!window.TURBO) {
-    console.error('[API-TURBO] turbo-core.js must load first!');
-    return;
+    console.warn('[API-TURBO] turbo-core.js not loaded — event bridge will use DOM fallback');
   }
 
-  // Wait for original api.js to define window.api / window.YARZ_API
-  function waitForApi(cb, tries = 0) {
-    let api = window.api || window.YARZ_API || window.API;
-    // Handle the `const YARZ_API` case (top-level const isn't on window)
+  // Wait for api.js to define window.YARZ_API
+  function waitForApi(cb, tries) {
+    tries = tries || 0;
+    var api = window.api || window.YARZ_API || window.API;
     if (!api && typeof YARZ_API !== 'undefined') api = YARZ_API;
     if (api) {
-      // Expose to window so other scripts (and turbo) can find it
-      try { if (!window.YARZ_API) window.YARZ_API = api; } catch(e){}
+      try { if (!window.YARZ_API) window.YARZ_API = api; } catch (e) {}
       return cb(api);
     }
     if (tries > 50) {
-      console.warn('[API-TURBO] window.api not found, creating stub');
-      return cb({});
+      console.warn('[API-TURBO] window.api not found');
+      return cb(null);
     }
-    setTimeout(() => waitForApi(cb, tries + 1), 50);
+    setTimeout(function () { waitForApi(cb, tries + 1); }, 50);
   }
 
-  waitForApi((api) => {
-    // ───────────────────────────────────────────────────────────────
-    // Generic wrapper: cache GET-style methods
-    // ───────────────────────────────────────────────────────────────
-    function wrap(methodName, cacheKey, type, ttl) {
-      const original = api[methodName];
-      if (typeof original !== 'function') return;
+  waitForApi(function (api) {
+    if (!api) return;
 
-      api[methodName + '_uncached'] = original.bind(api);
+    // ─────────────────────────────────────────────────────────────────
+    // MUTATION HOOKS — invalidate turbo-core cache after write ops
+    // (api.js already clears its own cache internally via clearCache())
+    // ─────────────────────────────────────────────────────────────────
+    var mutationMethods = [
+      'placeOrder',
+      'createOrder',
+      'cancelOrder',
+      'updateOrder',
+      'updateOrderStatus',
+      'deleteOrder',
+      'submitReview',
+      'applyCoupon'
+    ];
 
-      api[methodName] = function (...args) {
-        // Build full key including args
-        const key = cacheKey + (args.length ? ':' + JSON.stringify(args) : '');
-        return window.TURBO.get(
-          key,
-          () => original.apply(api, args),
-          { type, ttl }
-        );
-      };
+    function getInvalidationKey(methodName) {
+      if (methodName === 'applyCoupon') return null;
+      if (methodName.indexOf('Order') !== -1) return 'orders*';
+      if (methodName.indexOf('Review') !== -1) return 'reviews*';
+      return null;
     }
 
-    // ───────────────────────────────────────────────────────────────
-    // List of methods that benefit from caching (auto-detect)
-    // ───────────────────────────────────────────────────────────────
-    const cacheableMethods = [
-      // Method name           → cache key prefix    → type      → optional TTL
-      ['getProducts',           'products',           'products'],
-      ['getAllProducts',        'products:all',       'products'],
-      ['getProduct',            'product',            'products'],
-      ['getProductById',        'product:id',         'products'],
-      ['getCategories',         'categories',         'categories'],
-      ['getCategory',           'category',           'categories'],
-      ['getSettings',           'settings',           'settings'],
-      ['getSiteSettings',       'site-settings',      'settings'],
-      ['getStoreInfo',          'store-info',         'settings'],
-      ['getGlobalControls',     'global-controls',    'settings'],
-      ['getBanners',            'banners',            'banner'],
-      ['getBanner',             'banner',             'banner'],
-      ['getHomepage',           'homepage',           'products'],
-      ['getFeatured',           'featured',           'products'],
-      ['getFeaturedProducts',   'featured',           'products'],
-      ['getNewArrivals',        'new-arrivals',       'products'],
-      ['getBestSellers',        'best-sellers',       'products'],
-      ['getOnSale',             'on-sale',            'products'],
-      ['searchProducts',        'search',             'products', 60 * 1000], // 1 min
-      ['getReviews',            'reviews',            'default'],
-      ['getProductReviews',     'product-reviews',    'default']
-    ];
-
-    cacheableMethods.forEach(([m, k, t, ttl]) => wrap(m, k, t, ttl));
-
-    // ───────────────────────────────────────────────────────────────
-    // Methods that should INVALIDATE cache after mutation
-    // ───────────────────────────────────────────────────────────────
-    const mutationMethods = [
-      ['placeOrder',      'orders*'],
-      ['createOrder',     'orders*'],
-      ['cancelOrder',     'orders*'],
-      ['updateOrder',     'orders*'],
-      ['updateOrderStatus','orders*'],
-      ['deleteOrder',     'orders*'],
-      ['submitReview',    'reviews*'],
-      ['applyCoupon',     null]   // coupon check itself isn't mutating data
-    ];
-
-    mutationMethods.forEach(([m, invalKey]) => {
-      const original = api[m];
+    mutationMethods.forEach(function (methodName) {
+      var original = api[methodName];
       if (typeof original !== 'function') return;
-      api[m] = async function (...args) {
-        const result = await original.apply(api, args);
-        if (invalKey) window.TURBO.invalidate(invalKey);
-        return result;
+      api[methodName] = function () {
+        var args = arguments;
+        var self = api;
+        try {
+          var result = original.apply(self, args);
+          var invalKey = getInvalidationKey(methodName);
+          if (result && typeof result.then === 'function') {
+            return result.then(function (val) {
+              if (invalKey && window.TURBO) window.TURBO.invalidate(invalKey);
+              return val;
+            });
+          }
+          if (invalKey && window.TURBO) window.TURBO.invalidate(invalKey);
+          return result;
+        } catch (e) {
+          throw e;
+        }
       };
     });
 
-    // ───────────────────────────────────────────────────────────────
-    // PREFETCH: warm the cache on idle (homepage data)
-    // ───────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    // EVENT BRIDGE — forward turbo:update events → yarz:data-updated
+    // ─────────────────────────────────────────────────────────────────
+    if (window.TURBO && typeof window.TURBO.on === 'function') {
+      window.TURBO.on('update', function (data) {
+        window.dispatchEvent(new CustomEvent('yarz:data-updated', {
+          detail: { key: data.key, source: 'turbo', value: data.value }
+        }));
+      });
+    } else {
+      // Fallback: listen via DOM event
+      window.addEventListener('turbo:update', function (e) {
+        var detail = e.detail || {};
+        if (!detail.changed) return;
+        window.dispatchEvent(new CustomEvent('yarz:data-updated', {
+          detail: { key: detail.key, source: 'turbo' }
+        }));
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // PREFETCH — delegates to api.js's own prefetch (no turbo dup)
+    // ─────────────────────────────────────────────────────────────────
     function prefetchAll() {
-      const toPrefetch = [
-        ['products',     api.getProducts_uncached     || api.getProducts],
-        ['categories',   api.getCategories_uncached   || api.getCategories],
-        ['site-settings',api.getSettings_uncached     || api.getSettings],
-        ['banners',      api.getBanners_uncached      || api.getBanners],
-        ['featured',     api.getFeatured_uncached     || api.getFeatured]
-      ];
-      toPrefetch.forEach(([k, fn]) => {
-        if (typeof fn === 'function') {
-          window.TURBO.prefetch(k, () => fn.call(api), { type: k });
+      if (typeof api.prefetchAll === 'function') {
+        return;
+      }
+      // Fallback: call key endpoints so api.js populates its cache
+      var toPrefetch = ['getProducts', 'getCategories', 'getSettings', 'getBanners'];
+      toPrefetch.forEach(function (methodName) {
+        if (typeof api[methodName] === 'function') {
+          api[methodName]().catch(function () {});
         }
       });
     }
 
-    // Run after page is idle
+    // Defer to after DOM ready (api.js already runs prefetchAll immediately)
     if (document.readyState === 'complete') {
       setTimeout(prefetchAll, 100);
     } else {
-      window.addEventListener('load', () => setTimeout(prefetchAll, 100));
+      window.addEventListener('load', function () { setTimeout(prefetchAll, 100); });
     }
 
-    // ───────────────────────────────────────────────────────────────
-    // Listen for cache updates → notify app (so it can re-render)
-    // ───────────────────────────────────────────────────────────────
-    window.addEventListener('turbo:update', (e) => {
-      const { key, value, changed } = e.detail || {};
-      if (!changed) return;
-      // App can listen: window.addEventListener('yarz:data-updated', ...)
-      window.dispatchEvent(new CustomEvent('yarz:data-updated', {
-        detail: { key, source: 'turbo' }
-      }));
-      // ⚡ Bridge: also fire YARZ_API.onDataRefresh listeners so existing app code re-renders
-      try {
-        if (api._refreshListeners && Array.isArray(api._refreshListeners)) {
-          api._refreshListeners.forEach(fn => { try { fn(key, value); } catch(_){} });
-        }
-      } catch(_) {}
-    });
-
-    console.log('%c[API-TURBO] ⚡ Wrapped ' + cacheableMethods.filter(m => typeof api[m[0]+'_uncached'] === 'function').length + ' methods', 'color:#634A8E;font-weight:bold');
+    if (window.__DEV__) console.log('%c[API-TURBO] ⚡ Event bridge + mutation hooks active', 'color:#634A8E;font-weight:bold');
   });
-
 })();

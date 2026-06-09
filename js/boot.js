@@ -54,7 +54,10 @@
     // Everything else (Chrome, Edge, Firefox, Safari, Brave, Samsung Internet): full SW support
     if (!isInAppBrowser) {
       var registerSW = function() {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        // ✅ v17.15: ?v=17.15 stamp forces the browser to re-fetch sw.js on
+        // version bump (otherwise the browser's SW update check is capped at
+        // ~24h, delaying the new yarz-turbo-v17.15 cache from activating).
+        navigator.serviceWorker.register('/sw.js?v=17.15', { scope: '/' })
           .then(function(reg) {
             try { reg.update(); } catch(e) {}
             if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -125,16 +128,18 @@
   function injectSkeletonCSS() { /* no-op */ }
 
   // ─── 4. Performance reporting ───────────────────────────────────
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const T = performance.now() - T0;
-      const nav = performance.getEntriesByType('navigation')[0];
-      console.log(
-        `%c[BOOT] ⚡ Total: ${T.toFixed(0)}ms | DCL: ${nav ? nav.domContentLoadedEventEnd.toFixed(0) : '?'}ms | Load: ${nav ? nav.loadEventEnd.toFixed(0) : '?'}ms`,
-        'color:#634A8E;font-weight:bold;font-size:13px'
-      );
-    }, 100);
-  });
+  if (window.__DEV__) {
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const T = performance.now() - T0;
+        const nav = performance.getEntriesByType('navigation')[0];
+        console.log(
+          `%c[BOOT] ⚡ Total: ${T.toFixed(0)}ms | DCL: ${nav ? nav.domContentLoadedEventEnd.toFixed(0) : '?'}ms | Load: ${nav ? nav.loadEventEnd.toFixed(0) : '?'}ms`,
+          'color:#634A8E;font-weight:bold;font-size:13px'
+        );
+      }, 100);
+    });
+  }
 
   // ─── 5. visualViewport sync (in-app browser + iOS Safari fix) ───
   // ✅ v14.4: Why this matters —

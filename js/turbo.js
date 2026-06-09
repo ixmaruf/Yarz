@@ -33,16 +33,29 @@ const YARZ_TURBO = (() => {
   const _prefetchedImages = new Set();
   let _offlineBanner = null;
 
+  // Cleanup references for stop()
+  let _touchHandler = null;
+  let _observeTimer = null;
+  let _imgObserver = null;
+  let _onlineHandler = null;
+  let _offlineHandler = null;
+  let _connChangeHandler = null;
+
   // ===== A. API REQUEST DEDUPLICATION =====
   // When 500 visitors request the same URL simultaneously,
   // only 1 actual fetch() fires. All others get the same Promise.
+  var _originalFetch = window.fetch;
+
   function deduplicatedFetch(url, options) {
     // Only deduplicate GET requests (not POST/order submissions)
     var isGet = !options || !options.method || options.method === 'GET';
-    if (!isGet) return fetch(url, options);
+    if (!isGet) return _originalFetch(url, options);
 
     // Strip cache-busting params for dedup key (keep action + key)
-    var dedupKey = url.replace(/[&?]_t=\d+/g, '');
+    var u = new URL(url, window.location.origin);
+    u.searchParams.delete('_t');
+    u.searchParams.delete('cb');
+    var dedupKey = u.href;
 
     if (_inflightRequests.has(dedupKey)) {
       // Another request for the same data is already in flight — reuse it
@@ -51,7 +64,7 @@ const YARZ_TURBO = (() => {
       });
     }
 
-    var promise = fetch(url, options).then(function(response) {
+    var promise = _originalFetch(url, options).then(function(response) {
       // Keep in map briefly so rapid-fire requests get the cached response
       setTimeout(function() { _inflightRequests.delete(dedupKey); }, 200);
       return response;
@@ -65,17 +78,45 @@ const YARZ_TURBO = (() => {
   }
 
   // Monkey-patch window.fetch for automatic deduplication
-  var _originalFetch = window.fetch;
   function _patchFetch() {
+    // Capture whatever fetch is current at patch time so intermediate
+    // wrappers (installed by other scripts between module init and start)
+    // are preserved in the delegation chain.
+    var _currentFetch = window.fetch;
     window.fetch = function(url, options) {
-      // Only intercept Google APIs, Apps Script, AND Cloudflare Worker
-      var urlStr = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+      var urlStr, opts;
+      if (typeof url === 'string') {
+        urlStr = url;
+        opts = options || {};
+      } else if (url && typeof url.url === 'string') {
+        urlStr = url.url;
+        opts = {
+          method: url.method,
+          headers: url.headers,
+          body: url.body,
+          signal: url.signal,
+          mode: url.mode,
+          credentials: url.credentials,
+          cache: url.cache,
+          redirect: url.redirect,
+          referrer: url.referrer,
+          referrerPolicy: url.referrerPolicy,
+          integrity: url.integrity,
+        };
+      } else {
+        return _currentFetch.apply(this, arguments);
+      }
+
       if (urlStr.indexOf('googleapis.com') > -1 ||
           urlStr.indexOf('script.google.com') > -1 ||
-          urlStr.indexOf('workers.dev') > -1) {
-        return deduplicatedFetch(urlStr, options);
+          urlStr.indexOf('workers.dev') > -1 ||
+          (urlStr.indexOf('action=') > -1 &&
+           (urlStr.indexOf(window.location.origin) > -1 ||
+            urlStr.indexOf('/') === 0 ||
+            urlStr.indexOf('?') === 0))) {
+        return deduplicatedFetch(urlStr, opts);
       }
-      return _originalFetch.apply(this, arguments);
+      return _currentFetch(url, options);
     };
   }
 
@@ -83,7 +124,7 @@ const YARZ_TURBO = (() => {
   // Preload HIGH-RES product images when user touches a card (before they click).
   // This means by the time the product page opens, the full-size image is already in cache.
   function _initTouchPrefetch() {
-    document.addEventListener('touchstart', function(e) {
+    _touchHandler = function(e) {
       var card = e.target.closest('.product-card');
       if (!card) return;
       var img = card.querySelector('.card-image img');
@@ -102,31 +143,39 @@ const YARZ_TURBO = (() => {
         var probe = new Image();
         probe.src = hiResUrl;
       }
-    }, { passive: true });
+    };
+    document.addEventListener('touchstart', _touchHandler, { passive: true });
 
     // Prefetch images that are about to scroll into view
     if ('IntersectionObserver' in window) {
-      var imgObserver = new IntersectionObserver(function(entries) {
+      _imgObserver = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
           if (entry.isIntersecting) {
             var img = entry.target;
-            if (img.dataset.src && !img.src) {
+            if (img.dataset.src && !img.getAttribute('src')) {
               img.src = img.dataset.src;
             }
-            imgObserver.unobserve(img);
+            _imgObserver.unobserve(img);
           }
         });
       }, { rootMargin: '200px 0px' }); // Start loading 200px before visible
 
       // Observe product images
-      var _observeTimer = setInterval(function() {
+      _observeTimer = setInterval(function() {
         var images = document.querySelectorAll('.product-card .card-image img[loading="lazy"]');
+        var anyNew = false;
         images.forEach(function(img) {
           if (!img._turboObserved) {
             img._turboObserved = true;
-            imgObserver.observe(img);
+            _imgObserver.observe(img);
+            anyNew = true;
           }
         });
+        // Stop polling once all lazy images have been observed
+        if (!anyNew) {
+          clearInterval(_observeTimer);
+          _observeTimer = null;
+        }
       }, 2000);
     }
   }
@@ -143,7 +192,7 @@ const YARZ_TURBO = (() => {
     _memoryTimer = setInterval(function() {
       var used = performance.memory.usedJSHeapSize / (1024 * 1024); // MB
       if (used > CFG.MEMORY_LIMIT_MB) {
-        console.log('YARZ Turbo: Memory high (' + Math.round(used) + 'MB) — cleaning up');
+        if (window.__DEV__) console.log('YARZ Turbo: Memory high (' + Math.round(used) + 'MB) — cleaning up');
         _cleanupStaleData();
       }
     }, CFG.MEMORY_CHECK_INTERVAL);
@@ -216,7 +265,7 @@ const YARZ_TURBO = (() => {
     updateConnection();
 
     // Listen for changes
-    window.addEventListener('online', function() {
+    _onlineHandler = function() {
       _isOffline = false;
       _hideOfflineBanner();
       updateConnection();
@@ -224,17 +273,20 @@ const YARZ_TURBO = (() => {
       if (window.YARZ_API && YARZ_API.prefetchAll) {
         YARZ_API.prefetchAll();
       }
-    });
+    };
+    window.addEventListener('online', _onlineHandler);
 
-    window.addEventListener('offline', function() {
+    _offlineHandler = function() {
       _isOffline = true;
       _connectionType = 'offline';
       _showOfflineBanner();
-    });
+    };
+    window.addEventListener('offline', _offlineHandler);
 
     var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (conn) {
-      conn.addEventListener('change', updateConnection);
+      _connChangeHandler = updateConnection;
+      conn.addEventListener('change', _connChangeHandler);
     }
   }
 
@@ -308,7 +360,7 @@ const YARZ_TURBO = (() => {
       isOffline: _isOffline,
       inflightRequests: _inflightRequests.size,
       prefetchedImages: _prefetchedImages.size,
-      memoryUsedMB: (performance.memory ? Math.round(performance.memory.usedJSHeapSize / (1024 * 1024)) : 'N/A'),
+      memoryUsedMB: (window.performance && performance.memory ? Math.round(performance.memory.usedJSHeapSize / (1024 * 1024)) : 'N/A'),
     };
   }
 
@@ -329,14 +381,52 @@ const YARZ_TURBO = (() => {
     // 4. Connection monitor
     _initConnectionMonitor();
 
-    console.log('YARZ Turbo: Performance engine started (' + _connectionType + ')');
+    if (window.__DEV__) console.log('YARZ Turbo: Performance engine started (' + _connectionType + ')');
   }
 
   // ===== STOP =====
   function stop() {
-    if (_memoryTimer) clearInterval(_memoryTimer);
-    if (_offlineTimer) clearInterval(_offlineTimer);
+    // Clear timers
+    if (_memoryTimer) { clearInterval(_memoryTimer); _memoryTimer = null; }
+    if (_offlineTimer) { clearInterval(_offlineTimer); _offlineTimer = null; }
+    if (_observeTimer) { clearInterval(_observeTimer); _observeTimer = null; }
+
+    // Remove touchstart listener
+    if (_touchHandler) {
+      document.removeEventListener('touchstart', _touchHandler);
+      _touchHandler = null;
+    }
+
+    // Disconnect IntersectionObserver
+    if (_imgObserver) {
+      _imgObserver.disconnect();
+      _imgObserver = null;
+    }
+
+    // Remove online/offline listeners
+    if (_onlineHandler) {
+      window.removeEventListener('online', _onlineHandler);
+      _onlineHandler = null;
+    }
+    if (_offlineHandler) {
+      window.removeEventListener('offline', _offlineHandler);
+      _offlineHandler = null;
+    }
+
+    // Remove connection change listener
+    if (_connChangeHandler) {
+      var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn) conn.removeEventListener('change', _connChangeHandler);
+      _connChangeHandler = null;
+    }
+
+    // Restore original fetch
     window.fetch = _originalFetch;
+
+    // Clear data structures
+    _prefetchedImages.clear();
+    _inflightRequests.clear();
+
     _started = false;
   }
 

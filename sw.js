@@ -14,10 +14,22 @@
      3) Product images NEVER re-downloaded once cached
    ════════════════════════════════════════════════════════════════════ */
 
-const VERSION       = 'yarz-turbo-v16.13-2026-06-01';
+const VERSION       = 'yarz-turbo-v17.17-2026-06-06';
 const STATIC_CACHE  = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
-const API_CACHE     = `${VERSION}-api`;
+// ✅ v17.5 PHASE 5: API_CACHE removed. The CF Worker handles edge caching
+// for ?action=... requests (with admin purge on every save), and the SW
+// `isAPI(req)` handler returns early so it never even opens a cache. The
+// constant + the CLEAR_API_CACHE message handler were dead code.
+//
+// ✅ v17.5 PHASE 5: RUNTIME_CACHE size cap. Without a cap, the runtime
+// cache (image-first, SWR-everything-else) could grow unbounded — a heavy
+// PDP-browsing visitor with hundreds of product images would pin ~500MB.
+// We use FIFO (oldest entry first) since Cache.keys() returns insertion
+// order. Bumped lazily on each put, not on every fetch.
+const MAX_IMAGE_ENTRIES = 300;  // Product/banner images — generous but bounded
+const MAX_STATIC_ENTRIES = 500; // CSS / JS / fonts — versioned, many distinct URLs
+const MAX_SWR_ENTRIES = 200;    // Everything else that goes through SWR
 
 // Critical assets to pre-cache on install
 // v13.0: pixel.js, armor.js, shield.js are now lazy-loaded post-LCP, so they're
@@ -132,17 +144,34 @@ function isHTML(req) {
 
 // Cache-First (for images & static immutable assets)
 // v10.7: Don't background-refresh on every hit — only refresh when cache miss
-async function cacheFirst(req, cacheName) {
+async function cacheFirst(req, cacheName, maxEntries) {
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(req);
-  if (cached) return cached; // ✅ instant return, no background refetch
+  if (cached) return cached;
   try {
     const res = await fetch(req);
-    if (res && res.ok) cache.put(req, res.clone()).catch(()=>{});
+    if (res && res.ok) {
+      cache.put(req, res.clone()).catch(()=>{});
+      _trimCache_(cache, maxEntries || MAX_STATIC_ENTRIES);
+    }
     return res;
   } catch (e) {
     return cached || new Response('', { status: 504 });
   }
+}
+
+// ✅ v17.5 PHASE 5: FIFO trim. Cache.keys() returns insertion order, so
+// deleting from index 0 evicts the oldest entries. Cheap on small caches
+// (a few hundred keys) — no need for a true LRU.
+async function _trimCache_(cache, maxEntries) {
+  try {
+    const keys = await cache.keys();
+    if (keys.length <= maxEntries) return;
+    const excess = keys.length - maxEntries;
+    for (let i = 0; i < excess; i++) {
+      await cache.delete(keys[i]);
+    }
+  } catch (e) { /* ignore — best effort */ }
 }
 
 // Stale-While-Revalidate (for CSS/JS — instant + background update)
@@ -150,10 +179,13 @@ async function staleWhileRevalidate(req, cacheName, event) {
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(req);
   const network = fetch(req).then(res => {
-    if (res && res.ok) cache.put(req, res.clone()).catch(()=>{});
+    if (res && res.ok) {
+      cache.put(req, res.clone()).catch(()=>{});
+      _trimCache_(cache, MAX_SWR_ENTRIES);
+    }
     return res;
   }).catch(() => cached);
-  if(event.waitUntil) event.waitUntil(network.catch(()=>{})); return cached || network.catch(()=>new Response('Not found', {status: 504}));
+  if(event && event.waitUntil) event.waitUntil(network.catch(()=>{})); return cached || network.catch(()=>new Response('Not found', {status: 504}));
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -173,12 +205,32 @@ self.addEventListener('fetch', (event) => {
 
   // Google Fonts files — cache aggressively
   if (req.url.includes('fonts.gstatic.com')) {
-    event.respondWith(cacheFirst(req, STATIC_CACHE));
+    event.respondWith(cacheFirst(req, STATIC_CACHE, MAX_STATIC_ENTRIES));
     return;
   }
 
-  // Images - Bypassed per user request to avoid stale data
+  // ✅ v17.5: Images → cache-first (1-year TTL). Returning visitors on slow 3G
+  // get instant product/banner images. To force-refresh a specific image when
+  // admin uploads a new one, the HTML just appends a `?v=<timestamp>` query
+  // string (cache key is the full URL, so the new URL misses cache and re-fetches).
+  // Only cacheable if response is OK; opaque/cross-origin 0-status responses
+  // are not cached because we can't tell if they're fresh.
   if (isImage(req)) {
+    event.respondWith((async () => {
+      const cache  = await caches.open(RUNTIME_CACHE);
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      try {
+        const res = await fetch(req);
+        if (res && res.ok) {
+          cache.put(req, res.clone()).catch(()=>{});
+          _trimCache_(cache, MAX_IMAGE_ENTRIES);
+        }
+        return res;
+      } catch (e) {
+        return cached || new Response('', { status: 504 });
+      }
+    })());
     return;
   }
 
@@ -189,8 +241,7 @@ self.addEventListener('fetch', (event) => {
 
   // Static assets (CSS, JS) — version-tagged URLs, safe to cache forever
   if (isStaticAsset(req)) {
-    // Different URL = different cache entry, so cache-first is safe and fastest
-    event.respondWith(cacheFirst(req, STATIC_CACHE));
+    event.respondWith(cacheFirst(req, STATIC_CACHE, MAX_STATIC_ENTRIES));
     return;
   }
 
@@ -202,10 +253,12 @@ self.addEventListener('fetch', (event) => {
         // ✅ v15.33 PERF: Use navigationPreload response if available.
         // This is the parallel network request the browser fired while
         // the SW was starting up — saves 50-150ms vs `fetch()`.
-        const preloadResponse = event.preloadResponse ? await event.preloadResponse : null;
+        const preloadResponse = event.preloadResponse ? await Promise.race([
+          event.preloadResponse,
+          new Promise(r => setTimeout(r, 3000))
+        ]) : null;
         if (preloadResponse) return preloadResponse;
-        // Fallback: regular fetch with cache:'no-cache' to force revalidation
-        return await fetch(new Request(req, { cache: 'no-cache' }));
+        return await fetch(req);
       } catch (e) {
         // ✅ v16.4: Offline fallback — prefer the precached homepage shell so a
         // returning visitor sees the real site (which then hydrates from cache),
@@ -220,7 +273,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Everything else — SWR
-  event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
+  event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE, event));
 });
 
 // ──────────────────────────────────────────────────────────────────
@@ -230,10 +283,22 @@ self.addEventListener('message', (event) => {
   const msg = event.data || {};
   if (msg.type === 'SKIP_WAITING') self.skipWaiting();
   if (msg.type === 'CLEAR_CACHE') {
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    );
   }
-  if (msg.type === 'CLEAR_API_CACHE') {
-    caches.delete(API_CACHE);
+  // ✅ v17.5 PHASE 5: CLEAR_API_CACHE message handler removed. The
+  // API_CACHE constant is gone (CF Worker handles API edge caching);
+  // this message would have done nothing useful even if any page still
+  // sent it. The current admin "Clear cache" UI doesn't send it.
+  if (msg.type === 'PURGE_CACHE') {
+    event.waitUntil(
+      caches.keys().then(keys => {
+        const prefix = msg.prefix || '';
+        const toDelete = prefix ? keys.filter(k => k.includes(prefix)) : keys;
+        return Promise.all(toDelete.map(k => caches.delete(k)));
+      })
+    );
   }
 });
 

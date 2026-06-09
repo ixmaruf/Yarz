@@ -8,35 +8,65 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#FBF8F1",
-  "theme_color": "#FAFAF7",
-  "lang": "bn-BD",
+  "theme_color": "#FFFDF8",
+  "lang": "en",
   "dir": "ltr",
   "categories": ["shopping", "lifestyle", "fashion"],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "images/screenshot-narrow.svg",
+      "sizes": "360x780",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "images/screenshot-wide.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    }
+  ],
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%23FBF8F1'/><circle cx='96' cy='96' r='66' fill='%23C8102E' stroke='%239B0C23' stroke-width='4'/><circle cx='96' cy='96' r='40.9' fill='none' stroke='%23FBF8F1' stroke-width='4.6' opacity='0.85'/><circle cx='81.5' cy='81.5' r='7.9' fill='%23FBF8F1'/><circle cx='110.5' cy='81.5' r='7.9' fill='%23FBF8F1'/><circle cx='81.5' cy='110.5' r='7.9' fill='%23FBF8F1'/><circle cx='110.5' cy='110.5' r='7.9' fill='%23FBF8F1'/></svg>",
+      "src": "./icons/icon-192.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%23FBF8F1'/><circle cx='96' cy='96' r='52' fill='%23C8102E' stroke='%239B0C23' stroke-width='3.1'/><circle cx='96' cy='96' r='32.2' fill='none' stroke='%23FBF8F1' stroke-width='3.6' opacity='0.85'/><circle cx='84.6' cy='84.6' r='6.2' fill='%23FBF8F1'/><circle cx='107.4' cy='84.6' r='6.2' fill='%23FBF8F1'/><circle cx='84.6' cy='107.4' r='6.2' fill='%23FBF8F1'/><circle cx='107.4' cy='107.4' r='6.2' fill='%23FBF8F1'/></svg>",
+      "src": "./icons/icon-192-maskable.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "maskable"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='86' fill='%23FBF8F1'/><circle cx='256' cy='256' r='176' fill='%23C8102E' stroke='%239B0C23' stroke-width='10.6'/><circle cx='256' cy='256' r='109.1' fill='none' stroke='%23FBF8F1' stroke-width='12.3' opacity='0.85'/><circle cx='217.3' cy='217.3' r='21.1' fill='%23FBF8F1'/><circle cx='294.7' cy='217.3' r='21.1' fill='%23FBF8F1'/><circle cx='217.3' cy='294.7' r='21.1' fill='%23FBF8F1'/><circle cx='294.7' cy='294.7' r='21.1' fill='%23FBF8F1'/></svg>",
+      "src": "./icons/icon-512.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23FBF8F1'/><circle cx='256' cy='256' r='140' fill='%23C8102E' stroke='%239B0C23' stroke-width='8.4'/><circle cx='256' cy='256' r='86.8' fill='none' stroke='%23FBF8F1' stroke-width='9.8' opacity='0.85'/><circle cx='225.2' cy='225.2' r='16.8' fill='%23FBF8F1'/><circle cx='286.8' cy='225.2' r='16.8' fill='%23FBF8F1'/><circle cx='225.2' cy='286.8' r='16.8' fill='%23FBF8F1'/><circle cx='286.8' cy='286.8' r='16.8' fill='%23FBF8F1'/></svg>",
+      "src": "./icons/icon-512-maskable.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "View Cart",
+      "short_name": "Cart",
+      "description": "View your shopping cart",
+      "url": "/?view=cart",
+      "icons": [{ "src": "icons/icon-192-maskable.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Track Order",
+      "short_name": "Orders",
+      "description": "Track your orders",
+      "url": "/?view=orders",
+      "icons": [{ "src": "icons/icon-192-maskable.svg", "sizes": "192x192" }]
+    }
+  ],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"]
 }
