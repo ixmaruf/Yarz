@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    YARZ FORTRESS — Anti-Fraud Device Fingerprint + Scoring v1.0
    ✅ Primary block lever: device_id (not phone, not IP)
    ✅ 13 risk signals → 0-100 score
@@ -164,16 +164,47 @@ const YARZ_FORTRESS = (() => {
       // Device name (UA-parsed) — best-effort
       var ua = n.userAgent || '';
       var deviceName = 'Unknown';
-      if (/SM-[A-Z]\d+/i.test(ua))       deviceName = 'Samsung ' + (ua.match(/SM-[A-Z]\d+/i) || [])[0];
+      // Samsung (most common in BD) — Galaxy A/M/S/Note/Z series
+      if (/SM-[A-Z]\d+/i.test(ua))       deviceName = 'Samsung ' + (ua.match(/SM-[A-Z]\d+[A-Z]*/i) || [])[0];
+      else if (/SAMSUNG/i.test(ua))      deviceName = 'Samsung Device';
+      // Apple
       else if (/iPhone/i.test(ua))       deviceName = 'iPhone';
       else if (/iPad/i.test(ua))         deviceName = 'iPad';
-      else if (/RMX\d+/i.test(ua))       deviceName = 'Realme ' + (ua.match(/RMX\d+/i) || [])[0];
-      else if (/CPH\d+/i.test(ua))       deviceName = 'Oppo ' + (ua.match(/CPH\d+/i) || [])[0];
+      // Xiaomi / Redmi / POCO
+      else if (/Redmi/i.test(ua))        deviceName = 'Redmi ' + (ua.match(/Redmi[\s_]?(\S+)/i) || [,''])[1];
+      else if (/POCO/i.test(ua))         deviceName = 'POCO ' + (ua.match(/POCO[\s_]?(\S+)/i) || [,''])[1];
+      else if (/Mi\s?\d/i.test(ua))      deviceName = 'Xiaomi ' + (ua.match(/Mi[\s_]?(\d\S*)/i) || [,''])[1];
       else if (/M200[67]\w+/i.test(ua))  deviceName = 'Redmi ' + (ua.match(/M200[67]\w+/i) || [])[0];
+      // Realme
+      else if (/RMX\d+/i.test(ua))       deviceName = 'Realme ' + (ua.match(/RMX\d+/i) || [])[0];
+      // Oppo
+      else if (/CPH\d+/i.test(ua))       deviceName = 'Oppo ' + (ua.match(/CPH\d+/i) || [])[0];
+      // Vivo
+      else if (/V\d{4}\b/i.test(ua))     deviceName = 'Vivo ' + (ua.match(/V\d{4}\w*/i) || [])[0];
+      else if (/vivo/i.test(ua))         deviceName = 'Vivo ' + (ua.match(/vivo[\s_]?(\S+)/i) || [,''])[1];
+      // Tecno
+      else if (/TECNO/i.test(ua))        deviceName = 'Tecno ' + (ua.match(/TECNO[\s_]?(\S+)/i) || [,''])[1];
+      // Infinix
+      else if (/Infinix/i.test(ua))      deviceName = 'Infinix ' + (ua.match(/Infinix[\s_]?(\S+)/i) || [,''])[1];
+      // Huawei / Honor
+      else if (/HUAWEI/i.test(ua))       deviceName = 'Huawei ' + (ua.match(/HUAWEI[\s_]?(\S+)/i) || [,''])[1];
+      else if (/Honor/i.test(ua))        deviceName = 'Honor ' + (ua.match(/Honor[\s_]?(\S+)/i) || [,''])[1];
+      // Nokia
+      else if (/Nokia/i.test(ua))        deviceName = 'Nokia ' + (ua.match(/Nokia[\s_]?(\S+)/i) || [,''])[1];
+      // OnePlus
+      else if (/OnePlus/i.test(ua))      deviceName = 'OnePlus ' + (ua.match(/OnePlus[\s_]?(\S+)/i) || [,''])[1];
+      // Google Pixel
+      else if (/Pixel/i.test(ua))        deviceName = 'Google Pixel ' + (ua.match(/Pixel[\s_]?(\S+)/i) || [,''])[1];
+      // Motorola
+      else if (/moto/i.test(ua))         deviceName = 'Motorola ' + (ua.match(/moto[\s_]?(\S+)/i) || [,''])[1];
+      // Desktop / Laptop
       else if (/Windows NT 10/i.test(ua)) deviceName = 'Windows 10/11 PC';
-      else if (/Mac OS X/i.test(ua))     deviceName = 'Mac';
-      else if (/Linux/i.test(ua))        deviceName = 'Linux';
-      else if (/Android/i.test(ua))      deviceName = 'Android device';
+      else if (/Windows NT/i.test(ua))   deviceName = 'Windows PC';
+      else if (/Macintosh|Mac OS X/i.test(ua)) deviceName = 'Mac';
+      else if (/CrOS/i.test(ua))         deviceName = 'Chromebook';
+      else if (/Linux/i.test(ua) && !/Android/i.test(ua)) deviceName = 'Linux PC';
+      // Generic Android
+      else if (/Android/i.test(ua))      deviceName = 'Android Device';
 
       return {
         deviceId: deviceId,
@@ -587,3 +618,5 @@ const YARZ_FORTRESS = (() => {
 
   return publicApi;
 })();
+
+window.YARZ_FORTRESS = YARZ_FORTRESS;
