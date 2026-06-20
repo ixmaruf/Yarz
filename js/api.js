@@ -101,7 +101,7 @@ var YARZ_API = (function() {
         return location.origin + '/';
       }
     } catch (e) {}
-    return 'https://yarz.marufhasan80009.workers.dev/';
+    return 'https://yarz-api.marufhasan80009.workers.dev/';
   }
   const CLOUDFLARE_WORKER_URL = _detectWorkerUrl();
 

@@ -2439,7 +2439,7 @@ const YARZ = (() => {
       overlay.className = 'yarz-popup-overlay';
       var imgSrc = escHtml(getImgSrc(slot.image));
       // ✅ v17.7: Add onerror handler to gracefully destroy popup if image fails to load (e.g. broken Google Drive link)
-      var errJs = 'this.onerror=null;var o=document.getElementById(\\'yarz-promo-popup-' + idx + '\\');if(o)o.remove();';
+      var errJs = "this.onerror=null;var o=document.getElementById('yarz-promo-popup-" + idx + "');if(o)o.remove();";
       var clickHtml = slot.link
         ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '"></a>'
         : '<img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '">';
