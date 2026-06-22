@@ -1373,7 +1373,7 @@ const YARZ = (() => {
     var img1200 = escHtml(getImgSrc(p.image1, 1200));
     var imgSrcset = img400 + ' 400w, ' + img800 + ' 800w, ' + img1200 + ' 1200w';
     var imgSizes = '(max-width:480px) 50vw, (max-width:768px) 33vw, (max-width:1024px) 25vw, 240px';
-    html += '<img crossorigin="anonymous" src="' + img800 + '" srcset="' + imgSrcset + '" sizes="' + imgSizes + '" width="800" height="1000" alt="' + escHtml(p.name) + '" ' + imgLoading + ' onerror="this.style.display=\'none\'">';
+    html += '<img src="' + img800 + '" srcset="' + imgSrcset + '" sizes="' + imgSizes + '" width="800" height="1000" alt="' + escHtml(p.name) + '" ' + imgLoading + ' onerror="this.style.display=\'none\'">';
     if (p.badge) html += '<span class="product-badge ' + getBadgeClass(p.badge) + '">' + escHtml(p.badge) + '</span>';
     // ✅ v11: New Arrival auto-badge
     if (state.controls && state.controls.newArrivalActive && p.dateAdded) {
@@ -1596,7 +1596,7 @@ const YARZ = (() => {
       html += '<div class="dynamic-category-card" onclick="' + clickAction + '" style="--card-index:' + idx + '">';
       html += '<div class="dcc-image">';
       if (imgSrc) {
-        html += '<img crossorigin="anonymous" src="' + imgSrc + '" alt="' + displayName + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">';
+        html += '<img src="' + imgSrc + '" alt="' + displayName + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">';
       } else {
         html += '<div class="dcc-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
       }
@@ -1746,10 +1746,10 @@ const YARZ = (() => {
     html += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">';
     
     if (img1) {
-      html += '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(img1)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 1" loading="lazy" decoding="async">';
+      html += '<img src="' + escHtml(getImgSrc(img1)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 1" loading="lazy" decoding="async">';
     }
     if (img2) {
-      html += '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(img2)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 2" loading="lazy" decoding="async">';
+      html += '<img src="' + escHtml(getImgSrc(img2)) + '" style="width:100%; aspect-ratio:1/1; object-fit:cover; display:block;" alt="Showcase 2" loading="lazy" decoding="async">';
     }
     html += '</div></div>';
     
@@ -1823,7 +1823,7 @@ const YARZ = (() => {
       '<div class="yarz-quickview-card" role="dialog" aria-label="Quick product view">' +
         '<button class="qv-close" onclick="YARZ.closeQuickView()" aria-label="Close">✕</button>' +
         '<div class="qv-grid">' +
-          '<div class="qv-image"><img crossorigin="anonymous" src="' + escHtml(imgUrl) + '" alt="' + escHtml(product.name) + '" loading="eager" decoding="async"></div>' +
+          '<div class="qv-image"><img src="' + escHtml(imgUrl) + '" alt="' + escHtml(product.name) + '" loading="eager" decoding="async"></div>' +
           '<div class="qv-info">' +
             '<div class="qv-cat">' + escHtml(product.category || '') + '</div>' +
             '<h2 class="qv-title">' + escHtml(product.name) + '</h2>' +
@@ -1967,7 +1967,7 @@ const YARZ = (() => {
       var safe = _cleanInlineName(p.name);
       var price = parseFloat(p.salePrice || p.regularPrice || 0);
       html += '<div class="extra-card" onclick="YARZ.openProduct(\'' + safe + '\')">' +
-        '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(p.image1 || '')) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
+        '<img src="' + escHtml(getImgSrc(p.image1 || '')) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
         '<div class="extra-name">' + escHtml(p.name) + '</div>' +
         '<div class="extra-price">' + formatPrice(price) + '</div></div>';
     });
@@ -2025,7 +2025,7 @@ const YARZ = (() => {
     var inner = '';
     if (bannerImg) {
       inner =
-        '<img crossorigin="anonymous" src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
+        '<img src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
           'style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" ' +
           'onerror="this.style.display=\'none\'">' +
         '<div class="acc-banner-overlay">' +
@@ -2081,7 +2081,7 @@ const YARZ = (() => {
       var n = Math.max(1, Math.min(5, r.stars || 5));
       for (var i = 0; i < n; i++) stars += '★';
       for (var j = n; j < 5; j++) stars += '☆';
-      var photo = r.photo ? '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(r.photo)) + '" alt="' + escHtml(r.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' :
+      var photo = r.photo ? '<img src="' + escHtml(getImgSrc(r.photo)) + '" alt="' + escHtml(r.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' :
         '<div class="testimonial-avatar-placeholder">' + escHtml((r.name || 'C').charAt(0)) + '</div>';
       html += '<div class="testimonial-card">' +
         '<div class="testimonial-stars">' + stars + '</div>' +
@@ -2289,7 +2289,7 @@ const YARZ = (() => {
       var safeUrl = escHtml(getImgSrc(url));
       var linkUrl = c.igGridLink ? escHtml(c.igGridLink) : '#';
       html += '<a class="ig-tile" href="' + linkUrl + '" target="_blank" rel="noopener">' +
-              '<img crossorigin="anonymous" src="' + safeUrl + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.style.display=\'none\'">' +
+              '<img src="' + safeUrl + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.style.display=\'none\'">' +
               '<span class="ig-overlay"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg></span>' +
               '</a>';
     });
@@ -2441,8 +2441,8 @@ const YARZ = (() => {
       // ✅ v17.7: Add onerror handler to gracefully destroy popup if image fails to load (e.g. broken Google Drive link)
       var errJs = "this.onerror=null;var o=document.getElementById('yarz-promo-popup-" + idx + "');if(o)o.remove();";
       var clickHtml = slot.link
-        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '"></a>'
-        : '<img crossorigin="anonymous" src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '">';
+        ? '<a href="' + escHtml(slot.link) + '" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();"><img src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '"></a>'
+        : '<img src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '">';
       overlay.innerHTML =
         '<div class="yarz-popup-card promo-popup-card">' +
         '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();">✕</button>' +
@@ -3756,7 +3756,7 @@ const YARZ = (() => {
     var pdMain1600 = escHtml(getImgSrc(images[0], 1600));
     var pdSrcset = pdMain800 + ' 800w, ' + pdMain1200 + ' 1200w, ' + pdMain1600 + ' 1600w';
     var pdSizes = '(max-width:480px) 100vw, (max-width:1024px) 60vw, 600px';
-    html += '<div class="pd-main-image" id="pd-main-img"><img crossorigin="anonymous" src="' + escHtml(instantThumbUrl) + '" srcset="' + pdSrcset + '" sizes="' + pdSizes + '" data-src="' + escHtml(rawMainUrl) + '" data-size="1600" alt="' + escHtml(product.name) + '" id="pd-img-main" fetchpriority="high" decoding="async" onload="this.style.opacity=1;" style="opacity: 0; transition: opacity 0.5s ease-in;"></div>';
+    html += '<div class="pd-main-image" id="pd-main-img"><img src="' + escHtml(instantThumbUrl) + '" srcset="' + pdSrcset + '" sizes="' + pdSizes + '" data-src="' + escHtml(rawMainUrl) + '" data-size="1600" alt="' + escHtml(product.name) + '" id="pd-img-main" fetchpriority="high" decoding="async" onload="this.style.opacity=1;" style="opacity: 0; transition: opacity 0.5s ease-in;"></div>';
     // ✅ v11.8: Product video — admin-controlled autoplay, muted, looped, playsinline
     if (product.video && state.controls && state.controls.videoAutoplay) {
       var safeVid = escHtml(product.video);
@@ -3783,7 +3783,7 @@ const YARZ = (() => {
         var thumbSrc = escHtml(getImgSrc(img, 240));
         var fullSrcRaw = getImgSrc(img);
         var fullSrc = escHtml(fullSrcRaw.replace(/'/g, "\\'"));
-        html += '<div class="pd-thumb' + (i === 0 ? ' active' : '') + '" onclick="YARZ.switchImage(' + i + ',\'' + fullSrc + '\')"><img crossorigin="anonymous" src="' + thumbSrc + '" alt="' + escHtml(product.name) + ' thumbnail" loading="lazy" decoding="async"></div>';
+        html += '<div class="pd-thumb' + (i === 0 ? ' active' : '') + '" onclick="YARZ.switchImage(' + i + ',\'' + fullSrc + '\')"><img src="' + thumbSrc + '" alt="' + escHtml(product.name) + ' thumbnail" loading="lazy" decoding="async"></div>';
       });
       html += '</div>';
     }
@@ -4484,7 +4484,7 @@ const YARZ = (() => {
       cartHtml = freeShipBannerHtml + state.cart.map(function (item) {
         var safeKey = escHtml(item.key).replace(/'/g, "\\'");
         return '<div class="cart-item" data-cart-key="' + escHtml(item.key) + '">' +
-          '<div class="cart-item-img"><img crossorigin="anonymous" src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"></div>' +
+          '<div class="cart-item-img"><img src="' + escHtml(getImgSrc(item.image)) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'"></div>' +
           '<div class="cart-item-info">' +
           '<div class="cart-item-name">' + escHtml(item.name) + '</div>' +
           '<div class="cart-item-meta">Size: ' + _sizeLabel(item.size) + ' &middot; Qty: ' + item.qty + '</div>' +
@@ -5250,7 +5250,7 @@ const YARZ = (() => {
       // checkout patterns). Falls back gracefully when image is missing.
       var imgSrc = item.image || '';
       var imgHtml = imgSrc
-        ? '<img crossorigin="anonymous" src="' + escHtml(imgSrc) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" '
+        ? '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(item.name) + '" loading="lazy" decoding="async" '
           + 'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" '
           + 'style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg-secondary);border:1px solid var(--border-light);">'
           + '<span style="display:none;width:48px;height:48px;border-radius:8px;background:var(--bg-secondary);align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border-light);">'
@@ -6340,7 +6340,7 @@ const YARZ = (() => {
     container.innerHTML = results.map(function (p) {
       var safeName = _cleanInlineName(p.name);
       return '<div class="search-result-item" onclick="YARZ.closeSearch();YARZ.openProduct(\'' + safeName + '\')">' +
-        '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(p.image1)) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
+        '<img src="' + escHtml(getImgSrc(p.image1)) + '" alt="' + escHtml(p.name) + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' +
         '<div class="sr-info"><div class="sr-name">' + escHtml(p.name) + '</div>' +
         '<div class="sr-price">' + formatPrice(p.salePrice) + '</div></div></div>';
     }).join('');
@@ -7360,7 +7360,7 @@ const YARZ = (() => {
         'fbq(\'track\', \'PageView\');';
       document.head.appendChild(fbScript);
       var fbNs = document.createElement('noscript');
-      fbNs.innerHTML = '<img crossorigin="anonymous" height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
+      fbNs.innerHTML = '<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
       document.head.appendChild(fbNs);
       //console.log('YARZ: Facebook Pixel (' + fbPixel + ') injected (fallback path).');
     }
@@ -7368,7 +7368,7 @@ const YARZ = (() => {
     if (fbPixel && !document.getElementById('yarz-fb-noscript')) {
       var fbNs2 = document.createElement('noscript');
       fbNs2.id = 'yarz-fb-noscript';
-      fbNs2.innerHTML = '<img crossorigin="anonymous" height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
+      fbNs2.innerHTML = '<img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=' + fbPixel + '&ev=PageView&noscript=1" alt="">';
       document.head.appendChild(fbNs2);
     }
 
@@ -7556,7 +7556,7 @@ const YARZ = (() => {
           // aspect-ratio (1406/738 desktop vs 4/5 mobile vs 1/1 tiny).
           // The .hero-section wrapper handles CLS reservation via its own
           // aspect-ratio rule, so we don't need width/height on the <img>.
-          var imgHtml = '<img crossorigin="anonymous" src="' + escHtml(bannerSrc) + '" srcset="' + escHtml(bannerSrcset) + '" sizes="' + escHtml(bannerSizes) + '" alt="' + escHtml(b.title) + '" ' + eagerTags + ' style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.style.display=\'none\'">';
+          var imgHtml = '<img src="' + escHtml(bannerSrc) + '" srcset="' + escHtml(bannerSrcset) + '" sizes="' + escHtml(bannerSizes) + '" alt="' + escHtml(b.title) + '" ' + eagerTags + ' style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.style.display=\'none\'">';
 
           var overlayHtml = '';
           if (b.title) {
@@ -8117,7 +8117,7 @@ const YARZ = (() => {
         // non-branded fallback (logoEl missing the .yarz-mark animation).
         var logoEl = document.querySelector('.brand-logo');
         if (logoEl && !logoEl.classList.contains('yarz-mark')) {
-          logoEl.innerHTML = '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(sLogo)) + '" alt="' + escHtml(sName || 'Logo') + '" decoding="async" style="max-height:32px;">';
+          logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(sLogo)) + '" alt="' + escHtml(sName || 'Logo') + '" decoding="async" style="max-height:32px;">';
         }
       }
 
@@ -8190,7 +8190,7 @@ const YARZ = (() => {
         // is NOT the YARZ animated mark (e.g. a future generic build).
         var logoEl = document.querySelector('.brand-logo');
         if (logoEl && !logoEl.classList.contains('yarz-mark')) {
-          logoEl.innerHTML = '<img crossorigin="anonymous" src="' + escHtml(getImgSrc(controls.websiteLogoUrl)) + '" alt="' + escHtml(controls.raw.store_name || 'Logo') + '" decoding="async" style="max-height:32px;">';
+          logoEl.innerHTML = '<img src="' + escHtml(getImgSrc(controls.websiteLogoUrl)) + '" alt="' + escHtml(controls.raw.store_name || 'Logo') + '" decoding="async" style="max-height:32px;">';
         }
       }
 
@@ -8474,9 +8474,9 @@ const YARZ = (() => {
                 
               var safeImgSrc = getImgSrc(img, 600);
               if (link) {
-                innerHtml += '<a href="' + escHtml(link) + '"><img crossorigin="anonymous" src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async"></a>';
+                innerHtml += '<a href="' + escHtml(link) + '"><img src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async"></a>';
               } else {
-                innerHtml += '<img crossorigin="anonymous" src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async">';
+                innerHtml += '<img src="' + safeImgSrc + '" alt="Promo image" style="border-radius:12px;width:100%;display:block" loading="lazy" decoding="async">';
               }
               
               innerHtml += '</div>';
