@@ -362,12 +362,12 @@ const YARZ = (() => {
       return url;
     }
 
-    // ── Google Drive → SIZED CDN URL (per-call optimal size) ──
+    // ── Google Drive → lh3 CDN URL (sized, works cross-origin) ──
     if (url.indexOf('drive.google.com') !== -1) {
       var m = url.match(/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-      // ✅ v17.7: Google deprecated lh3.googleusercontent.com/d/ for 3rd party hosting.
-      // Use the standard uc endpoint instead.
-      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+      // v17.9: uc?export=view now redirects to download page.
+      // lh3.googleusercontent.com still serves images directly with size params.
+      if (m) return 'https://lh3.googleusercontent.com/d/' + m[1] + '=s' + size + '-rw';
     }
     // Already a lh3.googleusercontent.com URL — replace size param if present
     if (url.indexOf('lh3.googleusercontent.com') !== -1) {
