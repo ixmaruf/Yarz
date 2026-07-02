@@ -1709,19 +1709,33 @@ const YARZ = (() => {
   }
 
   // ===== RENDER BOTTOM SHOWCASE =====
+  // ✅ v17.8 FIX: Worker lowercases all keys to spaces (e.g. "Promo Popup Active"
+  // → "promo popup active"). The old direct lookups (promo_popup_active, etc.)
+  // never matched. Now we build a lowercase→value map once and resolve keys
+  // case-insensitively.
   function renderBottomShowcase(storeInfo) {
     var container = document.getElementById('bottom-showcase-container');
     if (!container || !storeInfo) return;
 
-    // ✅ v11 FIX: Read both snake_case and Title Case keys, with robust on/off parsing
-    var rawActive = storeInfo.promo_popup_active;
-    if (rawActive === undefined) rawActive = storeInfo['Promo Popup Active'];
-    if (rawActive === undefined) rawActive = storeInfo.promoPopupActive;
+    // Build a lowercase-key map for case-insensitive resolution
+    var _lcMap = {};
+    Object.keys(storeInfo).forEach(function(k) {
+      _lcMap[k.toLowerCase()] = storeInfo[k];
+    });
+    function _gv() {
+      for (var i = 0; i < arguments.length; i++) {
+        var v = _lcMap[String(arguments[i]).toLowerCase()];
+        if (v !== undefined && v !== null && v !== '') return v;
+      }
+      return undefined;
+    }
+
+    var rawActive = _gv('promo popup active', 'promo_popup_active', 'promopopupactive', 'bottom showcase active', 'bottom_showcase_active');
     var s = String(rawActive == null ? '' : rawActive).toLowerCase().trim();
     var isActive = (s === 'true' || s === 'yes' || s === '1' || s === 'on' || s === 'enabled' || s === 'chalu' || s === 'চালু');
 
-    var img1 = storeInfo.promo_popup_image || storeInfo['Promo Popup Image'] || '';
-    var img2 = storeInfo.promo_popup_link  || storeInfo['Promo Popup Link']  || '';
+    var img1 = _gv('promo popup image', 'promo_popup_image') || '';
+    var img2 = _gv('promo popup link', 'promo_popup_link')  || '';
 
     if (!isActive || (!img1 && !img2)) {
       container.style.display = 'none';
@@ -2335,7 +2349,7 @@ const YARZ = (() => {
         '<div class="newsletter-result" id="yarz-nl-result" style="display:none"></div>' +
         '</div>';
       document.body.appendChild(overlay);
-      requestAnimationFrame(function() { overlay.classList.add('visible'); });
+      requestAnimationFrame(function() { overlay.classList.add('visible', 'active'); });
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
           overlay.remove();
@@ -2449,7 +2463,7 @@ const YARZ = (() => {
         clickHtml +
         '</div>';
       document.body.appendChild(overlay);
-      requestAnimationFrame(function() { overlay.classList.add('visible'); });
+      requestAnimationFrame(function() { overlay.classList.add('visible', 'active'); });
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
           overlay.remove();
@@ -8398,7 +8412,7 @@ const YARZ = (() => {
               if (ev.target === exitOverlay) { exitOverlay.remove(); sessionStorage.setItem('yarz_exit_popup_dismissed', '1'); }
             });
             document.body.appendChild(exitOverlay);
-            requestAnimationFrame(function() { exitOverlay.classList.add('visible'); });
+            requestAnimationFrame(function() { exitOverlay.classList.add('visible', 'active'); });
           };
           // Desktop: mouseout trigger
           var _exitMouse = function(e) {
@@ -8490,7 +8504,7 @@ const YARZ = (() => {
               
               document.body.appendChild(overlay);
               void overlay.offsetHeight; // force reflow
-              overlay.classList.add('visible'); // style.css uses .visible
+              overlay.classList.add('visible', 'active'); // style.css uses .visible
             }, delay * 1000);
           })(i, pImg, pLink, pTrigger);
         }
