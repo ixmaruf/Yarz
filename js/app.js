@@ -3313,7 +3313,154 @@ const YARZ = (() => {
     applyFilters();
   }
 
-  /* ─── Filter: category dropdown change ─── */
+  /* ─── Custom Dropdown: toggle open/close ─── */
+  function _toggleCustomDropdown(id) {
+    var dd = document.getElementById(id);
+    if (!dd) return;
+    var wasOpen = dd.classList.contains('open');
+    // Close all other dropdowns
+    document.querySelectorAll('.custom-dropdown.open').forEach(function(d) {
+      if (d.id !== id) d.classList.remove('open');
+    });
+    dd.classList.toggle('open', !wasOpen);
+  }
+
+  /* ─── Custom Dropdown: select option ─── */
+  function _selectCustomOption(dropdownId, value, el) {
+    var dd = document.getElementById(dropdownId);
+    if (!dd) return;
+    // Update selected state
+    dd.querySelectorAll('.custom-dropdown-option').forEach(function(o) { o.classList.remove('selected'); });
+    el.classList.add('selected');
+    // Update trigger label
+    dd.querySelector('.custom-dropdown-label').textContent = el.textContent;
+    // Close panel
+    dd.classList.remove('open');
+    // Trigger appropriate handler
+    if (dropdownId === 'filter-category-dropdown') {
+      state.currentCategory = value;
+      // Sync homepage category tab highlight
+      $$('.category-tab').forEach(function(t){ t.classList.remove('active'); });
+      $$('.category-tab').forEach(function(t){
+        var txt = t.textContent.split('(')[0].trim();
+        if ((value === '' && txt === 'All') || txt === value) t.classList.add('active');
+      });
+      _populateCustomSizeDropdown(value);
+      state.currentSizeFilter = '';
+      applyFilters();
+    } else if (dropdownId === 'filter-size-dropdown') {
+      state.currentSizeFilter = value;
+      applyFilters();
+    }
+  }
+
+  /* ─── Custom Dropdown: close on outside click ─── */
+  function _initCustomDropdowns() {
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.custom-dropdown')) {
+        document.querySelectorAll('.custom-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+      }
+    });
+  }
+
+  /* ─── Populate custom category dropdown ─── */
+  function _populateCustomCategoryDropdown() {
+    var dd = document.getElementById('filter-category-dropdown');
+    if (!dd) return;
+    var panel = dd.querySelector('.custom-dropdown-panel');
+    var shopProds = getShopProducts();
+    var counts = {};
+    shopProds.forEach(function(p) {
+      var c = (p.category || '').trim();
+      if (c) counts[c] = (counts[c] || 0) + 1;
+    });
+    var cats = Object.keys(counts).sort();
+    var currentCat = state.currentCategory || '';
+    var html = '<div class="custom-dropdown-option' + (currentCat === '' ? ' selected' : '') + '" data-value="" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-category-dropdown\',\'\',this)">All Categories</div>';
+    cats.forEach(function(c) {
+      var sel = c === currentCat ? ' selected' : '';
+      html += '<div class="custom-dropdown-option' + sel + '" data-value="' + c.replace(/"/g, '&quot;') + '" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-category-dropdown\',\'' + c.replace(/'/g, "\\'") + '\',this)">' + c + ' (' + counts[c] + ')</div>';
+    });
+    panel.innerHTML = html;
+    // Update trigger label
+    dd.querySelector('.custom-dropdown-label').textContent = currentCat || 'All Categories';
+  }
+
+  /* ─── Populate custom size dropdown ─── */
+  function _populateCustomSizeDropdown(cat) {
+    var dd = document.getElementById('filter-size-dropdown');
+    if (!dd) return;
+    var panel = dd.querySelector('.custom-dropdown-panel');
+    var currentSize = state.currentSizeFilter || '';
+    var isPant = false;
+    if (cat) {
+      isPant = isPantCategory(cat);
+      if (!isPant) {
+        var catProds = (state.products || []).filter(function(p) {
+          return (p.category || '').trim().toLowerCase() === cat.trim().toLowerCase() && !isOneSize(p);
+        });
+        if (catProds.length && catProds.every(function(p){ return _effectiveIsPant(p.category, p); })) {
+          isPant = true;
+        }
+      }
+    }
+    var html = '<div class="custom-dropdown-option' + (currentSize === '' ? ' selected' : '') + '" data-value="" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-size-dropdown\',\'\',this)">All Sizes</div>';
+    if (isPant) {
+      var sizes = [
+        { code: 'S',   label: '28"' },
+        { code: 'M',   label: '30"' },
+        { code: 'L',   label: '32"' },
+        { code: 'XL',  label: '34"' },
+        { code: 'XXL', label: '36"' },
+        { code: '3XL', label: '38"' }
+      ];
+      sizes.forEach(function(s) {
+        if (!isSizeVisible(s.code, true)) return;
+        var sel = currentSize === s.code ? ' selected' : '';
+        html += '<div class="custom-dropdown-option' + sel + '" data-value="' + s.code + '" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-size-dropdown\',\'' + s.code + '\',this)">' + s.label + '</div>';
+      });
+    } else if (cat) {
+      var sizes = ['S','M','L','XL','XXL','3XL'];
+      sizes.forEach(function(s) {
+        if (!isSizeVisible(s, false)) return;
+        var sel = currentSize === s ? ' selected' : '';
+        html += '<div class="custom-dropdown-option' + sel + '" data-value="' + s + '" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-size-dropdown\',\'' + s + '\',this)">' + s + '</div>';
+      });
+    } else {
+      html += '<div class="custom-dropdown-group-label">Upper Body</div>';
+      ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
+        if (!isSizeVisible(s, false)) return;
+        var val = 'shirt_' + s;
+        var sel = currentSize === val ? ' selected' : '';
+        html += '<div class="custom-dropdown-option' + sel + '" data-value="' + val + '" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-size-dropdown\',\'' + val + '\',this)">' + s + '</div>';
+      });
+      html += '<div class="custom-dropdown-group-label">Lower Body</div>';
+      var waist = [
+        { code: 'S',   label: '28"' },
+        { code: 'M',   label: '30"' },
+        { code: 'L',   label: '32"' },
+        { code: 'XL',  label: '34"' },
+        { code: 'XXL', label: '36"' },
+        { code: '3XL', label: '38"' }
+      ];
+      waist.forEach(function(s) {
+        if (!isSizeVisible(s.code, true)) return;
+        var val = 'pant_' + s.code;
+        var sel = currentSize === val ? ' selected' : '';
+        html += '<div class="custom-dropdown-option' + sel + '" data-value="' + val + '" onclick="event.stopPropagation();YARZ._selectCustomOption(\'filter-size-dropdown\',\'' + val + '\',this)">' + s.label + '</div>';
+      });
+    }
+    panel.innerHTML = html;
+    // Update trigger label
+    var label = 'All Sizes';
+    if (currentSize) {
+      var opt = panel.querySelector('.custom-dropdown-option[data-value="' + currentSize + '"]');
+      if (opt) label = opt.textContent;
+    }
+    dd.querySelector('.custom-dropdown-label').textContent = label;
+  }
+
+  /* ─── Filter: category dropdown change (legacy compat) ─── */
   function _onFilterCategoryChange() {
     var sel = document.getElementById('filter-category-select');
     if (!sel) return;
@@ -3408,35 +3555,14 @@ const YARZ = (() => {
   }
 
   function updateFilterUI() {
-    // Populate category dropdown from actual products
-    var catSel = document.getElementById('filter-category-select');
-    if (catSel) {
-      var shopProds = getShopProducts();
-      var counts = {};
-      shopProds.forEach(function(p) {
-        var c = (p.category || '').trim();
-        if (c) counts[c] = (counts[c] || 0) + 1;
-      });
-      var cats = Object.keys(counts).sort();
-      var currentCat = state.currentCategory || '';
-      var html = '<option value="">All Categories</option>';
-      cats.forEach(function(c) {
-        var sel = c === currentCat ? ' selected' : '';
-        html += '<option value="' + c.replace(/"/g, '&quot;') + '"' + sel + '>' + c + ' (' + counts[c] + ')</option>';
-      });
-      catSel.innerHTML = html;
-      _populateSizeDropdown(currentCat);
-    }
+    // Populate custom dropdowns
+    _populateCustomCategoryDropdown();
+    _populateCustomSizeDropdown(state.currentCategory || '');
     // Sync sort chips
     var activeSort = state.currentSort || 'default';
     document.querySelectorAll('.filter-chip[data-sort]').forEach(function(c) {
       c.classList.toggle('active', c.getAttribute('data-sort') === activeSort);
     });
-    // Sync size dropdown with current filter
-    var sizeSel = document.getElementById('filter-size-select');
-    if (sizeSel && state.currentSizeFilter) {
-      sizeSel.value = state.currentSizeFilter;
-    }
   }
 
   function applyFilters() {
@@ -8039,6 +8165,7 @@ const YARZ = (() => {
     initMobileMenu();
     initInAppBrowserWarning();
     _initPopstateHandler(); // v4.1: prevents blank-screen on browser back button
+    _initCustomDropdowns(); // Custom dropdown close-on-outside-click
 
     // Local storage caching removed per user request for 0ms Edge SSR
     // ----------------------------------------------------------------
@@ -9713,6 +9840,8 @@ const YARZ = (() => {
     _selectSort: _selectSort,
     _onFilterCategoryChange: _onFilterCategoryChange,
     _onFilterSizeChange: _onFilterSizeChange,
+    _toggleCustomDropdown: _toggleCustomDropdown,
+    _selectCustomOption: _selectCustomOption,
     selectSize: selectSize,
     changeQty: changeQty,
     switchImage: switchImage,
