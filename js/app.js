@@ -322,6 +322,7 @@ const YARZ = (() => {
   var _ICON_PATHS = {
     // Order status — outline-only paths, 24x24 viewBox
     check:   '<path d="M20 6L9 17l-5-5"/>',
+    shield:  '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
     cog:     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     box:     '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
     truck:   '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
@@ -492,7 +493,7 @@ const YARZ = (() => {
       // ✅ v15.42: Strip commas/spaces before parsing. Bangladeshi admins
       // commonly type "5,000" in spreadsheet cells; parseFloat("5,000") = 5
       // which would silently make EVERY order qualify for free shipping.
-      var _fsRaw = String(state.storeInfo.freeShipAmt || state.storeInfo.free_ship_amt || '').replace(/[,\s]/g, '');
+      var _fsRaw = String(state.storeInfo.freeShipAmt || state.storeInfo.free_ship_amt || state.storeInfo['free ship amt'] || '').replace(/[,\s]/g, '');
       freeShipAmt = parseFloat(_fsRaw) || 0;
     }
     // ✅ v15.41 FREE-SHIP MILESTONE: Track whether the cart unlocked free
@@ -545,7 +546,9 @@ const YARZ = (() => {
     var candidates = [
       info.freeShipAdvance,
       info.freeship_advance,
+      info['freeship advance'],
       raw.freeship_advance,
+      raw['freeship advance'],
       raw['FreeShip Advance']
     ];
     for (var i = 0; i < candidates.length; i++) {
@@ -1227,7 +1230,7 @@ const YARZ = (() => {
   // the new dedicated "Size OOS Hide" (per-size OOS strikethrough → gone).
   function shouldHideOosSizes() {
     var c = state.controls || {};
-    return !!(c.sizeOosHide || c.oosHide);
+    return !!c.sizeOosHide;
   }
 
   // Returns the filtered sizes array honoring admin per-size visibility.
@@ -2316,6 +2319,15 @@ const YARZ = (() => {
     else document.body.appendChild(section);
   }
 
+  // ----- v17.10: Close ALL popup overlays at once (prevents stacked popups needing 2 clicks) -----
+  function _closeAllPopups() {
+    document.querySelectorAll('.yarz-popup-overlay').forEach(function(o) { o.remove(); });
+    sessionStorage.setItem('yarz_newsletter_dismissed', '1');
+    sessionStorage.setItem('yarz_exit_popup_dismissed', '1');
+  }
+  // Expose globally so inline onclick handlers can call it
+  window._closeAllPopups = _closeAllPopups;
+
   // ----- Newsletter Popup -----
   function initNewsletterPopup() {
     var c = state.controls || {};
@@ -2332,7 +2344,7 @@ const YARZ = (() => {
       overlay.className = 'yarz-popup-overlay';
       overlay.innerHTML =
         '<div class="yarz-popup-card newsletter-card">' +
-        '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-newsletter-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_newsletter_dismissed\',\'1\')">✕</button>' +
+        '<button class="popup-close" onclick="_closeAllPopups()">✕</button>' +
         '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
           '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
             '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
@@ -2352,8 +2364,7 @@ const YARZ = (() => {
       requestAnimationFrame(function() { overlay.classList.add('visible', 'active'); });
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
-          overlay.remove();
-          sessionStorage.setItem('yarz_newsletter_dismissed', '1');
+          _closeAllPopups();
         }
       });
       var btn = document.getElementById('yarz-nl-submit');
@@ -2459,14 +2470,14 @@ const YARZ = (() => {
         : '<img src="' + imgSrc + '" alt="Promo" loading="lazy" decoding="async" style="display:block;width:100%;border-radius:12px" onerror="' + errJs + '">';
       overlay.innerHTML =
         '<div class="yarz-popup-card promo-popup-card">' +
-        '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove();">✕</button>' +
+        '<button class="popup-close" onclick="_closeAllPopups()">✕</button>' +
         clickHtml +
         '</div>';
       document.body.appendChild(overlay);
       requestAnimationFrame(function() { overlay.classList.add('visible', 'active'); });
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) {
-          overlay.remove();
+          _closeAllPopups();
         }
       });
     };
@@ -3903,14 +3914,15 @@ const YARZ = (() => {
     html += '<button class="btn btn-outline btn-lg" onclick="YARZ.buyNow()" id="buy-now-btn"' + (!product.inStock ? ' disabled' : '') + '>Buy Now</button>';
     html += '</div>';
 
-    // ✅ v11.8: Trust Badges Strip — admin-controlled (Advanced tab)
+    // ✅ v17.10: Trust Badges Strip — admin-controlled (Advanced tab)
     // ✅ v15.6 FIX: Renamed from `trustBadges` (collided with boolean) to `trustBadgeItems`
     if (state.controls && state.controls.trustStripActive && state.controls.trustBadgeItems && state.controls.trustBadgeItems.length) {
       html += '<div class="pd-trust-strip">';
       state.controls.trustBadgeItems.forEach(function(b) {
         if (!b.icon && !b.label) return;
+        var iconHtml = _icon(b.icon, 22) || escHtml(b.icon || '✓');
         html += '<div class="trust-badge">' +
-                  '<span class="tb-icon">' + escHtml(b.icon || '✓') + '</span>' +
+                  '<span class="tb-icon">' + iconHtml + '</span>' +
                   '<span class="tb-label">' + escHtml(b.label || '') + '</span>' +
                 '</div>';
       });
@@ -4455,7 +4467,7 @@ const YARZ = (() => {
       var siInfo = state.storeInfo || {};
       // ✅ v15.42: Defensive comma-strip before parseFloat — see comment in
       // calculateCartDeliveryCharge for the underlying reason.
-      var _fsRawCart = String(siInfo.freeShipAmt || siInfo.free_ship_amt || '').replace(/[,\s]/g, '');
+      var _fsRawCart = String(siInfo.freeShipAmt || siInfo.free_ship_amt || siInfo['free ship amt'] || '').replace(/[,\s]/g, '');
       var fsAmt = parseFloat(_fsRawCart) || 0;
       if (fsAmt > 0 && state.cart.length > 0) {
         var subtotal = state.cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
@@ -5046,8 +5058,11 @@ const YARZ = (() => {
     if (typeof info.enableCOD === 'boolean') return info.enableCOD;
 
     // Priority 2: Direct snake_case from raw settings sheet
+    // ✅ Worker sends keys in lowercase with spaces (e.g. "enable cod"),
+    // so we check BOTH underscore and space variants.
     var candidates = [
       info.enable_cod,
+      info['enable cod'],
       info.enableCOD,
       raw.enable_cod,
       raw['Enable COD'],
@@ -5538,12 +5553,14 @@ const YARZ = (() => {
           YARZ_API.getStoreInfo().then(function (res) {
             if (res && res.success) {
               var s = res.data || res.store || {};
-              if (s && s['enable_cod'] !== undefined) {
+              var _codVal = s['enable cod'] || s['enable_cod'] || s['Enable COD'];
+              if (_codVal !== undefined) {
                 state.storeInfo = state.storeInfo || {};
-                state.storeInfo.enable_cod = s['enable_cod'];
-                state.storeInfo.enableCOD = !(String(s['enable_cod']).toLowerCase() === 'false');
+                state.storeInfo.enable_cod = _codVal;
+                state.storeInfo.enableCOD = !(String(_codVal).toLowerCase() === 'false');
                 state.storeInfo.raw = state.storeInfo.raw || {};
-                state.storeInfo.raw.enable_cod = s['enable_cod'];
+                state.storeInfo.raw.enable_cod = _codVal;
+                state.storeInfo.raw['enable cod'] = _codVal;
               }
             }
           }).catch(function () {});
@@ -8394,7 +8411,7 @@ const YARZ = (() => {
             exitOverlay.className = 'yarz-popup-overlay';
             exitOverlay.innerHTML =
               '<div class="yarz-popup-card">' +
-              '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\')">&times;</button>' +
+              '<button class="popup-close" onclick="_closeAllPopups()">&times;</button>' +
               '<div class="popup-icon" style="background:transparent;border:none;width:auto;height:auto;">' +
                 '<svg viewBox="0 0 24 24" style="width:48px;height:48px;display:block;margin:0 auto;" aria-hidden="true">' +
                   '<circle cx="12" cy="12" r="10" fill="#C8102E" stroke="#9B0C23" stroke-width="0.6"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#FBF8F1" stroke-width="0.7" opacity="0.85"/>' +
@@ -8409,7 +8426,7 @@ const YARZ = (() => {
               '<button class="popup-cta" onclick="var o=document.getElementById(\'yarz-exit-popup\');if(o)o.remove();sessionStorage.setItem(\'yarz_exit_popup_dismissed\',\'1\');YARZ.goHome();">শপিং চালিয়ে যান</button>' +
               '</div>';
             exitOverlay.addEventListener('click', function(ev) {
-              if (ev.target === exitOverlay) { exitOverlay.remove(); sessionStorage.setItem('yarz_exit_popup_dismissed', '1'); }
+              if (ev.target === exitOverlay) { _closeAllPopups(); }
             });
             document.body.appendChild(exitOverlay);
             requestAnimationFrame(function() { exitOverlay.classList.add('visible', 'active'); });
@@ -8484,7 +8501,7 @@ const YARZ = (() => {
               overlay.className = 'yarz-popup-overlay';
               
               var innerHtml = '<div class="yarz-popup-card promo-popup-card">' +
-                '<button class="popup-close" onclick="var o=document.getElementById(\'yarz-promo-popup-' + idx + '\');if(o)o.remove(); event.preventDefault();">&times;</button>';
+                '<button class="popup-close" onclick="_closeAllPopups()">&times;</button>';
                 
               var safeImgSrc = getImgSrc(img, 600);
               if (link) {
@@ -8498,7 +8515,7 @@ const YARZ = (() => {
               
               overlay.addEventListener('click', function(ev) {
                 if (ev.target === overlay) { 
-                  overlay.remove(); 
+                  _closeAllPopups(); 
                 }
               });
               
