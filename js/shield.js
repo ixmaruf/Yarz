@@ -284,7 +284,7 @@ const YARZ_SHIELD = (() => {
     // 10. Admin Blacklist (from storeInfo)
     if (window.YARZ && YARZ.state && YARZ.state.storeInfo) {
       var raw = YARZ.state.storeInfo.raw || YARZ.state.storeInfo;
-      var blockedPhones = raw.blocked_phones || '';
+      var blockedPhones = raw['blocked_phones'] || raw['blocked phones'] || '';
       if (blockedPhones) {
         var blockedList = String(blockedPhones).split(',').map(function(p) { return p.trim(); });
         if (blockedList.indexOf(phone) > -1) {

@@ -1,5 +1,5 @@
 /* ============================================================
-   YARZ — Main Application v18.0 (2026-07-03)
+   YARZ — Main Application v18.1 (2026-07-03)
    State Management, Cart, User, UI Components, Navigation
    Global Control Sync: Maintenance Mode, Announcement
    Payment Info: bKash, Nagad, COD
@@ -10,7 +10,8 @@
      • calculateCartDeliveryCharge() now checks 'free ship amt' (space)
      • shouldHideOosSizes() only checks sizeOosHide (removed oosHide)
      • Added _closeAllPopups() for stacked popup close
-     • Added shield SVG icon for trust badges
+      • Added shield SVG icon for trust badges
+      • blocked_phones now checks both underscore and space variants
 
    ✅ v3.1 changes (CRITICAL — fixes order total bugs):
      • submitOrder() now sends explicit `total` and `coupon` fields
@@ -5679,8 +5680,10 @@ const YARZ = (() => {
     // line ~4129 — keeping a duplicate read here would just be dead code.
 
     // 6. Admin Phone Blacklist
-    if (state.storeInfo && state.storeInfo.raw && state.storeInfo.raw.blocked_phones) {
-      var blockedList = String(state.storeInfo.raw.blocked_phones).split(',');
+    var _rawBlocked = (state.storeInfo && state.storeInfo.raw) || {};
+    var _blockedPhones = _rawBlocked['blocked_phones'] || _rawBlocked['blocked phones'] || '';
+    if (_blockedPhones) {
+      var blockedList = String(_blockedPhones).split(',');
       var isBlocked = blockedList.some(function(b) { return b.trim() === phone; });
       if (isBlocked) {
         simulateFakeSuccess(name, phone, address, payment);
