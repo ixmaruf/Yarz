@@ -3305,82 +3305,137 @@ const YARZ = (() => {
     applyFilters();
   }
 
-  function updateFilterUI() {
-    var cat = (state.currentCategory || '').trim().toLowerCase();
-    
-    var sizeContainer = document.querySelector('.size-filter-options');
-    if (!sizeContainer) return;
+  /* ─── Filter: sort chip click ─── */
+  function _selectSort(el) {
+    document.querySelectorAll('.filter-chip[data-sort]').forEach(function(c){ c.classList.remove('active'); });
+    el.classList.add('active');
+    state.currentSort = el.getAttribute('data-sort') || 'default';
+    applyFilters();
+  }
 
-    var html = '<label class="filter-radio" style="grid-column:1/-1;margin-bottom:8px;">' +
-               '<input type="radio" name="filter_size" value="" checked onchange="YARZ.applyFilters()">' +
-               '<span>All Sizes</span></label>';
+  /* ─── Filter: category dropdown change ─── */
+  function _onFilterCategoryChange() {
+    var sel = document.getElementById('filter-category-select');
+    if (!sel) return;
+    var cat = sel.value || '';
+    state.currentCategory = cat;
+    // Sync homepage category tab highlight
+    $$('.category-tab').forEach(function(t){ t.classList.remove('active'); });
+    $$('.category-tab').forEach(function(t){
+      var txt = t.textContent.split('(')[0].trim();
+      if ((cat === '' && txt === 'All') || txt === cat) t.classList.add('active');
+    });
+    _populateSizeDropdown(cat);
+    // Reset size selection
+    var sizeSel = document.getElementById('filter-size-select');
+    if (sizeSel) sizeSel.value = '';
+    state.currentSizeFilter = '';
+    applyFilters();
+  }
 
-    var showShirt = cat === '' || cat.indexOf('shirt') !== -1;
-    var showPanjabi = cat === '' || cat.indexOf('panjabi') !== -1;
-    var showPant = cat === '' || isPantCategory(cat);
-    var showOther = cat !== '' && !showShirt && !showPanjabi && !showPant;
+  /* ─── Filter: size dropdown change ─── */
+  function _onFilterSizeChange() {
+    var sel = document.getElementById('filter-size-select');
+    if (!sel) return;
+    state.currentSizeFilter = sel.value || '';
+    applyFilters();
+  }
 
-    // ✅ v16.2: If the current (custom-named) category's products are actually
-    // pant-typed via the per-product Size Type override (e.g. category
-    // "Joggers" with Size Type = Pant), show the Pant size group with 28-38
-    // labels instead of a generic S/M/L "Other" group. We peek at the loaded
-    // products for this category and check their effective pant-ness.
-    var otherIsPant = false;
-    if (showOther) {
-      try {
+  /* ─── Populate size dropdown based on category ─── */
+  function _populateSizeDropdown(cat) {
+    var sizeSel = document.getElementById('filter-size-select');
+    if (!sizeSel) return;
+    // Determine if this category is pant-typed
+    var isPant = false;
+    if (cat) {
+      isPant = isPantCategory(cat);
+      // Also check per-product sizeType override
+      if (!isPant) {
         var catProds = (state.products || []).filter(function(p) {
-          var pc = (p.category || '').trim().toLowerCase();
-          return pc === cat && !isOneSize(p);
+          return (p.category || '').trim().toLowerCase() === cat.trim().toLowerCase() && !isOneSize(p);
         });
-        // Treat the group as Pant only if products exist AND every sized one
-        // is pant-typed (avoids mixing 28-38 with S-M-L in one group).
         if (catProds.length && catProds.every(function(p){ return _effectiveIsPant(p.category, p); })) {
-          otherIsPant = true;
+          isPant = true;
         }
-      } catch (e) {}
+      }
     }
-    if (otherIsPant) { showOther = false; showPant = true; }
-
-    if (showShirt) {
-      html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Shirt Sizes</div>';
-      ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
-        if (!isSizeVisible(s, false)) return; // ✅ v16: admin-disabled size hidden from filter
-        html += '<label class="filter-radio"><input type="radio" name="filter_size" value="shirt_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
+    var html = '<option value="">All Sizes</option>';
+    if (isPant) {
+      // Lower body: waist sizes
+      var sizes = [
+        { code: 'S',   label: '28"' },
+        { code: 'M',   label: '30"' },
+        { code: 'L',   label: '32"' },
+        { code: 'XL',  label: '34"' },
+        { code: 'XXL', label: '36"' },
+        { code: '3XL', label: '38"' }
+      ];
+      sizes.forEach(function(s) {
+        if (!isSizeVisible(s.code, true)) return;
+        html += '<option value="' + s.code + '">' + s.label + '</option>';
       });
-    }
-
-    if (showPanjabi) {
-      html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Panjabi Sizes</div>';
-      ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
-        if (!isSizeVisible(s, false)) return; // ✅ v16
-        html += '<label class="filter-radio"><input type="radio" name="filter_size" value="panjabi_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
+    } else if (cat) {
+      // Upper body: letter sizes
+      var sizes = ['S','M','L','XL','XXL','3XL'];
+      sizes.forEach(function(s) {
+        if (!isSizeVisible(s, false)) return;
+        html += '<option value="' + s + '">' + s + '</option>';
       });
-    }
-
-    if (showPant) {
-      html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">Pant Sizes</div>';
+    } else {
+      // No category selected — show all sizes grouped with labels
+      html += '<optgroup label="Upper Body">';
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
-        if (!isSizeVisible(s, true)) return; // ✅ v16: pant-side per-size toggle
-        html += '<label class="filter-radio"><input type="radio" name="filter_size" value="pant_' + s + '" onchange="YARZ.applyFilters()"><span>' + getPantSizeLabel(s) + '</span></label>';
+        if (!isSizeVisible(s, false)) return;
+        html += '<option value="shirt_' + s + '">' + s + '</option>';
       });
-    }
-    
-    if (showOther) {
-      html += '<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--brand);margin:16px 0 4px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;">' + cat + ' Sizes</div>';
-      ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
-        if (!isSizeVisible(s, false)) return; // ✅ v16
-        html += '<label class="filter-radio"><input type="radio" name="filter_size" value="other_' + s + '" onchange="YARZ.applyFilters()"><span>' + s + '</span></label>';
+      html += '</optgroup>';
+      html += '<optgroup label="Lower Body">';
+      var waist = [
+        { code: 'S',   label: '28"' },
+        { code: 'M',   label: '30"' },
+        { code: 'L',   label: '32"' },
+        { code: 'XL',  label: '34"' },
+        { code: 'XXL', label: '36"' },
+        { code: '3XL', label: '38"' }
+      ];
+      waist.forEach(function(s) {
+        if (!isSizeVisible(s.code, true)) return;
+        html += '<option value="pant_' + s.code + '">' + s.label + '</option>';
       });
+      html += '</optgroup>';
     }
+    sizeSel.innerHTML = html;
+  }
 
-    // Keep current selected size if it exists
-    var currentSize = state.currentSizeFilter;
-    sizeContainer.innerHTML = html;
-    
-    if (currentSize) {
-      var radio = sizeContainer.querySelector('input[value="' + currentSize + '"]');
-      if (radio) radio.checked = true;
-      else state.currentSizeFilter = ''; // Reset if not found in new options
+  function updateFilterUI() {
+    // Populate category dropdown from actual products
+    var catSel = document.getElementById('filter-category-select');
+    if (catSel) {
+      var shopProds = getShopProducts();
+      var counts = {};
+      shopProds.forEach(function(p) {
+        var c = (p.category || '').trim();
+        if (c) counts[c] = (counts[c] || 0) + 1;
+      });
+      var cats = Object.keys(counts).sort();
+      var currentCat = state.currentCategory || '';
+      var html = '<option value="">All Categories</option>';
+      cats.forEach(function(c) {
+        var sel = c === currentCat ? ' selected' : '';
+        html += '<option value="' + c.replace(/"/g, '&quot;') + '"' + sel + '>' + c + ' (' + counts[c] + ')</option>';
+      });
+      catSel.innerHTML = html;
+      _populateSizeDropdown(currentCat);
+    }
+    // Sync sort chips
+    var activeSort = state.currentSort || 'default';
+    document.querySelectorAll('.filter-chip[data-sort]').forEach(function(c) {
+      c.classList.toggle('active', c.getAttribute('data-sort') === activeSort);
+    });
+    // Sync size dropdown with current filter
+    var sizeSel = document.getElementById('filter-size-select');
+    if (sizeSel && state.currentSizeFilter) {
+      sizeSel.value = state.currentSizeFilter;
     }
   }
 
@@ -3405,65 +3460,62 @@ const YARZ = (() => {
       }
     }
 
-    // 2. Filter by size
-    var sizeFilter = document.querySelector('input[name="filter_size"]:checked');
-    if (sizeFilter && sizeFilter.value) {
-      state.currentSizeFilter = sizeFilter.value;
-      var val = sizeFilter.value;
-      
-      if (val.indexOf('_') !== -1) {
-        var parts = val.split('_');
+    // 2. Filter by size — read from dropdown
+    var sizeSel = document.getElementById('filter-size-select');
+    var sizeVal = sizeSel ? sizeSel.value : '';
+    if (sizeVal) {
+      state.currentSizeFilter = sizeVal;
+      // Handle prefixed values (e.g., shirt_M, pant_L) when no category selected
+      if (sizeVal.indexOf('_') !== -1) {
+        var parts = sizeVal.split('_');
         var type = parts[0];
         var s = parts[1];
-        
         filtered = filtered.filter(function(p) {
-          // ✅ v16.1 ONE-SIZE: sizeless products (caps/watches) have no real
-          // S/M/L size, so they must never match a specific size filter — even
-          // though their stock lives in the M slot. Exclude them outright so
-          // the "Other Sizes" group can't show a phantom M match or make them
-          // vanish under S/L/XL/etc.
           if (isOneSize(p)) return false;
           if (!p.sizes || !p.sizes[s] || p.sizes[s] === '0' || p.sizes[s] === 0 || p.sizes[s] === false) return false;
           var pc = (p.category || '').toLowerCase();
-          // ✅ v16.2: honor the per-product Size Type override so a custom-named
-          // pant (e.g. "Joggers" with Size Type = Pant) is matched by the Pant
-          // filter group, and never wrongly matched by Shirt/Panjabi groups.
           var pIsPant = _effectiveIsPant(pc, p);
           if (type === 'pant')    return pIsPant;
-          if (pIsPant) return false; // a pant-typed product can't match shirt/panjabi/other
+          if (pIsPant) return false;
           if (type === 'shirt')   return pc.indexOf('shirt') !== -1;
           if (type === 'panjabi') return pc.indexOf('panjabi') !== -1;
-          return true; // for 'other'
+          return true;
         });
       } else {
+        // Direct size code (S, M, L, etc.) — filter by category type
+        var catNow = (state.currentCategory || '').trim().toLowerCase();
+        var catIsPant = catNow ? isPantCategory(catNow) : false;
+        // Check per-product sizeType if category not explicitly pant
         filtered = filtered.filter(function(p) {
-          if (isOneSize(p)) return false; // ✅ v16.1: exclude sizeless from size filter
-          return p.sizes && p.sizes[val] && p.sizes[val] !== '0' && p.sizes[val] !== 0 && p.sizes[val] !== false;
+          if (isOneSize(p)) return false;
+          if (!p.sizes || !p.sizes[sizeVal] || p.sizes[sizeVal] === '0' || p.sizes[sizeVal] === 0 || p.sizes[sizeVal] === false) return false;
+          if (!catNow) {
+            // No category: allow any product with this size code
+            return true;
+          }
+          var pIsPant = _effectiveIsPant(p.category, p);
+          if (catIsPant) return pIsPant;
+          return !pIsPant;
         });
       }
     } else {
       state.currentSizeFilter = '';
     }
 
-    // 3. Sort by price
-    var sortFilter = document.querySelector('input[name="sort_price"]:checked');
-    if (sortFilter && sortFilter.value) {
-      state.currentSort = sortFilter.value;
-      if (state.currentSort === 'low_high') {
-        filtered.sort(function(a, b) {
-          var priceA = parseFloat((a.salePrice || a.price || "0").toString().replace(/,/g, ''));
-          var priceB = parseFloat((b.salePrice || b.price || "0").toString().replace(/,/g, ''));
-          return priceA - priceB;
-        });
-      } else if (state.currentSort === 'high_low') {
-        filtered.sort(function(a, b) {
-          var priceA = parseFloat((a.salePrice || a.price || "0").toString().replace(/,/g, ''));
-          var priceB = parseFloat((b.salePrice || b.price || "0").toString().replace(/,/g, ''));
-          return priceB - priceA;
-        });
-      }
-    } else {
-      state.currentSort = 'default';
+    // 3. Sort by price — read from state (set by _selectSort)
+    var sortVal = state.currentSort || 'default';
+    if (sortVal === 'low_high') {
+      filtered.sort(function(a, b) {
+        var priceA = parseFloat((a.salePrice || a.price || "0").toString().replace(/,/g, ''));
+        var priceB = parseFloat((b.salePrice || b.price || "0").toString().replace(/,/g, ''));
+        return priceA - priceB;
+      });
+    } else if (sortVal === 'high_low') {
+      filtered.sort(function(a, b) {
+        var priceA = parseFloat((a.salePrice || a.price || "0").toString().replace(/,/g, ''));
+        var priceB = parseFloat((b.salePrice || b.price || "0").toString().replace(/,/g, ''));
+        return priceB - priceA;
+      });
     }
 
     if (filtered.length === 0) {
@@ -3506,6 +3558,7 @@ const YARZ = (() => {
       drawer.classList.add('open');
       overlay.classList.add('active');
       document.body.classList.add('cart-open');
+      updateFilterUI(); // Refresh dropdown contents on open
     } else {
       drawer.classList.remove('open');
       overlay.classList.remove('active');
@@ -3517,12 +3570,28 @@ const YARZ = (() => {
   function clearFilters() {
     state.currentSizeFilter = '';
     state.currentSort = 'default';
+    state.currentCategory = '';
     
-    var sortRadios = document.querySelectorAll('input[name="sort_price"]');
-    if (sortRadios.length) sortRadios[0].checked = true;
+    // Reset sort chips
+    document.querySelectorAll('.filter-chip[data-sort]').forEach(function(c) {
+      c.classList.toggle('active', c.getAttribute('data-sort') === 'default');
+    });
     
-    var sizeRadios = document.querySelectorAll('input[name="filter_size"]');
-    if (sizeRadios.length) sizeRadios[0].checked = true;
+    // Reset category dropdown
+    var catSel = document.getElementById('filter-category-select');
+    if (catSel) catSel.value = '';
+    
+    // Reset size dropdown
+    var sizeSel = document.getElementById('filter-size-select');
+    if (sizeSel) {
+      sizeSel.innerHTML = '<option value="">All Sizes</option>';
+    }
+    
+    // Sync homepage tabs
+    $$('.category-tab').forEach(function(t) { t.classList.remove('active'); });
+    $$('.category-tab').forEach(function(t) {
+      if (t.textContent.split('(')[0].trim() === 'All') t.classList.add('active');
+    });
     
     if (state.currentView === 'collection') {
       applyFilters();
@@ -9641,6 +9710,9 @@ const YARZ = (() => {
     applyFilters: applyFilters,
     toggleFilterDrawer: toggleFilterDrawer,
     clearFilters: clearFilters,
+    _selectSort: _selectSort,
+    _onFilterCategoryChange: _onFilterCategoryChange,
+    _onFilterSizeChange: _onFilterSizeChange,
     selectSize: selectSize,
     changeQty: changeQty,
     switchImage: switchImage,

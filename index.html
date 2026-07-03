@@ -55,7 +55,7 @@
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
   <link rel="preload" href="./js/api.js?v=18.2" as="script">
-  <link rel="preload" href="./css/style.css?v=16.92" as="style">
+  <link rel="preload" href="./css/style.css?v=16.93" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -395,7 +395,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=16.92">
+  <link rel="stylesheet" href="./css/style.css?v=16.93">
 
   <!-- ════════════════════════════════════════════════════════════════
        v15.13 — DEFINITIVE HERO BANNER FIX (single-shot)
@@ -1077,30 +1077,30 @@
       </button>
     </div>
     <div class="cart-body" style="padding:16px;">
-      <div style="margin-bottom:24px;">
-        <h4 style="font-size:13px; font-weight:700; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Sort By Price</h4>
-        <div class="filter-options">
-          <label class="filter-radio">
-            <input type="radio" name="sort_price" value="default" checked onchange="YARZ.applyFilters()">
-            <span>Default</span>
-          </label>
-          <label class="filter-radio">
-            <input type="radio" name="sort_price" value="low_high" onchange="YARZ.applyFilters()">
-            <span>Low to High</span>
-          </label>
-          <label class="filter-radio">
-            <input type="radio" name="sort_price" value="high_low" onchange="YARZ.applyFilters()">
-            <span>High to Low</span>
-          </label>
+      <div style="margin-bottom:20px;">
+        <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Sort By Price</h4>
+        <div class="filter-sort-row">
+          <button class="filter-chip active" data-sort="default" onclick="YARZ._selectSort(this)">Default</button>
+          <button class="filter-chip" data-sort="low_high" onclick="YARZ._selectSort(this)">Low → High</button>
+          <button class="filter-chip" data-sort="high_low" onclick="YARZ._selectSort(this)">High → Low</button>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Category</h4>
+        <div class="filter-select-wrap">
+          <select id="filter-category-select" class="filter-select" onchange="YARZ._onFilterCategoryChange()">
+            <option value="">All Categories</option>
+          </select>
+          <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
         </div>
       </div>
       <div>
-        <h4 style="font-size:13px; font-weight:700; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Filter By Size</h4>
-        <div class="filter-options size-filter-options">
-          <label class="filter-radio">
-            <input type="radio" name="filter_size" value="" checked onchange="YARZ.applyFilters()">
-            <span>All Sizes</span>
-          </label>
+        <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Size</h4>
+        <div class="filter-select-wrap">
+          <select id="filter-size-select" class="filter-select" onchange="YARZ._onFilterSizeChange()">
+            <option value="">All Sizes</option>
+          </select>
+          <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
         </div>
       </div>
     </div>
@@ -1637,7 +1637,7 @@
   <!-- Core Scripts -->
   <script src="./js/api-turbo.js?v=12.1" defer></script>
   <script src="./js/turbo.js?v=12.1" defer></script>
-  <script src="./js/app.js?v=18.3"  defer></script>
+  <script src="./js/app.js?v=18.4"  defer></script>
 
   <!-- ✅ v15.27 PERF: Removed dead `forceBannerSize` IIFE (was 170 lines of
        JS gated by an immediate `return;` — disabled for mobile perf in v15.14).

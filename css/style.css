@@ -6409,42 +6409,6 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   flex-direction: column;
   gap: 6px;
 }
-.filter-radio {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-primary);
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  transition: all 0.2s ease;
-  background: #fff;
-}
-.filter-radio:hover {
-  background: var(--purple-50);
-  border-color: var(--purple-200);
-}
-.filter-radio input[type="radio"] {
-  accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.filter-radio input[type="radio"]:checked + span {
-  font-weight: 700;
-  color: var(--accent);
-}
-.size-filter-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.size-filter-options .filter-radio {
-  gap: 6px;
-}
 
 /* ============================================================
    v9.7: FILTER DRAWER FIXES
@@ -6485,27 +6449,11 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
 
 /* v9.7: Compact filter text for mobile */
 @media (max-width: 768px) {
-  .filter-radio {
-    font-size: 12px;
-    padding: 7px 10px;
-    gap: 6px;
-  }
-  .filter-radio input[type="radio"] {
-    width: 14px;
-    height: 14px;
-  }
-  .size-filter-options {
-    gap: 5px;
-  }
-  .size-filter-options .filter-radio {
-    padding: 6px 8px;
-    font-size: 11.5px;
-  }
-  /* Filter section headings — compact + purple accent */
+  /* Filter section headings — compact + accent */
   #filter-drawer .cart-body h4 {
     font-size: 11px !important;
     font-weight: 800 !important;
-    color: var(--purple-600) !important;
+    color: var(--accent) !important;
     letter-spacing: 0.08em !important;
     margin-bottom: 8px !important;
     padding-bottom: 6px;
@@ -6589,42 +6537,22 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   #filter-drawer .cart-footer .btn + .btn {
     margin-top: 6px !important;
   }
-  /* Compact sort options */
-  #filter-drawer .filter-options {
-    gap: 3px !important;
-  }
-  #filter-drawer .filter-radio {
-    padding: 6px 10px !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
-  }
-  #filter-drawer .filter-radio input[type="radio"] {
-    width: 13px !important;
-    height: 13px !important;
-  }
-  /* 4-column size grid — all 4 sizes (M/L/XL/XXL) fit in one row */
-  #filter-drawer .size-filter-options {
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 3px !important;
-  }
-  #filter-drawer .size-filter-options .filter-radio {
-    padding: 5px 4px !important;
-    font-size: 11px !important;
-    justify-content: center;
+  /* Compact sort chips */
+  #filter-drawer .filter-sort-row {
     gap: 4px !important;
   }
-  /* Override inline-styled category section dividers inside size grid */
-  #filter-drawer .size-filter-options > div[style] {
-    margin: 8px 0 2px !important;
-    padding-bottom: 2px !important;
-    font-size: 10px !important;
+  #filter-drawer .filter-chip {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  /* Compact dropdowns */
+  #filter-drawer .filter-select {
+    padding: 8px 32px 8px 10px !important;
+    font-size: 13px !important;
   }
   /* Sort section margin */
   #filter-drawer .cart-body > div {
-    margin-bottom: 12px !important;
-  }
-  #filter-drawer .cart-body > div[style*="margin-bottom:24px"] {
-    margin-bottom: 12px !important;
+    margin-bottom: 14px !important;
   }
   /* Sort heading compact */
   #filter-drawer .cart-body h4 {
@@ -8300,7 +8228,8 @@ body.yarz-quickview-open { overflow: hidden; }
 }
 
 /* Ensure minimum touch target size (44x44px) */
-.filter-radio,
+.filter-chip,
+.filter-select,
 .size-btn,
 /* Accessible touch targets for qty-btn */
 .qty-btn {
@@ -8959,35 +8888,81 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════
-   FILTER & SORT DRAWER — burgundy + clean radios
+   FILTER & SORT DRAWER — clean dropdowns + chip sort
    ════════════════════════════════════════════════════════════ */
 #filter-drawer.cart-drawer,
 #filter-drawer { background: #FFFFFF !important; }
 
-.filter-radio {
-  border-radius: 0 !important;
-  border: 1px solid var(--border-color) !important;
-  background: #FFFFFF !important;
-  padding: 9px 12px !important;
-  transition: all var(--transition-fast) !important;
-  font-weight: 500 !important;
+/* Sort chips */
+.filter-sort-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: #FFFFFF;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-body);
   letter-spacing: 0.02em;
 }
-.filter-radio:hover {
-  background: var(--cream-200) !important;
-  border-color: var(--text-primary) !important;
+.filter-chip:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  background: var(--cream-200);
 }
-.filter-radio input[type="radio"]:checked + span {
-  color: var(--accent) !important;
-  font-weight: 600 !important;
-}
-/* The whole option highlights when its radio is checked */
-.filter-radio:has(input[type="radio"]:checked) {
-  background: var(--accent-light) !important;
-  border-color: var(--accent) !important;
+.filter-chip.active {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
-/* Filter section headings — burgundy small accent */
+/* Select wrapper */
+.filter-select-wrap {
+  position: relative;
+}
+.filter-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 36px 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: #FFFFFF;
+  font-size: 14px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  outline: none;
+}
+.filter-select:focus {
+  border-color: var(--accent);
+}
+.filter-select option {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.filter-select-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Filter section headings */
 #filter-drawer .cart-body h4 {
   color: var(--text-primary) !important;
   font-family: var(--font-body) !important;
@@ -8995,15 +8970,6 @@ body {
   letter-spacing: 0.16em !important;
   text-transform: uppercase;
   font-size: 11px !important;
-}
-#filter-drawer .cart-body h4::before {
-  background: var(--accent) !important;
-}
-
-/* Size options */
-.size-filter-options .filter-radio {
-  text-align: center;
-  justify-content: center;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -9604,11 +9570,18 @@ select:focus {
 #filter-drawer {
   background: var(--bg-card, #FAFAF7) !important;
 }
-.filter-radio {
+.filter-select {
+  border: 1px solid var(--border-color) !important;
+  background: var(--bg-secondary, #FFFFFF) !important;
+}
+.filter-select:focus {
+  border-color: var(--accent) !important;
+}
+.filter-chip {
   background: var(--bg-secondary, #FFFFFF) !important;
   border: 1px solid var(--border-color) !important;
 }
-.filter-radio:hover {
+.filter-chip:hover {
   background: var(--cream-200, #F4F2EC) !important;
   border-color: var(--text-primary) !important;
 }
