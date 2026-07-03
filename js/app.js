@@ -1,8 +1,16 @@
 /* ============================================================
-   YARZ — Main Application v3.1 (2026-05-03)
+   YARZ — Main Application v18.0 (2026-07-03)
    State Management, Cart, User, UI Components, Navigation
    Global Control Sync: Maintenance Mode, Announcement
    Payment Info: bKash, Nagad, COD
+
+   ✅ v18.0 changes (CRITICAL — fixes COD/freeShip key mismatch):
+     • isCODEnabled() now checks 'enable cod' (space) from Worker
+     • isFreeShipAdvanceEnabled() now checks 'freeship advance' (space)
+     • calculateCartDeliveryCharge() now checks 'free ship amt' (space)
+     • shouldHideOosSizes() only checks sizeOosHide (removed oosHide)
+     • Added _closeAllPopups() for stacked popup close
+     • Added shield SVG icon for trust badges
 
    ✅ v3.1 changes (CRITICAL — fixes order total bugs):
      • submitOrder() now sends explicit `total` and `coupon` fields
