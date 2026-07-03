@@ -905,12 +905,12 @@ var YARZ_API = (function() {
           return {
             success: true,
             name: p.name || name,
-            stock_S:   parseInt(p.stock_S   || p.stockS   || (p.sizes && p.sizes.S)   || 0) || 0,
-            stock_M:   parseInt(p.stock_M   || p.stockM   || (p.sizes && p.sizes.M)   || 0) || 0,
-            stock_L:   parseInt(p.stock_L   || p.stockL   || (p.sizes && p.sizes.L)   || 0) || 0,
-            stock_XL:  parseInt(p.stock_XL  || p.stockXL  || (p.sizes && p.sizes.XL)  || 0) || 0,
-            stock_XXL: parseInt(p.stock_XXL || p.stockXXL || (p.sizes && p.sizes.XXL) || 0) || 0,
-            stock_3XL: parseInt(p.stock_3XL || p.stock3XL || (p.sizes && p.sizes['3XL']) || 0) || 0,
+            stock_S:   parseInt(p.stock_S   || p.stockS   || p.stk_s   || (p.sizes && p.sizes.S)   || 0) || 0,
+            stock_M:   parseInt(p.stock_M   || p.stockM   || p.stk_m   || (p.sizes && p.sizes.M)   || 0) || 0,
+            stock_L:   parseInt(p.stock_L   || p.stockL   || p.stk_l   || (p.sizes && p.sizes.L)   || 0) || 0,
+            stock_XL:  parseInt(p.stock_XL  || p.stockXL  || p.stk_xl  || (p.sizes && p.sizes.XL)  || 0) || 0,
+            stock_XXL: parseInt(p.stock_XXL || p.stockXXL || p.stk_xxl || (p.sizes && p.sizes.XXL) || 0) || 0,
+            stock_3XL: parseInt(p.stock_3XL || p.stock3XL || p.stk_3xl || (p.sizes && p.sizes['3XL']) || 0) || 0,
             inStock: !!(p.inStock !== false),
             updatedAt: Date.now()
           };

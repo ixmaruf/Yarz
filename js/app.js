@@ -1,5 +1,5 @@
 /* ============================================================
-   YARZ — Main Application v18.1 (2026-07-03)
+   YARZ — Main Application v18.2 (2026-07-03)
    State Management, Cart, User, UI Components, Navigation
    Global Control Sync: Maintenance Mode, Announcement
    Payment Info: bKash, Nagad, COD
@@ -12,6 +12,7 @@
      • Added _closeAllPopups() for stacked popup close
       • Added shield SVG icon for trust badges
       • blocked_phones now checks both underscore and space variants
+      • getProductStock() now reads stk_* from single-product endpoint
 
    ✅ v3.1 changes (CRITICAL — fixes order total bugs):
      • submitOrder() now sends explicit `total` and `coupon` fields
