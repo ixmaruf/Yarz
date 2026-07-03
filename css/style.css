@@ -9580,10 +9580,17 @@ select:focus {
 .filter-chip {
   background: var(--bg-secondary, #FFFFFF) !important;
   border: 1px solid var(--border-color) !important;
+  color: var(--text-secondary) !important;
 }
 .filter-chip:hover {
   background: var(--cream-200, #F4F2EC) !important;
   border-color: var(--text-primary) !important;
+  color: var(--text-primary) !important;
+}
+.filter-chip.active {
+  background: var(--accent) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent) !important;
 }
 
 /* Modal box & overlay */
