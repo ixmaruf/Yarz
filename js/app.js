@@ -2430,9 +2430,15 @@ const YARZ = (() => {
   }
 
   // ----- Promo Popup Slots (date-scheduled) -----
+  // ✅ v18.3: Promo popup shows ONCE per page load (sessionStorage guard).
+  //   - Shows on: fresh visit, homepage refresh, link/search navigation
+  //   - Does NOT show on: SPA nav, background tab return, product page refresh
+  //   - sessionStorage clears when tab closes → next visit shows again
   function initPromoPopupSlots() {
     var c = state.controls || {};
     if (!c.popupSlots || !c.popupSlots.length) return;
+    // Guard: only show promo popup once per page load
+    if (sessionStorage.getItem('yarz_promo_popup_shown')) return;
     // ✅ Timezone-safe date-only key (YYYYMMDD as integer). Avoids the UTC-midnight
     // bug where new Date("2026-06-01") becomes 6 AM local in GMT+6, making a slot
     // that starts "today" look like it starts in the future (popup never showed).
@@ -2469,6 +2475,8 @@ const YARZ = (() => {
     var trig = slot.trigger || '10';
     var show = function() {
       if (document.getElementById('yarz-promo-popup-' + idx)) return;
+      // ✅ v18.3: Mark popup shown this session — prevents re-show on background refresh
+      sessionStorage.setItem('yarz_promo_popup_shown', '1');
       var overlay = document.createElement('div');
       overlay.id = 'yarz-promo-popup-' + idx;
       overlay.className = 'yarz-popup-overlay';
@@ -8460,7 +8468,9 @@ const YARZ = (() => {
       // (Promo Popup logic removed as variables are now strictly used for Bottom Showcase)
       
       // ✅ FIX: New Promo Popup Slots (Eid, Ramadan, etc)
+      // ✅ v18.3: Guard — only show once per page load (same as initPromoPopupSlots)
       (function() {
+        if (sessionStorage.getItem('yarz_promo_popup_shown')) return;
         var raw = controls.raw || {};
         var getVal = function(titleKey, snakeKey) {
           if (raw[titleKey] !== undefined) return raw[titleKey];
@@ -8504,10 +8514,12 @@ const YARZ = (() => {
           var pTrigger = parseInt(getVal(titlePrefix + 'Trigger', snakePrefix + 'trigger')) || 3;
           var pKey = 'yarz_promo_popup_' + i + '_dismissed';
           
-          // User requested popup to show on EVERY refresh, so we bypass sessionStorage checks
+          // ✅ v18.3: Shows once per page load via sessionStorage guard (outer IIFE)
           (function(idx, img, link, delay) {
             setTimeout(function() {
               if (document.getElementById('yarz-promo-popup-' + idx)) return;
+              // ✅ v18.3: Mark popup shown — prevents re-show on background refresh
+              sessionStorage.setItem('yarz_promo_popup_shown', '1');
               var overlay = document.createElement('div');
               overlay.id = 'yarz-promo-popup-' + idx;
               overlay.className = 'yarz-popup-overlay';
