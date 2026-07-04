@@ -5135,19 +5135,20 @@ const YARZ = (() => {
     // ✅ FIX: Fetch live delivery locations on checkout open (ignores cache)
     if (window.YARZ_API && YARZ_API.getDeliveryCharges) {
       YARZ_API.getDeliveryCharges().then(function(res) {
-        if (res && res.success && res.locations) {
+        var locations = (res && res.locations) || (res && res.data) || [];
+        if (res && res.success && locations.length) {
           state.storeInfo = state.storeInfo || {};
-          state.storeInfo.deliveryLocations = res.locations;
+          state.storeInfo.deliveryLocations = locations;
           if (locationSel) {
             var currentLoc = locationSel.value;
-            locationSel.innerHTML = res.locations.map(function (loc, idx) {
+            locationSel.innerHTML = locations.map(function (loc, idx) {
               var charge = parseFloat(loc.charge) || 0;
               if (state.cart.length > 0) {
                 charge = calculateCartDeliveryCharge(loc.id);
               }
               return '<option value="' + escHtml(loc.id) + '">' + escHtml(loc.name) + ' — ' + formatPrice(charge) + '</option>';
             }).join('');
-            if (currentLoc && res.locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
+            if (currentLoc && locations.some(function (loc) { return String(loc.id) === String(currentLoc); })) {
               locationSel.value = currentLoc;
             }
             renderZoneCards();

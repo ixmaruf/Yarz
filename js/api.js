@@ -1146,10 +1146,10 @@ var YARZ_API = (function() {
       const zone1Charge = parseFloat(get('zone_1_charge')) || 70;
       const zone2Charge = parseFloat(get('zone_2_charge')) || 140;
 
-      // ✅ Delivery locations — dynamic manager backed by the DELIVERY_CHARGES sheet tab.
+      // ✅ Delivery locations — dynamic manager backed by the DELIVERY_CHARGES table.
       // Supports unlimited owner-defined locations while preserving legacy Zone 1/2 fields.
       let deliveryLocations = [];
-      const rawDeliveryLocations = get('delivery_locations') || s.delivery_locations || s.deliveryLocations || '';
+      const rawDeliveryLocations = get('delivery_locations') || s.delivery_locations || s.deliveryLocations || s.delivery_charges || '';
       if (Array.isArray(rawDeliveryLocations)) {
         deliveryLocations = rawDeliveryLocations;
       } else if (rawDeliveryLocations) {
