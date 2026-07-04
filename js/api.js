@@ -476,7 +476,7 @@ var YARZ_API = (function() {
   }
 
   function isConfigured() {
-    return !!getBaseUrl();
+    return !!(getBaseUrl() || getReadUrl());
   }
 
 
