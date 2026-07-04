@@ -328,43 +328,10 @@ const YARZ_DEVICE = (() => {
     };
   }
 
-  // ===== GEOLOCATION =====
-  function _detectGeolocation() {
-    return new Promise(function(resolve) {
-      var result = { lat: 0, lng: 0, accuracy: 0, source: 'none', error: null };
-      if (!navigator.geolocation) { result.error = 'not_supported'; resolve(result); return; }
-
-      var resolved = false;
-      var timeoutId;
-
-      function onSuccess(pos) {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timeoutId);
-        result.lat = pos.coords.latitude;
-        result.lng = pos.coords.longitude;
-        result.accuracy = pos.coords.accuracy;
-        result.source = 'geolocation_api';
-        resolve(result);
-      }
-
-      function onError(err) {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(timeoutId);
-        result.error = err ? err.code : 'unknown';
-        resolve(result);
-      }
-
-      timeoutId = setTimeout(function() {
-        if (!resolved) { resolved = true; result.error = 'timeout'; resolve(result); }
-      }, 5000);
-
-      navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-        enableHighAccuracy: false, timeout: 5000, maximumAge: 300000
-      });
-    });
-  }
+  // ===== GEOLOCATION (REMOVED — NO POPUP!) =====
+  // Location is handled silently by Worker via ip-api.com (server-side)
+  // No browser popup needed — customers won't see any permission prompt
+  // The Worker injects city/region/lat/lng from the request IP
 
   // ===== FNV1A HASH =====
   function _fnv1a(str) {
@@ -570,9 +537,10 @@ const YARZ_DEVICE = (() => {
     var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
     var networkType = conn.effectiveType || conn.type || 'unknown';
 
-    // ===== 10. GEOLOCATION =====
-    var geoResult = { lat: 0, lng: 0, accuracy: 0, source: 'none', error: null };
-    try { geoResult = await _detectGeolocation(); } catch (e) { geoResult.error = 'exception'; }
+    // ===== 10. LOCATION (Server-side via Worker + ip-api.com — NO POPUP!) =====
+    // The Worker injects city/region/lat/lng from the request IP
+    // We just set defaults here — the Worker fills in the real data
+    var geoResult = { lat: 0, lng: 0, accuracy: 0, source: 'server_side', error: null };
 
     // ===== 11. TIMEZONE & LANGUAGE =====
     var tz = '';
@@ -637,12 +605,12 @@ const YARZ_DEVICE = (() => {
       // Network
       networkType: networkType,
 
-      // Location
+      // Location (from Worker server-side via ip-api.com)
       lat: geoResult.lat,
       lng: geoResult.lng,
-      geoAccuracy: geoResult.accuracy,
-      geoSource: geoResult.source,
-      geoError: geoResult.error,
+      geoAccuracy: 0,
+      geoSource: 'server_side_ip_api',
+      geoError: null,
 
       // Timezone & Language
       timezone: tz,
