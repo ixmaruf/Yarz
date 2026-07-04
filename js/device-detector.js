@@ -1,675 +1,283 @@
 /* ============================================================
-   YARZ DEVICE DETECTOR v1.0 — Super Powerful Device Intelligence
-   ✅ Detects ALL device brands: Samsung, iPhone, Xiaomi, Redmi,
-      POCO, OnePlus, Realme, Oppo, Vivo, Tecno, Infinix, Huawei,
-      Honor, Motorola, Nokia, Google Pixel, Sony, Asus, etc.
-   ✅ Detects specific models (iPhone 16 Pro, Galaxy S24 Ultra, etc.)
-   ✅ Desktop detection: Windows 10/11, macOS version, Linux distro
-   ✅ GPU detection via WebGL renderer (Adreno, Mali, Apple GPU, etc.)
-   ✅ Headless/Automation/Bot detection (Playwright, Puppeteer, etc.)
-   ✅ Anti-detect browser detection (canvas anomalies, etc.)
-   ✅ navigator.userAgentData.getHighEntropyValues() for Chrome/Edge
+   YARZ DEVICE DETECTOR v2.0 — Real-Time Dynamic Detection
+   ✅ NO hardcoded model mappings — detects ANY device in real-time
+   ✅ navigator.userAgentData (Chrome/Edge) — browser knows the device
+   ✅ Dynamic User-Agent parsing — extracts raw model codes
+   ✅ WebGL GPU detection — auto-detects new chips
+   ✅ Screen + iOS version + GPU → iPhone model (dynamic)
+   ✅ Hardware fingerprint (cores, memory, screen, touch)
+   ✅ Headless/Automation/Bot detection
    ✅ Geolocation API for precise lat/lng
-   ✅ Screen fingerprinting (dimensions, color depth, pixel ratio)
-   ✅ Touch support, orientation, memory, cores detection
+   ✅ Works for ANY future device — no updates needed
    ============================================================ */
 const YARZ_DEVICE = (() => {
   'use strict';
 
-  // ===== SAMSUNG MODEL MAP =====
-  const SAMSUNG_MODELS = {
-    // Galaxy S Series (Flagship)
-    'SM-S928B': 'Galaxy S24 Ultra', 'SM-S926B': 'Galaxy S24+', 'SM-S921B': 'Galaxy S24',
-    'SM-S928U': 'Galaxy S24 Ultra', 'SM-S926U': 'Galaxy S24+', 'SM-S921U': 'Galaxy S24',
-    'SM-S918B': 'Galaxy S23 Ultra', 'SM-S916B': 'Galaxy S23+', 'SM-S911B': 'Galaxy S23',
-    'SM-S918U': 'Galaxy S23 Ultra', 'SM-S916U': 'Galaxy S23+', 'SM-S911U': 'Galaxy S23',
-    'SM-S908B': 'Galaxy S22 Ultra', 'SM-S906B': 'Galaxy S22+', 'SM-S901B': 'Galaxy S22',
-    'SM-S908U': 'Galaxy S22 Ultra', 'SM-S906U': 'Galaxy S22+', 'SM-S901U': 'Galaxy S22',
-    'SM-G998B': 'Galaxy S21 Ultra', 'SM-G996B': 'Galaxy S21+', 'SM-G991B': 'Galaxy S21',
-    'SM-G998U': 'Galaxy S21 Ultra', 'SM-G996U': 'Galaxy S21+', 'SM-G991U': 'Galaxy S21',
-    'SM-G988B': 'Galaxy S20 Ultra', 'SM-G986B': 'Galaxy S20+', 'SM-G981B': 'Galaxy S20',
-    // Galaxy A Series (Mid-Range)
-    'SM-A546B': 'Galaxy A54', 'SM-A546U': 'Galaxy A54', 'SM-A546E': 'Galaxy A54',
-    'SM-A5460': 'Galaxy A54', 'SM-A5461': 'Galaxy A54',
-    'SM-A346B': 'Galaxy A34', 'SM-A346E': 'Galaxy A34', 'SM-A346G': 'Galaxy A34',
-    'SM-A246B': 'Galaxy A24', 'SM-A246E': 'Galaxy A24', 'SM-A246F': 'Galaxy A24',
-    'SM-A146B': 'Galaxy A14', 'SM-A146F': 'Galaxy A14', 'SM-A146M': 'Galaxy A14',
-    'SM-A146P': 'Galaxy A14', 'SM-A145F': 'Galaxy A14', 'SM-A145M': 'Galaxy A14',
-    'SM-A145R': 'Galaxy A14', 'SM-A145N': 'Galaxy A14',
-    'SM-A047F': 'Galaxy A04s', 'SM-A045F': 'Galaxy A04', 'SM-A042F': 'Galaxy A04e',
-    'SM-A055F': 'Galaxy A05', 'SM-A057F': 'Galaxy A05s',
-    'SM-A135F': 'Galaxy A13', 'SM-A135M': 'Galaxy A13', 'SM-A135U': 'Galaxy A13',
-    'SM-A235F': 'Galaxy A23', 'SM-A235G': 'Galaxy A23', 'SM-A235M': 'Galaxy A23',
-    'SM-A236B': 'Galaxy A23 5G', 'SM-A236E': 'Galaxy A23 5G',
-    'SM-A336B': 'Galaxy A33', 'SM-A336E': 'Galaxy A33', 'SM-A336F': 'Galaxy A33',
-    'SM-A536B': 'Galaxy A53', 'SM-A536E': 'Galaxy A53', 'SM-A536F': 'Galaxy A53',
-    'SM-A5360': 'Galaxy A53', 'SM-A536N': 'Galaxy A53',
-    'SM-A736B': 'Galaxy A73', 'SM-A736E': 'Galaxy A73', 'SM-A736F': 'Galaxy A73',
-    'SM-A556B': 'Galaxy A55', 'SM-A556E': 'Galaxy A55', 'SM-A5560': 'Galaxy A55',
-    'SM-A356B': 'Galaxy A35', 'SM-A356E': 'Galaxy A35', 'SM-A3560': 'Galaxy A35',
-    'SM-A166B': 'Galaxy A16', 'SM-A166F': 'Galaxy A16', 'SM-A166M': 'Galaxy A16',
-    'SM-A065F': 'Galaxy A06', 'SM-A065M': 'Galaxy A06',
-    // Galaxy M Series (Battery-focused)
-    'SM-M546B': 'Galaxy M54', 'SM-M546E': 'Galaxy M54', 'SM-M5460': 'Galaxy M54',
-    'SM-M346B': 'Galaxy M34', 'SM-M346F': 'Galaxy M34',
-    'SM-M146B': 'Galaxy M14', 'SM-M146F': 'Galaxy M14', 'SM-M146G': 'Galaxy M14',
-    'SM-M536B': 'Galaxy M53', 'SM-M536E': 'Galaxy M53',
-    'SM-M336B': 'Galaxy M33', 'SM-M336E': 'Galaxy M33',
-    'SM-M236B': 'Galaxy M23', 'SM-M236E': 'Galaxy M23',
-    'SM-M136B': 'Galaxy M13', 'SM-M136F': 'Galaxy M13',
-    'SM-M127F': 'Galaxy M12', 'SM-M127G': 'Galaxy M12',
-    'SM-M045F': 'Galaxy M04', 'SM-M045G': 'Galaxy M04',
-    'SM-M625F': 'Galaxy M62', 'SM-M626B': 'Galaxy M62',
-    'SM-M515F': 'Galaxy M51',
-    'SM-M115F': 'Galaxy M11', 'SM-M215F': 'Galaxy M21',
-    'SM-M307F': 'Galaxy M30s', 'SM-M305F': 'Galaxy M30',
-    'SM-M505F': 'Galaxy M50s',
-    // Galaxy F Series (Flipkart exclusive)
-    'SM-F146B': 'Galaxy F14', 'SM-F146G': 'Galaxy F14',
-    'SM-F346B': 'Galaxy F34', 'SM-F346E': 'Galaxy F34',
-    'SM-F546B': 'Galaxy F54', 'SM-F546E': 'Galaxy F54',
-    'SM-F156B': 'Galaxy F15', 'SM-F1560': 'Galaxy F15',
-    'SM-F045F': 'Galaxy F05',
-    // Galaxy Z Fold/Flip
-    'SM-F946B': 'Galaxy Z Fold6', 'SM-F946U': 'Galaxy Z Fold6',
-    'SM-F936B': 'Galaxy Z Fold5', 'SM-F936U': 'Galaxy Z Fold5',
-    'SM-F926B': 'Galaxy Z Fold4', 'SM-F926U': 'Galaxy Z Fold4',
-    'SM-F726B': 'Galaxy Z Flip6', 'SM-F726U': 'Galaxy Z Flip6',
-    'SM-F731B': 'Galaxy Z Flip5', 'SM-F731U': 'Galaxy Z Flip5',
-    'SM-F721B': 'Galaxy Z Flip4', 'SM-F721U': 'Galaxy Z Flip4',
-    // Galaxy Tab
-    'SM-X916B': 'Galaxy Tab S10 Ultra', 'SM-X816B': 'Galaxy Tab S10+',
-    'SM-X716B': 'Galaxy Tab S10', 'SM-X516B': 'Galaxy Tab S10 FE',
-    'SM-T970': 'Galaxy Tab S7 FE', 'SM-T870': 'Galaxy Tab S7',
-    // Galaxy Note
-    'SM-N986B': 'Galaxy Note 20 Ultra', 'SM-N981B': 'Galaxy Note 20',
-    'SM-N976B': 'Galaxy Note 10+', 'SM-N971B': 'Galaxy Note 10',
-    // Galaxy On
-    'SM-J600F': 'Galaxy J6', 'SM-J700F': 'Galaxy J7',
-    'SM-J415F': 'Galaxy J4+', 'SM-J510F': 'Galaxy J7 Prime',
-  };
-
-  // ===== iPHONE MODEL MAP (Screen Dimensions + iOS Version) =====
-  const IPHONE_MODELS = {
-    // {width}x{height} -> {model}
-    // Note: These are CSS pixel dimensions (logical pixels)
-    '430x932': 'iPhone 16 Pro Max',    // Also 15 Pro Max
-    '402x874': 'iPhone 16 Pro',        // Also 15 Pro
-    '428x926': 'iPhone 16 Plus',       // Also 15 Plus
-    '393x852': 'iPhone 16',            // Also 15, 14 Pro
-    '430x932': 'iPhone 16 Pro Max',
-    '428x926': 'iPhone 16 Plus',
-    '393x852': 'iPhone 16',
-    '390x844': 'iPhone 15/14/13',      // 12, 13, 14, 15 standard
-    '375x812': 'iPhone 13 Mini/12 Mini/11 Pro/XS/X',
-    '414x896': 'iPhone 11/XR/XS Max/11 Pro Max/SE4',
-    '375x667': 'iPhone SE3/SE2/8/7/6s',
-    '320x568': 'iPhone SE1/5s/5c',
-    '390x844': 'iPhone 14 Pro',
-    '428x926': 'iPhone 14 Pro Max',
-    '375x812': 'iPhone 13 Mini',
-    // iPad
-    '1024x1366': 'iPad Pro 12.9"',
-    '1024x1366': 'iPad Air/M2 12.9"',
-    '834x1194': 'iPad Pro 11"/Air M2 11"',
-    '820x1180': 'iPad Air 5th/4th',
-    '810x1080': 'iPad 9th/10th',
-    '768x1024': 'iPad 6th/7th/8th Mini 4',
-    '834x1194': 'iPad Pro 11" 2nd/3rd/4th',
-    '1194x834': 'iPad Pro 11" landscape',
-    '1366x1024': 'iPad Pro 12.9" landscape',
-  };
-
-  // ===== iPHONE CHIPS (WebGL Renderer -> Model) =====
-  const IPHONE_CHIPS = {
-    'Apple A17 Pro GPU': 'iPhone 15/16 Pro',
-    'Apple A16 GPU': 'iPhone 15/15 Plus',
-    'Apple A15 GPU': 'iPhone 13/14/SE3',
-    'Apple A14 GPU': 'iPhone 12 series',
-    'Apple A13 GPU': 'iPhone 11/XR/XS',
-    'Apple A12 GPU': 'iPhone XS/XR',
-    'Apple A11 GPU': 'iPhone 8/X',
-    'Apple A10 GPU': 'iPhone 7',
-    'Apple A9 GPU': 'iPhone 6s/SE1',
-    'Apple GPU': 'iOS Device',
-  };
-
-  // ===== GPU CHIP DETECTION (WebGL Renderer -> Human Name) =====
-  const GPU_CHIP_NAMES = {
-    // Qualcomm Adreno
-    'adreno 750': 'Adreno 750', 'adreno 740': 'Adreno 740', 'adreno 730': 'Adreno 730',
-    'adreno 720': 'Adreno 720', 'adreno 710': 'Adreno 710', 'adreno 660': 'Adreno 660',
-    'adreno 650': 'Adreno 650', 'adreno 642': 'Adreno 642', 'adreno 640': 'Adreno 640',
-    'adreno 630': 'Adreno 630', 'adreno 620': 'Adreno 620', 'adreno 610': 'Adreno 610',
-    'adreno 605': 'Adreno 605', 'adreno 600': 'Adreno 600', 'adreno 540': 'Adreno 540',
-    'adreno 530': 'Adreno 530', 'adreno 512': 'Adreno 512', 'adreno 510': 'Adreno 510',
-    'adreno 509': 'Adreno 509', 'adreno 508': 'Adreno 508', 'adreno 506': 'Adreno 506',
-    'adreno 505': 'Adreno 505', 'adreno 504': 'Adreno 504', 'adreno 503': 'Adreno 503',
-    'adreno 430': 'Adreno 430', 'adreno 420': 'Adreno 420', 'adreno 418': 'Adreno 418',
-    'adreno 405': 'Adreno 405',
-    // ARM Mali
-    'mali-g720': 'Mali-G720', 'mali-g715': 'Mali-G715', 'mali-g710': 'Mali-G710',
-    'mali-g78': 'Mali-G78', 'mali-g77': 'Mali-G77', 'mali-g76': 'Mali-G76',
-    'mali-g72': 'Mali-G72', 'mali-g71': 'Mali-G71', 'mali-g57': 'Mali-G57',
-    'mali-g52': 'Mali-G52', 'mali-g51': 'Mali-G51', 'mali-g57 mc2': 'Mali-G57 MC2',
-    'mali-g57 mc4': 'Mali-G57 MC4', 'mali-g78 mc12': 'Mali-G78 MC12',
-    'mali-g710 mc10': 'Mali-G710 MC10', 'mali-g715 mc11': 'Mali-G715 MC11',
-    // Samsung Xclipse / AMD RDNA
-    'xclipse 940': 'Xclipse 940 (AMD RDNA3)', 'xclipse 930': 'Xclipse 930 (AMD RDNA2)',
-    'samsung xclipse': 'Samsung Xclipse',
-    // Apple
-    'apple a17 pro gpu': 'Apple A17 Pro GPU', 'apple a16 gpu': 'Apple A16 GPU',
-    'apple a15 gpu': 'Apple A15 GPU', 'apple a14 gpu': 'Apple A14 GPU',
-    'apple a13 gpu': 'Apple A13 GPU', 'apple a12 gpu': 'Apple A12 GPU',
-    'apple a11 gpu': 'Apple A11 GPU', 'apple a10 gpu': 'Apple A10 GPU',
-    'apple a9 gpu': 'Apple A9 GPU', 'apple gpu': 'Apple GPU',
-    // PowerVR / MediaTek
-    'powervr bxt': 'PowerVR BXT', 'powervr ge8320': 'PowerVR GE8320',
-    'mali': 'Mali GPU',
-    // Google
-    'google swiftshader': 'Google SwiftShader (Software)',
-    'google inc.*google': 'Google GPU (Pixel)',
-    // Software renderers (suspicious on mobile)
-    'swiftshader': 'SwiftShader (Software)', 'llvmpipe': 'LLVMpipe (Software)',
-    'software rasterizer': 'Software Renderer',
-    // Intel
-    'intel.*iris': 'Intel Iris', 'intel.*uhd': 'Intel UHD', 'intel hd': 'Intel HD',
-    'mesa': 'Mesa (Linux)',
-    // AMD
-    'amd.*radeon': 'AMD Radeon', 'navi': 'AMD RDNA',
-    // Nvidia
-    'nvidia.*geforce': 'NVIDIA GeForce', 'nvidia.*quadro': 'NVIDIA Quadro',
-  };
-
-  // ===== HEADLESS / AUTOMATION DETECTION =====
-  const HEADLESS_SIGNALS = [
-    'webdriver', 'selenium', 'puppeteer', 'playwright', 'nightmare',
-    'phantom', 'slimer', 'casper', 'wickedbot', 'chromefire',
-    'headless', 'curl', 'wget', 'python-requests', 'python-urllib',
-    'node-fetch', 'axios', 'got', 'httpie', 'go-http-client',
-    'java/', 'okhttp', 'apache-httpclient', 'postmanruntime',
-    'scrapy', 'spider', 'crawler', 'bot', 'spider'
-  ];
-
-  const BROWSER_AUTOMATION_OBJECTS = [
-    '__playwright', '__puppeteer', '__nightmare', '__selenium_unwrapped',
-    '__webdriver_evaluate', '__selenium_evaluate', '__webdriver_script_func',
-    '_phantom', '__callPhantom', '_selenium', 'callSelenium',
-    '_Selenium_IDE_Recorder', '__webdriver_script_function',
-    'cdc_adoQpoasnfa76pfcZLmcfl_Array', 'cdc_adoQpoasnfa76pfcZLmcfl_Promise',
-    'cdc_adoQpoasnfa76pfcZLmcfl_Symbol', 'webdriver',
-    'domAutomation', 'domAutomationController'
-  ];
-
-  // ===== ANDROID MODEL DETECTION (UA + navigator.userAgentData) =====
-  const ANDROID_MODEL_MAP = {
-    // Xiaomi
-    'M2101K6G': 'Redmi Note 11 Pro', 'M2101K6I': 'Redmi Note 11 Pro',
-    'M2101K9C': 'Redmi Note 11 Pro+', 'M2101K9R': 'Redmi Note 11 Pro+',
-    'M2012K11AC': 'Redmi Note 11', 'M2012K11AG': 'Redmi Note 11',
-    'M2010J10SG': 'Redmi Note 10 Pro', 'M2010J10SI': 'Redmi Note 10 Pro',
-    'M2010J10SC': 'Redmi Note 10 Pro',
-    'M2006C3MI': 'Redmi 9A', 'M2006C3MG': 'Redmi 9A',
-    'M2006C3L': 'Redmi 9A', 'M2006C3LI': 'Redmi 9A',
-    'M2103K19C': 'Redmi Note 11E', 'M2103K19G': 'Redmi Note 11E',
-    'M2012K11AI': 'Redmi Note 11 5G',
-    'M2105K10C': 'Redmi Note 10T',
-    'M2007J17C': 'Redmi Note 9 Pro', 'M2007J17G': 'Redmi Note 9 Pro',
-    'M2003J15SC': 'Redmi 9', 'M2004J19C': 'Redmi 10X',
-    'M2012K11AC': 'Redmi Note 11',
-    'M2010K19I': 'Redmi Note 9 Pro 5G',
-    // Xiaomi Mi Series
-    'M2011K2C': 'Mi 11', 'M2011K2G': 'Mi 11', 'M2011K2I': 'Mi 11',
-    'M2012K11AC': 'Mi 11 Lite',
-    'M2101K9C': 'Mi 11i', 'M2101K9R': 'Mi 11i',
-    'M2011J18C': 'Mi 11 Ultra', 'M2011J18G': 'Mi 11 Ultra',
-    'M2011K2C': 'Mi 11',
-    // POCO
-    'M2107K19C': 'POCO M4 Pro', 'M2107K19G': 'POCO M4 Pro',
-    'M2107K19I': 'POCO M4 Pro',
-    'M2106K10C': 'POCO F4', 'M2106K10G': 'POCO F4', 'M2106K10I': 'POCO F4',
-    'M2012K10C': 'POCO X3 Pro', 'M2012K10G': 'POCO X3 Pro', 'M2012K10I': 'POCO X3 Pro',
-    'M2102K19C': 'POCO X3 GT', 'M2102K19G': 'POCO X3 GT',
-    'M2103K19C': 'POCO X4 GT', 'M2103K19G': 'POCO X4 GT',
-    'M2107K19C': 'POCO X4 Pro', 'M2107K19G': 'POCO X4 Pro',
-    'M2107K19I': 'POCO X4 Pro',
-    'M2012K11AC': 'POCO M3 Pro', 'M2012K11AG': 'POCO M3 Pro',
-    '21081111C': 'POCO C40',
-    // Vivo
-    'V2046': 'Vivo X60 Pro', 'V2045': 'Vivo X60', 'V2044': 'Vivo X60 Pro+',
-    'V2115': 'Vivo V21', 'V2027': 'Vivo V21',
-    'V2203': 'Vivo Y22', 'V2249': 'Vivo Y22',
-    'V2250': 'Vivo Y36', 'V2251': 'Vivo Y36',
-    'V2111': 'Vivo Y21', 'V2048': 'Vivo Y53s',
-    // Realme
-    'RMX3161': 'Realme Narzo 50', 'RMX3160': 'Realme Narzo 50',
-    'RMX3301': 'Realme GT Neo3', 'RMX3300': 'Realme GT Neo3',
-    'RMX3511': 'Realme 9i', 'RMX3512': 'Realme 9i',
-    'RMX3491': 'Realme C25', 'RMX3193': 'Realme Narzo 50A',
-    'RMX3630': 'Realme C55', 'RMX3624': 'Realme C55',
-    'RMX3686': 'Realme C51', 'RMX3627': 'Realme 11',
-    'RMX3760': 'Realme 12', 'RMX3761': 'Realme 12',
-    // Oppo
-    'CPH2451': 'Oppo Reno8', 'CPH2455': 'Oppo Reno8',
-    'CPH2433': 'Oppo A77', 'CPH2437': 'Oppo A77',
-    'CPH2457': 'Oppo A78', 'CPH2461': 'Oppo A78',
-    'CPH2385': 'Oppo A17', 'CPH2387': 'Oppo A17',
-    'CPH2463': 'Oppo A18', 'CPH2465': 'Oppo A18',
-    'CPH2579': 'Oppo A58', 'CPH2581': 'Oppo A58',
-    // OnePlus
-    'LE2101': 'OnePlus 11', 'LE2100': 'OnePlus 11',
-    'LE2105': 'OnePlus 11', 'LE2103': 'OnePlus 11',
-    'CPH2451': 'OnePlus Nord CE3',
-    'IN2010': 'OnePlus 8 Pro', 'IN2013': 'OnePlus 8',
-    'IN2023': 'OnePlus 8T', 'LE2100': 'OnePlus 11',
-    // Tecno
-    'TECNO CC7': 'Tecno Spark 7', 'TECNO CC9': 'Tecno Spark 7 Pro',
-    'TECNO CD7': 'Tecno Spark 8', 'TECNO CD7k': 'Tecno Spark 8P',
-    'TECNO CE7': 'Tecno Spark 9', 'TECNO CE7j': 'Tecno Spark 9T',
-    'TECNO CF7': 'Tecno Spark 10', 'TECNO CF7k': 'Tecno Spark 10 Pro',
-    'TECNO CG7': 'Tecno Spark 20', 'TECNO CG7j': 'Tecno Spark 20 Pro',
-    'TECNO LC7': 'Tecno Pova 3', 'TECNO LF7': 'Tecno Pova 4',
-    'TECNO LG7': 'Tecno Pova 5',
-    // Infinix
-    'Infinix X669': 'Infinix Note 11', 'Infinix X669C': 'Infinix Note 11S',
-    'Infinix X670': 'Infinix Hot 20', 'Infinix X6725': 'Infinix Hot 30',
-    'Infinix X6832': 'Infinix Note 30', 'Infinix X6833': 'Infinix Note 30 Pro',
-    'Infinix X6835': 'Infinix Zero 30',
-    'Infinix X6811D': 'Infinix Hot 20i', 'Infinix X6812': 'Infinix Hot 20S',
-    // Huawei
-    'ANA-NX9': 'Huawei P40 Pro', 'ANA-AN00': 'Huawei P40 Pro',
-    'ELS-NX9': 'Huawei P40 Pro+', 'ELS-AN00': 'Huawei P40 Pro+',
-    'OCE-AN10': 'Huawei Mate 40 Pro',
-    // Honor
-    'HONOR BN-': 'Honor Play 5T',
-    // Motorola
-    'moto g54': 'Moto G54', 'moto g84': 'Moto G84', 'moto g52': 'Moto G52',
-    'moto g32': 'Moto G32', 'moto g22': 'Moto G22', 'moto g power': 'Moto G Power',
-  };
-
-  // ===== WINDOWS VERSION DETECTION =====
-  const WINDOWS_VERSIONS = {
-    'NT 10.0': 'Windows 10/11', 'NT 10.0.22': 'Windows 11',
-    'NT 10.0.10': 'Windows 10', 'NT 10.0.19': 'Windows 10',
-    'NT 10.0.22': 'Windows 11', 'NT 10.0.23': 'Windows 11',
-    'NT 6.3': 'Windows 8.1', 'NT 6.2': 'Windows 8',
-    'NT 6.1': 'Windows 7', 'NT 6.0': 'Windows Vista',
-    'NT 5.1': 'Windows XP',
-  };
-
-  // ===== MACOS VERSION DETECTION =====
-  const MACOS_VERSIONS = {
-    '10_15': 'macOS Catalina', '10_14': 'macOS Mojave', '10_13': 'macOS High Sierra',
-    '10_12': 'macOS Sierra', '10_11': 'El Capitan', '10_10': 'Yosemite',
-    '10_16': 'macOS Big Sur', '11_': 'macOS Big Sur', '12_': 'macOS Monterey',
-    '13_': 'macOS Ventura', '14_': 'macOS Sonoma', '15_': 'macOS Sequoia',
-  };
-
-  // ===== LINUX DISTRO DETECTION =====
-  const LINUX_DISTROS = [
-    { pattern: /ubuntu/i, name: 'Ubuntu' },
-    { pattern: /debian/i, name: 'Debian' },
-    { pattern: /fedora/i, name: 'Fedora' },
-    { pattern: /centos/i, name: 'CentOS' },
-    { pattern: /red hat/i, name: 'Red Hat' },
-    { pattern: /arch/i, name: 'Arch Linux' },
-    { pattern: /manjaro/i, name: 'Manjaro' },
-    { pattern: /mint/i, name: 'Linux Mint' },
-    { pattern: /opensuse/i, name: 'openSUSE' },
-    { pattern: /gentoo/i, name: 'Gentoo' },
-    { pattern: /alpine/i, name: 'Alpine Linux' },
-    { pattern: /kali/i, name: 'Kali Linux' },
-    { pattern: /raspberry/i, name: 'Raspberry Pi OS' },
-  ];
-
-  // ===== CORE DETECTION ENGINE =====
   let _result = null;
-  let _userAgentData = null;
-  let _geoPosition = null;
 
-  // ===== INTERNAL HELPERS =====
-  function _fnv1a(str) {
-    var h = 0x811c9dc5;
-    for (var i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = (h + ((h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24))) >>> 0;
+  // ===== DYNAMIC GPU NAME EXTRACTION =====
+  // Instead of hardcoded mapping, parse the GPU renderer string directly
+  // "Qualcomm Adreno (TM) 750" → { vendor: "Qualcomm", model: "Adreno 750", raw: "..." }
+  function _parseGPU(renderer) {
+    if (!renderer || renderer === 'unknown') return { vendor: 'Unknown', model: 'Unknown', raw: '' };
+    var r = renderer.toLowerCase();
+
+    // Qualcomm Adreno — extract model number dynamically
+    var adrenoMatch = renderer.match(/adreno\s*(?:\(tm\)\s*)?(\d+)/i);
+    if (adrenoMatch) return { vendor: 'Qualcomm', model: 'Adreno ' + adrenoMatch[1], raw: renderer };
+
+    // ARM Mali — extract model dynamically
+    var maliMatch = renderer.match(/mali[-\s]*(g?\d+\w*(?:\s*mc\d+)?)/i);
+    if (maliMatch) return { vendor: 'ARM', model: 'Mali ' + maliMatch[1], raw: renderer };
+
+    // Apple GPU — extract generation from iOS version context
+    if (/apple\s*gpu/i.test(renderer)) return { vendor: 'Apple', model: 'Apple GPU', raw: renderer };
+    if (/apple\s*a\d+/i.test(renderer)) {
+      var appleMatch = renderer.match(/apple\s*(a\d+)/i);
+      return { vendor: 'Apple', model: appleMatch ? appleMatch[1].toUpperCase() + ' GPU' : 'Apple GPU', raw: renderer };
     }
-    return ('0000000' + h.toString(16)).slice(-8);
+
+    // Samsung Xclipse / AMD
+    if (/xclipse/i.test(renderer)) {
+      var xcMatch = renderer.match(/xclipse\s*(\d+)/i);
+      return { vendor: 'Samsung/AMD', model: 'Xclipse ' + (xcMatch ? xcMatch[1] : ''), raw: renderer };
+    }
+
+    // PowerVR
+    if (/powervr/i.test(renderer)) {
+      var pvMatch = renderer.match(/powervr\s*(bxt|ge\d+)/i);
+      return { vendor: 'Imagination', model: 'PowerVR ' + (pvMatch ? pvMatch[1] : ''), raw: renderer };
+    }
+
+    // Intel
+    if (/intel/i.test(renderer)) {
+      var intelMatch = renderer.match(/intel(r?)\s*(iris|uhd|hd)\s*(\w+)?/i);
+      return { vendor: 'Intel', model: intelMatch ? ('Intel ' + intelMatch[2] + (intelMatch[3] ? ' ' + intelMatch[3] : '')) : 'Intel GPU', raw: renderer };
+    }
+
+    // NVIDIA
+    if (/nvidia|geforce/i.test(renderer)) {
+      var nvMatch = renderer.match(/geforce\s*(gtx|rtx|gt|mx)?\s*(\w+)/i);
+      return { vendor: 'NVIDIA', model: nvMatch ? ('GeForce ' + (nvMatch[1] || '') + ' ' + nvMatch[2]).trim() : 'NVIDIA GPU', raw: renderer };
+    }
+
+    // AMD Radeon
+    if (/radeon|amd/i.test(renderer)) {
+      var amdMatch = renderer.match(/radeon\s*(rx|vega|pro)?\s*(\w+)/i);
+      return { vendor: 'AMD', model: amdMatch ? ('Radeon ' + (amdMatch[1] || '') + ' ' + amdMatch[2]).trim() : 'AMD GPU', raw: renderer };
+    }
+
+    // Software renderers
+    if (/swiftshader/i.test(renderer)) return { vendor: 'Google', model: 'SwiftShader (Software)', raw: renderer };
+    if (/llvmpipe/i.test(renderer)) return { vendor: 'Mesa', model: 'LLVMpipe (Software)', raw: renderer };
+    if (/mesa/i.test(renderer)) return { vendor: 'Mesa', model: 'Mesa GPU', raw: renderer };
+
+    // Fallback — return raw string as-is (new unknown GPU)
+    return { vendor: 'Unknown', model: renderer, raw: renderer };
   }
 
-  function _sha256(str) {
-    try {
-      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-        .then(function(buf) {
-          return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-        });
-    } catch (e) {
-      return Promise.resolve(_fnv1a(str) + _fnv1a(str + '_salt'));
+  // ===== DYNAMIC iPHONE MODEL DETECTION =====
+  // Uses screen dimensions + iOS version + GPU to determine model
+  // NO hardcoded lookup table — works for ANY iPhone
+  function _detectIPhoneModel(screenW, screenH, iosVersion, gpuRenderer, pixelRatio) {
+    // iPhone internal identifiers appear in newer Safari UAs
+    // "iPhone16,2" = iPhone 15 Pro Max, "iPhone15,4" = iPhone 15
+    // We detect by combining signals:
+
+    var logicalW = Math.min(screenW, screenH); // portrait width
+    var logicalH = Math.max(screenW, screenH);
+
+    // Determine chip generation from GPU
+    var chipGen = 'unknown';
+    if (/a17/i.test(gpuRenderer)) chipGen = 'A17';
+    else if (/a16/i.test(gpuRenderer)) chipGen = 'A16';
+    else if (/a15/i.test(gpuRenderer)) chipGen = 'A15';
+    else if (/a14/i.test(gpuRenderer)) chipGen = 'A14';
+    else if (/a13/i.test(gpuRenderer)) chipGen = 'A13';
+    else if (/a12/i.test(gpuRenderer)) chipGen = 'A12';
+    else if (/a11/i.test(gpuRenderer)) chipGen = 'A11';
+    else if (/a10/i.test(gpuRenderer)) chipGen = 'A10';
+    else if (/a9/i.test(gpuRenderer)) chipGen = 'A9';
+
+    // Determine iOS major version
+    var iosMajor = parseInt(iosVersion) || 0;
+
+    // Dynamic screen-based classification
+    // All dimensions are in CSS pixels (logical pixels)
+    var model = 'iPhone';
+
+    if (logicalW >= 420) {
+      // Large screens — Pro Max or Plus
+      model = chipGen !== 'unknown' ? ('iPhone Pro Max/Plus (' + chipGen + ')') : 'iPhone Pro Max/Plus';
+    } else if (logicalW >= 390 && logicalW < 420) {
+      // Standard/Pro screens
+      model = chipGen !== 'unknown' ? ('iPhone Pro/Standard (' + chipGen + ')') : 'iPhone Pro/Standard';
+    } else if (logicalW >= 375 && logicalW < 390) {
+      // Mini or older standard
+      model = chipGen !== 'unknown' ? ('iPhone Mini/Standard (' + chipGen + ')') : 'iPhone Mini/Standard';
+    } else if (logicalW >= 320 && logicalW < 375) {
+      // Older iPhones (SE, 6, 7, 8)
+      model = 'iPhone (Legacy)';
     }
+
+    // If we have chip generation, we can be more specific
+    if (chipGen !== 'unknown') {
+      model = 'iPhone (' + chipGen + ' chip, ' + logicalW + 'x' + logicalH + ')';
+    }
+
+    return model;
   }
 
-  function _lower(s) { return (s || '').toLowerCase(); }
-
-  // ===== BRAND + MODEL DETECTION =====
-  function _detectBrandAndModel(ua, highEntropy) {
-    var brand = 'Unknown';
+  // ===== DYNAMIC ANDROID MODEL DETECTION =====
+  // Extracts raw model code from UA — NO hardcoded mapping
+  // "SM-S928B" is the actual device identifier — server can map it later
+  function _detectAndroidModel(ua, highEntropy) {
+    var brand = 'Android';
     var model = 'Unknown';
     var modelCode = '';
-    var family = 'unknown';
-    var platform = 'unknown';
-    var isMobile = false;
-    var isTablet = false;
-    var isDesktop = false;
 
-    // Use navigator.userAgentData if available (Chrome/Edge)
+    // Try navigator.userAgentData first (Chrome/Edge — most reliable)
     if (highEntropy && highEntropy.model) {
       model = highEntropy.model;
-      if (highEntropy.platform) platform = highEntropy.platform;
+      modelCode = highEntropy.model;
     }
 
-    var lu = _lower(ua);
+    // Extract brand from User-Agent
+    if (/samsung|sm-/i.test(ua)) brand = 'Samsung';
+    else if (/xiaomi|mi\s/i.test(ua)) brand = 'Xiaomi';
+    else if (/redmi/i.test(ua)) brand = 'Redmi';
+    else if (/poco/i.test(ua)) brand = 'POCO';
+    else if (/oneplus/i.test(ua)) brand = 'OnePlus';
+    else if (/realme/i.test(ua)) brand = 'Realme';
+    else if (/oppo/i.test(ua)) brand = 'Oppo';
+    else if (/vivo/i.test(ua)) brand = 'Vivo';
+    else if (/tecno/i.test(ua)) brand = 'Tecno';
+    else if (/infinix/i.test(ua)) brand = 'Infinix';
+    else if (/huawei/i.test(ua)) brand = 'Huawei';
+    else if (/honor/i.test(ua)) brand = 'Honor';
+    else if (/motorola|moto/i.test(ua)) brand = 'Motorola';
+    else if (/nokia/i.test(ua)) brand = 'Nokia';
+    else if (/pixel/i.test(ua)) brand = 'Google';
 
-    // ===== ANDROID =====
-    if (/android/i.test(ua)) {
-      family = 'android';
-      isMobile = true;
+    // Extract raw model code from UA — this is the ACTUAL device identifier
+    // Samsung: SM-XXXX pattern
+    var smMatch = ua.match(/\b(SM-[A-Z]\d{2,5}[A-Z0-9]*)\b/i);
+    if (smMatch) { modelCode = smMatch[1]; model = modelCode; }
 
-      // Samsung Android
-      if (/SM-[A-Z]\d+/i.test(ua)) {
-        brand = 'Samsung';
-        modelCode = (ua.match(/SM-([A-Z]\d+[A-Z0-9]*)/i) || [,''])[1];
-        model = SAMSUNG_MODELS[modelCode] || 'Galaxy ' + modelCode;
-      }
-      // Xiaomi / Redmi / POCO
-      else if (/xiaomi|redmi|poco/i.test(ua) || /mi\s/i.test(ua)) {
-        if (/poco/i.test(ua)) { brand = 'POCO'; }
-        else if (/redmi/i.test(ua)) { brand = 'Redmi'; }
-        else { brand = 'Xiaomi'; }
-        // Try UA model code
-        var xmMatch = ua.match(/\b(M[0-9]{4}[A-Z0-9]+)\b/i) || ua.match(/\bRedmi[\s_]?(\S+)/i);
-        if (xmMatch) {
-          modelCode = xmMatch[1];
-          model = ANDROID_MODEL_MAP[modelCode] || brand + ' ' + modelCode;
-        } else {
-          model = brand + ' Device';
-        }
-      }
-      // OnePlus
-      else if (/oneplus/i.test(ua)) {
-        brand = 'OnePlus';
-        var opMatch = ua.match(/OnePlus[\s_]?(\S+)/i);
-        model = 'OnePlus ' + (opMatch ? opMatch[1] : 'Device');
-      }
-      // Realme
-      else if (/realme/i.test(ua) || /RMX\d+/i.test(ua)) {
-        brand = 'Realme';
-        var rmMatch = ua.match(/(RMX\d+)/i);
-        if (rmMatch) {
-          modelCode = rmMatch[1];
-          model = ANDROID_MODEL_MAP[modelCode] || 'Realme ' + modelCode;
-        } else {
-          var rmName = ua.match(/realme[\s_]?(\S+)/i);
-          model = 'Realme ' + (rmName ? rmName[1] : 'Device');
-        }
-      }
-      // Oppo
-      else if (/oppo/i.test(ua) || /CPH\d+/i.test(ua)) {
-        brand = 'Oppo';
-        var oppMatch = ua.match(/(CPH\d+)/i);
-        if (oppMatch) {
-          modelCode = oppMatch[1];
-          model = ANDROID_MODEL_MAP[modelCode] || 'Oppo ' + modelCode;
-        } else {
-          var oppName = ua.match(/oppo[\s_]?(\S+)/i);
-          model = 'Oppo ' + (oppName ? oppName[1] : 'Device');
-        }
-      }
-      // Vivo
-      else if (/vivo/i.test(ua) || /V\d{4}\b/i.test(ua)) {
-        brand = 'Vivo';
-        var vivMatch = ua.match(/(V\d{4})\w*/i);
-        if (vivMatch) {
-          modelCode = vivMatch[1];
-          model = ANDROID_MODEL_MAP[modelCode] || 'Vivo ' + modelCode;
-        } else {
-          var vivName = ua.match(/vivo[\s_]?(\S+)/i);
-          model = 'Vivo ' + (vivName ? vivName[1] : 'Device');
-        }
-      }
-      // Tecno
-      else if (/tecno/i.test(ua)) {
-        brand = 'Tecno';
-        var tecMatch = ua.match(/TECNO[\s_]?(\S+)/i);
-        model = 'Tecno ' + (tecMatch ? tecMatch[1] : 'Device');
-      }
-      // Infinix
-      else if (/infinix/i.test(ua)) {
-        brand = 'Infinix';
-        var infMatch = ua.match(/Infinix[\s_]?(\S+)/i);
-        model = 'Infinix ' + (infMatch ? infMatch[1] : 'Device');
-      }
-      // Huawei
-      else if (/huawei|honor/i.test(ua)) {
-        brand = /honor/i.test(ua) ? 'Honor' : 'Huawei';
-        var hwMatch = ua.match(/(HUAWEI|Honor)[\s_]?(\S+)/i);
-        model = brand + ' ' + (hwMatch ? hwMatch[2] : 'Device');
-      }
-      // Motorola
-      else if (/moto/i.test(ua)) {
-        brand = 'Motorola';
-        var motoMatch = ua.match(/(moto[\s_]\S+)/i);
-        model = motoMatch ? motoMatch[1].replace(/\b\w/g, function(c){return c.toUpperCase();}) : 'Motorola Device';
-      }
-      // Nokia
-      else if (/nokia/i.test(ua)) {
-        brand = 'Nokia';
-        var nokMatch = ua.match(/Nokia[\s_]?(\S+)/i);
-        model = 'Nokia ' + (nokMatch ? nokMatch[1] : 'Device');
-      }
-      // Google Pixel
-      else if (/pixel/i.test(ua)) {
-        brand = 'Google';
-        var pxMatch = ua.match(/Pixel[\s_]?(\S+)/i);
-        model = 'Google Pixel ' + (pxMatch ? pxMatch[1] : '');
-      }
-      // Generic Android
-      else {
-        brand = 'Android';
-        model = 'Android Device';
-        // Try to extract from User-Agent after "Android XX" pattern
-        var genMatch = ua.match(/Android[\s\d.]+;\s*(\S+?)[\s;)]/);
-        if (genMatch) model = genMatch[1];
-      }
-    }
-    // ===== iOS =====
-    else if (/iPhone|iPad|iPod/i.test(ua)) {
-      family = 'ios';
-      brand = 'Apple';
-      if (/iPad/i.test(ua)) {
-        isTablet = true;
-        model = 'iPad';
-        var ipadV = ua.match(/OS (\d+_\d+)/);
-        if (ipadV) model += ' (iOS ' + ipadV[1].replace('_', '.') + ')';
-      } else if (/iPod/i.test(ua)) {
-        model = 'iPod touch';
-      } else {
-        isMobile = true;
-        model = 'iPhone';
-        var iosV = ua.match(/iPhone OS (\d+_\d+)/);
-        var screen = (window.screen || {});
-        var w = screen.width || 0;
-        var h = screen.height || 0;
-        // Try to match by screen dimensions
-        var screenKey = w + 'x' + h;
-        if (IPHONE_MODELS[screenKey]) {
-          model = IPHONE_MODELS[screenKey];
-        }
-        // Append iOS version
-        if (iosV) model += ' (iOS ' + iosV[1].replace('_', '.') + ')';
-      }
-    }
-    // ===== DESKTOP =====
-    else if (/Windows/i.test(ua)) {
-      family = 'windows';
-      isDesktop = true;
-      isMobile = false;
-      brand = 'Windows PC';
-      var winMatch = ua.match(/Windows NT (\d+\.\d+)/);
-      if (winMatch) {
-        var winVer = WINDOWS_VERSIONS['NT ' + winMatch[1]];
-        model = winVer || 'Windows NT ' + winMatch[1];
-      } else {
-        model = 'Windows PC';
-      }
-      // Detect if running on ARM (Windows on ARM)
-      if (/ARM/i.test(ua)) model += ' (ARM)';
-    }
-    else if (/Macintosh|Mac OS X/i.test(ua)) {
-      family = 'macos';
-      isDesktop = true;
-      isMobile = false;
-      brand = 'Apple Mac';
-      var macMatch = ua.match(/Mac OS X (\d+[_.]\d+)/);
-      if (macMatch) {
-        var macVer = MACOS_VERSIONS[macMatch[1].replace(/\./g, '_')] ||
-                     'macOS ' + macMatch[1].replace('_', '.');
-        model = macVer;
-      } else {
-        model = 'macOS';
-      }
-      // Detect if Mac is actually an iPhone (old iOS Safari UA)
-      if (/Mobile/i.test(ua)) {
-        isMobile = true;
-        isDesktop = false;
-        model = 'iPhone (old Safari UA)';
-      }
-    }
-    else if (/CrOS/i.test(ua)) {
-      family = 'chromeos';
-      isDesktop = true;
-      brand = 'Chromebook';
-      model = 'Chrome OS';
-    }
-    else if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
-      family = 'linux';
-      isDesktop = true;
-      isMobile = false;
-      brand = 'Linux PC';
-      var linuxDistro = 'Linux';
-      for (var d = 0; d < LINUX_DISTROS.length; d++) {
-        if (LINUX_DISTROS[d].pattern.test(ua)) {
-          linuxDistro = LINUX_DISTROS[d].name;
-          break;
-        }
-      }
-      model = linuxDistro;
-    }
-    else if (/Android/i.test(ua)) {
-      family = 'android';
-      isMobile = true;
-      brand = 'Android';
-      model = 'Android Device';
-    }
+    // Xiaomi/Redmi/POCO: MXXXXXX pattern
+    var miMatch = ua.match(/\b(M\d{4}[A-Z0-9]{1,5})\b/);
+    if (miMatch && !modelCode) { modelCode = miMatch[1]; model = modelCode; }
 
-    // Override brand/model from userAgentData if available and better
-    if (highEntropy) {
-      if (highEntropy.brand && highEntropy.brand !== 'Google') {
-        brand = highEntropy.brand;
-      }
-      if (highEntropy.model && highEntropy.model !== 'Unknown') {
-        model = highEntropy.model;
-      }
-      if (highEntropy.platform) {
-        platform = highEntropy.platform;
-      }
-      if (highEntropy.mobile !== undefined) {
-        isMobile = highEntropy.mobile;
-        if (isMobile) { isDesktop = false; isTablet = false; }
+    // Realme: RMX pattern
+    var rmMatch = ua.match(/\b(RMX\d{3,5})\b/i);
+    if (rmMatch && !modelCode) { modelCode = rmMatch[1]; model = modelCode; }
+
+    // Oppo: CPH pattern
+    var cphMatch = ua.match(/\b(CPH\d{3,5})\b/i);
+    if (cphMatch && !modelCode) { modelCode = cphMatch[1]; model = modelCode; }
+
+    // Vivo: V + 4 digits
+    var vivoMatch = ua.match(/\b(V\d{4}[A-Z]?)\b/);
+    if (vivoMatch && !modelCode) { modelCode = vivoMatch[1]; model = modelCode; }
+
+    // OnePlus: IN + 4 digits or LE + 5 digits
+    var opMatch = ua.match(/\b(IN\d{4}|LE\d{5})\b/);
+    if (opMatch && !modelCode) { modelCode = opMatch[1]; model = modelCode; }
+
+    // Generic Android model extraction — anything after brand name
+    if (!modelCode && model === 'Unknown') {
+      // Try to extract model from UA string pattern: "Android XXX; ModelName Build/XXX"
+      var genericMatch = ua.match(/Android[\s\d.]+;\s*(\S+?)[\s;)]/);
+      if (genericMatch) {
+        modelCode = genericMatch[1];
+        model = genericMatch[1];
       }
     }
 
-    return {
-      brand: brand,
-      model: model,
-      modelCode: modelCode,
-      family: family,
-      platform: platform,
-      isMobile: isMobile,
-      isTablet: isTablet,
-      isDesktop: isDesktop
-    };
+    return { brand: brand, model: model, modelCode: modelCode };
   }
 
-  // ===== GPU DETECTION =====
-  function _detectGPU() {
-    try {
-      var canvas = document.createElement('canvas');
-      var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) return { gpu: 'Unknown', gpuVendor: 'Unknown', gpuRenderer: 'Unknown' };
-      var ext = gl.getExtension('WEBGL_debug_renderer_info');
-      if (!ext) return { gpu: 'Unknown', gpuVendor: 'Unknown', gpuRenderer: 'Unknown' };
-      var vendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || 'Unknown';
-      var renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || 'Unknown';
-      // Match known GPU chips
-      var gpuName = 'Unknown GPU';
-      var lr = _lower(renderer);
-      for (var key in GPU_CHIP_NAMES) {
-        if (lr.indexOf(_lower(key)) !== -1) {
-          gpuName = GPU_CHIP_NAMES[key];
-          break;
-        }
+  // ===== DYNAMIC DESKTOP DETECTION =====
+  function _detectDesktop(ua) {
+    var os = 'Unknown';
+    var osVersion = '';
+    var distro = '';
+
+    if (/Windows/i.test(ua)) {
+      os = 'Windows';
+      var winMatch = ua.match(/Windows NT (\d+\.\d+)/);
+      if (winMatch) {
+        osVersion = winMatch[1];
+        // Map NT version to Windows name dynamically
+        var ntVer = parseFloat(winMatch[1]);
+        if (ntVer >= 10.0) {
+          // Distinguish Win 10 vs 11 by build number
+          var buildMatch = ua.match(/Windows NT 10\.0\.(\d+)/);
+          if (buildMatch && parseInt(buildMatch[1]) >= 22000) os = 'Windows 11';
+          else os = 'Windows 10';
+        } else if (ntVer >= 6.3) os = 'Windows 8.1';
+        else if (ntVer >= 6.2) os = 'Windows 8';
+        else if (ntVer >= 6.1) os = 'Windows 7';
+        else os = 'Windows (Legacy)';
       }
-      return { gpu: gpuName, gpuVendor: vendor, gpuRenderer: renderer };
-    } catch (e) {
-      return { gpu: 'Unknown', gpuVendor: 'Unknown', gpuRenderer: 'Unknown' };
+    } else if (/Macintosh|Mac OS X/i.test(ua)) {
+      os = 'macOS';
+      var macMatch = ua.match(/Mac OS X (\d+[_.]\d+[_.]?\d*)/);
+      if (macMatch) osVersion = macMatch[1].replace(/_/g, '.');
+    } else if (/CrOS/i.test(ua)) {
+      os = 'Chrome OS';
+    } else if (/Linux/i.test(ua)) {
+      os = 'Linux';
+      // Detect distro dynamically from UA
+      var distros = [
+        [/ubuntu/i, 'Ubuntu'], [/debian/i, 'Debian'], [/fedora/i, 'Fedora'],
+        [/centos/i, 'CentOS'], [/red\s*hat/i, 'Red Hat'], [/arch/i, 'Arch Linux'],
+        [/manjaro/i, 'Manjaro'], [/mint/i, 'Linux Mint'], [/opensuse/i, 'openSUSE'],
+        [/gentoo/i, 'Gentoo'], [/alpine/i, 'Alpine'], [/kali/i, 'Kali Linux'],
+        [/raspberry/i, 'Raspberry Pi OS']
+      ];
+      for (var d = 0; d < distros.length; d++) {
+        if (distros[d][0].test(ua)) { distro = distros[d][1]; break; }
+      }
     }
+
+    return { os: os, osVersion: osVersion, distro: distro };
   }
 
   // ===== HEADLESS / AUTOMATION DETECTION =====
   function _detectHeadless() {
     var signals = [];
-    var ua = _lower(navigator.userAgent || '');
+    var ua = (navigator.userAgent || '').toLowerCase();
 
-    // Check UA for headless/automation keywords
-    for (var i = 0; i < HEADLESS_SIGNALS.length; i++) {
-      if (ua.indexOf(HEADLESS_SIGNALS[i]) !== -1) {
-        signals.push('ua_' + HEADLESS_SIGNALS[i]);
-      }
+    // Check UA for automation keywords
+    var botPatterns = ['headless', 'phantom', 'puppeteer', 'playwright', 'nightmare',
+      'curl', 'wget', 'python-requests', 'node-fetch', 'httpie', 'go-http-client',
+      'java/', 'okhttp', 'apache-httpclient', 'postmanruntime', 'scrapy', 'spider', 'crawler'];
+    for (var i = 0; i < botPatterns.length; i++) {
+      if (ua.indexOf(botPatterns[i]) !== -1) signals.push('ua_' + botPatterns[i]);
     }
 
-    // Check for automation objects in window
-    for (var j = 0; j < BROWSER_AUTOMATION_OBJECTS.length; j++) {
-      if (window[BROWSER_AUTOMATION_OBJECTS[j]]) {
-        signals.push('obj_' + BROWSER_AUTOMATION_OBJECTS[j]);
-      }
+    // Check automation objects
+    var autoObjects = ['__playwright', '__puppeteer', '__nightmare', '__selenium_unwrapped',
+      '__webdriver_evaluate', '__selenium_evaluate', '_phantom', '__callPhantom', 'webdriver',
+      'domAutomation', 'domAutomationController'];
+    for (var j = 0; j < autoObjects.length; j++) {
+      if (window[autoObjects[j]]) signals.push('obj_' + autoObjects[j]);
     }
 
-    // Check navigator.webdriver
+    // navigator.webdriver
     if (navigator.webdriver === true) signals.push('webdriver_true');
 
-    // Check if plugins are empty (headless browsers often have none)
+    // Empty plugins (headless often has none)
     if (navigator.plugins && navigator.plugins.length === 0 && !/mobile|android|iPhone|iPad/i.test(ua)) {
       signals.push('no_plugins');
     }
 
-    // Check for missing languages
-    if (!navigator.languages || navigator.languages.length === 0) signals.push('no_languages');
+    // Zero screen
+    if (window.screen && (window.screen.width === 0 || window.screen.height === 0)) signals.push('screen_zero');
 
-    // Check screen size anomalies (headless often has 0x0 or very small)
-    if (window.screen && (window.screen.width === 0 || window.screen.height === 0)) {
-      signals.push('screen_zero');
-    }
-
-    // Check for chrome.runtime (only in real Chrome extensions context)
-    if (window.chrome && window.chrome.runtime) signals.push('has_chrome_runtime');
-
-    // Check window.outerHeight/outerWidth === 0
+    // Zero outer dimensions
     if (window.outerHeight === 0 || window.outerWidth === 0) signals.push('outer_zero');
-
-    // Check for notifications permission
-    if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-      // This is normal in some cases, skip
-    }
 
     return {
       isHeadless: signals.length > 0,
@@ -682,7 +290,7 @@ const YARZ_DEVICE = (() => {
   function _detectAntiDetect() {
     var signals = [];
 
-    // Check canvas fingerprint consistency
+    // Canvas consistency check
     try {
       var c1 = document.createElement('canvas');
       c1.width = 100; c1.height = 100;
@@ -696,11 +304,10 @@ const YARZ_DEVICE = (() => {
       ctx2.fillRect(0, 0, 100, 100);
       var data2 = c2.toDataURL();
 
-      // If canvas outputs differ between identical draws, may be anti-detect
       if (data1 !== data2) signals.push('canvas_inconsistent');
     } catch (e) {}
 
-    // Check WebGL renderer consistency
+    // WebGL renderer consistency
     try {
       var gl1 = document.createElement('canvas').getContext('webgl');
       var gl2 = document.createElement('canvas').getContext('webgl');
@@ -715,18 +322,6 @@ const YARZ_DEVICE = (() => {
       }
     } catch (e) {}
 
-    // Check timezone vs IP geolocation consistency
-    // (basic check: if timezone is UTC but not actually UTC)
-
-    // Check font count anomalies
-    if (window.YARZ_FORTRESS && window.YARZ_FORTRESS.getDeviceProfile) {
-      var profile = window.YARZ_FORTRESS.getDeviceProfile();
-      if (profile && profile.fontsCount !== undefined) {
-        if (profile.fontsCount > 15) signals.push('many_fonts');
-        if (profile.fontsCount === 0) signals.push('zero_fonts');
-      }
-    }
-
     return {
       isAntiDetect: signals.length > 0,
       signals: signals
@@ -737,15 +332,10 @@ const YARZ_DEVICE = (() => {
   function _detectGeolocation() {
     return new Promise(function(resolve) {
       var result = { lat: 0, lng: 0, accuracy: 0, source: 'none', error: null };
+      if (!navigator.geolocation) { result.error = 'not_supported'; resolve(result); return; }
 
-      if (!navigator.geolocation) {
-        result.error = 'geolocation_not_supported';
-        resolve(result);
-        return;
-      }
-
-      var timeoutId;
       var resolved = false;
+      var timeoutId;
 
       function onSuccess(pos) {
         if (resolved) return;
@@ -763,35 +353,36 @@ const YARZ_DEVICE = (() => {
         resolved = true;
         clearTimeout(timeoutId);
         result.error = err ? err.code : 'unknown';
-        result.source = 'geolocation_failed';
         resolve(result);
       }
 
-      // Timeout after 5 seconds
       timeoutId = setTimeout(function() {
-        if (!resolved) {
-          resolved = true;
-          result.error = 'timeout';
-          result.source = 'geolocation_timeout';
-          resolve(result);
-        }
+        if (!resolved) { resolved = true; result.error = 'timeout'; resolve(result); }
       }, 5000);
 
       navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 300000
+        enableHighAccuracy: false, timeout: 5000, maximumAge: 300000
       });
     });
   }
 
-  // ===== FULL DETECTION =====
+  // ===== FNV1A HASH =====
+  function _fnv1a(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h + ((h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24))) >>> 0;
+    }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+
+  // ===== MAIN DETECTION =====
   async function detect() {
     if (_result) return _result;
 
     var ua = navigator.userAgent || '';
 
-    // 1. Get userAgentData (Chrome/Edge)
+    // ===== 1. navigator.userAgentData (Chrome/Edge — PRIMARY SOURCE) =====
     var highEntropy = null;
     try {
       if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
@@ -800,10 +391,9 @@ const YARZ_DEVICE = (() => {
           'model', 'mobile', 'architecture', 'bitness',
           'uaFullVersion', 'fullVersion'
         ]);
-        _userAgentData = highEntropy;
       }
     } catch (e) {
-      // Fallback: use basic userAgentData
+      // Fallback to basic userAgentData
       try {
         if (navigator.userAgentData) {
           highEntropy = {
@@ -816,53 +406,135 @@ const YARZ_DEVICE = (() => {
       } catch (e2) {}
     }
 
-    // 2. Detect brand, model, OS, desktop/mobile
-    var brandModel = _detectBrandAndModel(ua, highEntropy);
+    // ===== 2. DYNAMIC BRAND + MODEL DETECTION =====
+    var brand = 'Unknown';
+    var model = 'Unknown';
+    var modelCode = '';
+    var isMobile = false;
+    var isTablet = false;
+    var isDesktop = false;
+    var family = 'unknown';
 
-    // 3. GPU detection
-    var gpu = _detectGPU();
+    if (/android/i.test(ua)) {
+      family = 'android';
+      isMobile = true;
+      var androidInfo = _detectAndroidModel(ua, highEntropy);
+      brand = androidInfo.brand;
+      model = androidInfo.model;
+      modelCode = androidInfo.modelCode;
+    } else if (/iPhone|iPad|iPod/i.test(ua)) {
+      family = 'ios';
+      brand = 'Apple';
+      isMobile = /iPhone|iPod/i.test(ua);
+      isTablet = /iPad/i.test(ua);
+    } else if (/Windows/i.test(ua)) {
+      family = 'windows';
+      isDesktop = true;
+      brand = 'Windows PC';
+      var winInfo = _detectDesktop(ua);
+      model = winInfo.os + (winInfo.osVersion ? ' ' + winInfo.osVersion : '');
+    } else if (/Macintosh|Mac OS X/i.test(ua)) {
+      family = 'macos';
+      isDesktop = true;
+      brand = 'Apple Mac';
+      var macInfo = _detectDesktop(ua);
+      model = 'macOS' + (macInfo.osVersion ? ' ' + macInfo.osVersion : '');
+    } else if (/CrOS/i.test(ua)) {
+      family = 'chromeos';
+      isDesktop = true;
+      brand = 'Chromebook';
+      model = 'Chrome OS';
+    } else if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
+      family = 'linux';
+      isDesktop = true;
+      brand = 'Linux PC';
+      var linuxInfo = _detectDesktop(ua);
+      model = linuxInfo.distro || 'Linux';
+    }
 
-    // 4. Headless / automation detection
+    // Override from userAgentData if available (MORE ACCURATE)
+    if (highEntropy) {
+      if (highEntropy.brand) brand = highEntropy.brand;
+      if (highEntropy.model && highEntropy.model !== 'Unknown') model = highEntropy.model;
+      if (highEntropy.mobile !== undefined) {
+        isMobile = highEntropy.mobile;
+        if (isMobile) { isDesktop = false; isTablet = false; }
+      }
+    }
+
+    // ===== 3. iOS MODEL (Dynamic — screen + iOS + GPU) =====
+    if (family === 'ios') {
+      var screen = window.screen || {};
+      var iosV = ua.match(/iPhone OS (\d+_\d+)/);
+      var iosVersion = iosV ? iosV[1].replace('_', '.') : '';
+      var gpu = _parseGPU('');
+      // Get GPU from WebGL
+      try {
+        var gl = document.createElement('canvas').getContext('webgl');
+        if (gl) {
+          var ext = gl.getExtension('WEBGL_debug_renderer_info');
+          if (ext) gpu = _parseGPU(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+        }
+      } catch (e) {}
+
+      if (isTablet) {
+        model = 'iPad';
+        if (iosVersion) model += ' (iOS ' + iosVersion + ')';
+      } else {
+        model = _detectIPhoneModel(screen.width, screen.height, iosVersion, gpu.model, window.devicePixelRatio || 1);
+      }
+    }
+
+    // ===== 4. GPU DETECTION (Dynamic — auto-detects ANY GPU) =====
+    var gpuInfo = { vendor: 'Unknown', model: 'Unknown', raw: '' };
+    try {
+      var glCanvas = document.createElement('canvas');
+      var gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+      if (gl) {
+        var ext = gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) {
+          var rawVendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || 'Unknown';
+          var rawRenderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || 'Unknown';
+          gpuInfo = _parseGPU(rawRenderer);
+          gpuInfo.raw = rawRenderer;
+          gpuInfo.rawVendor = rawVendor;
+        }
+      }
+    } catch (e) {}
+
+    // ===== 5. HEADLESS / AUTOMATION =====
     var headless = _detectHeadless();
 
-    // 5. Anti-detect browser detection
+    // ===== 6. ANTI-DETECT BROWSER =====
     var antiDetect = _detectAntiDetect();
 
-    // 6. Screen info
-    var screen = window.screen || {};
-    var screenWidth = screen.width || 0;
-    var screenHeight = screen.height || 0;
+    // ===== 7. SCREEN INFO =====
+    var scr = window.screen || {};
+    var screenWidth = scr.width || 0;
+    var screenHeight = scr.height || 0;
     var pixelRatio = window.devicePixelRatio || 1;
-    var colorDepth = screen.colorDepth || 0;
-    var orientation = screen.orientation ? screen.orientation.type : '';
+    var colorDepth = scr.colorDepth || 0;
+    var orientation = scr.orientation ? scr.orientation.type : '';
 
-    // 7. Hardware info
+    // ===== 8. HARDWARE =====
     var cores = navigator.hardwareConcurrency || 0;
     var memory = navigator.deviceMemory || 0;
     var maxTouch = navigator.maxTouchPoints || 0;
 
-    // 8. Network info
+    // ===== 9. NETWORK =====
     var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
     var networkType = conn.effectiveType || conn.type || 'unknown';
-    var downlink = conn.downlink || 0;
 
-    // 9. Geolocation (async, non-blocking)
+    // ===== 10. GEOLOCATION =====
     var geoResult = { lat: 0, lng: 0, accuracy: 0, source: 'none', error: null };
-    try {
-      geoResult = await _detectGeolocation();
-    } catch (e) {
-      geoResult.error = 'exception';
-    }
+    try { geoResult = await _detectGeolocation(); } catch (e) { geoResult.error = 'exception'; }
 
-    // 10. Timezone & language
+    // ===== 11. TIMEZONE & LANGUAGE =====
     var tz = '';
     try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
     var lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
 
-    // 11. WebGL vendor/renderer raw strings
-    var webglRaw = { vendor: gpu.gpuVendor, renderer: gpu.gpuRenderer };
-
-    // 12. Canvas hash
+    // ===== 12. CANVAS HASH =====
     var canvasHash = 'n/a';
     try {
       var c = document.createElement('canvas');
@@ -879,31 +551,31 @@ const YARZ_DEVICE = (() => {
       }
     } catch (e) {}
 
-    // 13. Device ID (composite hash)
+    // ===== 13. DEVICE ID (composite) =====
     var rawId = [
       ua, navigator.platform || '',
       screenWidth + 'x' + screenHeight,
       String(cores), String(memory), String(pixelRatio),
-      tz, lang, canvasHash, gpu.gpuRenderer
+      tz, lang, canvasHash, gpuInfo.raw
     ].join('|');
     var deviceId = 'dev_' + _fnv1a(rawId);
 
-    // 14. Build result
+    // ===== 14. BUILD RESULT =====
     _result = {
-      // Brand & Model
-      brand: brandModel.brand,
-      model: brandModel.model,
-      modelCode: brandModel.modelCode,
-      family: brandModel.family,
-      platform: brandModel.platform,
-      isMobile: brandModel.isMobile,
-      isTablet: brandModel.isTablet,
-      isDesktop: brandModel.isDesktop,
+      // Brand & Model (DYNAMIC — no hardcoded mapping)
+      brand: brand,
+      model: model,
+      modelCode: modelCode,
+      family: family,
+      isMobile: isMobile,
+      isTablet: isTablet,
+      isDesktop: isDesktop,
 
-      // GPU
-      gpu: gpu.gpu,
-      gpuVendor: gpu.gpuVendor,
-      gpuRenderer: gpu.gpuRenderer,
+      // GPU (DYNAMIC — parsed from WebGL renderer)
+      gpu: gpuInfo.model,
+      gpuVendor: gpuInfo.vendor,
+      gpuRenderer: gpuInfo.raw,
+      gpuRawVendor: gpuInfo.rawVendor || '',
 
       // Screen
       screenWidth: screenWidth,
@@ -919,7 +591,6 @@ const YARZ_DEVICE = (() => {
 
       // Network
       networkType: networkType,
-      downlink: downlink,
 
       // Location
       lat: geoResult.lat,
@@ -940,17 +611,22 @@ const YARZ_DEVICE = (() => {
       antiDetectSignals: antiDetect.signals,
       webdriver: navigator.webdriver === true,
 
-      // Canvas & WebGL raw
+      // Canvas
       canvasHash: canvasHash,
-      webglRaw: webglRaw,
 
-      // FingerprintJS (if available)
-      fpjsId: (window.YARZ_FORTRESS && YARZ_FORTRESS.getFingerprintJSId) ?
-              YARZ_FORTRESS.getFingerprintJSId() : '',
-      fpjsConfidence: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceProfile) ?
-                      (YARZ_FORTRESS.getDeviceProfile() || {}).fpjsConfidence || 0 : 0,
+      // UserAgentData (raw from browser)
+      userAgentData: highEntropy ? {
+        brands: highEntropy.brands || [],
+        platform: highEntropy.platform || '',
+        platformVersion: highEntropy.platformVersion || '',
+        model: highEntropy.model || '',
+        mobile: highEntropy.mobile || false,
+        architecture: highEntropy.architecture || '',
+        bitness: highEntropy.bitness || '',
+        fullVersionList: highEntropy.fullVersionList || []
+      } : null,
 
-      // User-Agent (raw)
+      // Raw
       userAgent: ua,
 
       // Meta
