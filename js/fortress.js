@@ -296,7 +296,7 @@ const YARZ_FORTRESS = (() => {
         setTimeout(function(){ try { ctl.abort(); } catch(e){} }, 5000);
       }
 
-      fetch('http://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query', opts)
+      fetch('https://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query', opts)
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(data){
           if (data && data.status === 'success') {
