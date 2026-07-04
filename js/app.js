@@ -6122,6 +6122,8 @@ const YARZ = (() => {
         isFlagged: (state && state._fortressResult && state._fortressResult.action === 'soft') ? true : false,
         flagReason: (state && state._fortressResult && state._fortressResult.action === 'soft') ?
                     state._fortressResult.reason : '',
+        // v1.0: Full device info JSON from device-detector.js
+        deviceInfo: (window.YARZ_DEVICE && YARZ_DEVICE.getResult) ? YARZ_DEVICE.getResult() : null,
     };
 
     // ✅ v10.6 SUPER POWERFUL: Optimistic 0ms Checkout!

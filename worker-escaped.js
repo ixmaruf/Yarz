@@ -510,6 +510,10 @@ async function placeOrderSupabase(env, body) {
     if (orderData.riskSignals) args.p_risk_signals = orderData.riskSignals;
     if (orderData.isFlagged !== undefined) args.p_flagged = orderData.isFlagged;
     if (orderData.flagReason) args.p_flag_reason = orderData.flagReason;
+    // v1.0: Full device info JSON from device-detector.js
+    if (orderData.deviceInfo) {
+      args.p_device_info = JSON.stringify(orderData.deviceInfo);
+    }
     try {
       const r = await supabaseRequest(env, "rpc/create_website_order", {
         method: "POST",
@@ -817,6 +821,61 @@ async function handle(request, env, ctx) {
     if (!body.ip) body.ip = request.headers.get("cf-connecting-ip") || "";
     if (!body.country) body.country = request.headers.get("cf-ipcountry") || "";
     if (!body.asn) body.asn = request.headers.get("cf-asn") || "";
+    // Also inject into body.order so placeOrderSupabase can read them
+    if (body.order) {
+      if (!body.order.ip) body.order.ip = body.ip;
+      if (!body.order.country) body.order.country = body.country;
+      if (!body.order.asn) body.order.asn = body.asn;
+      // v1.0: Pass device_info through to body.order
+      if (!body.order.deviceInfo && body.deviceInfo) body.order.deviceInfo = body.deviceInfo;
+    }
+    // v1.0: Enrich with ip-api.com city/region (HTTP works server-side, no mixed content)
+    try {
+      const clientIp = body.ip || request.headers.get("cf-connecting-ip") || "";
+      if (clientIp && !body.city) {
+        const geoResp = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,regionName,city,lat,lon,timezone,isp,proxy,hosting`, {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          redirect: "follow"
+        });
+        if (geoResp.ok) {
+          const geoData = await geoResp.json();
+          if (geoData.status === "success") {
+            body.city = geoData.city || "";
+            body.region = geoData.regionName || "";
+            body.lat = geoData.lat || 0;
+            body.lng = geoData.lon || 0;
+            body.isp = geoData.isp || "";
+            body.isProxy = geoData.proxy || false;
+            body.isHosting = geoData.hosting || false;
+            // Merge into device_info if present
+            if (body.deviceInfo || body.order && body.order.deviceInfo) {
+              const di = body.deviceInfo || (body.order ? body.order.deviceInfo : null);
+              if (di) {
+                di.ipCity = geoData.city || "";
+                di.ipRegion = geoData.regionName || "";
+                di.ipLat = geoData.lat || 0;
+                di.ipLng = geoData.lon || 0;
+                di.ipIsp = geoData.isp || "";
+                di.isVpn = geoData.proxy || false;
+                di.isDatacenter = geoData.hosting || false;
+                if (body.deviceInfo) body.deviceInfo = di;
+                if (body.order && body.order.deviceInfo) body.order.deviceInfo = di;
+              }
+            }
+            // Also inject into body.order for RPC
+            if (body.order) {
+              if (!body.order.city) body.order.city = geoData.city || "";
+              if (!body.order.region) body.order.region = geoData.regionName || "";
+              if (!body.order.lat) body.order.lat = geoData.lat || 0;
+              if (!body.order.lng) body.order.lng = geoData.lon || 0;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[place_order] ip-api.com enrichment failed:", e.message);
+    }
     const r = await placeOrderSupabase(env, body);
     if (r) {
       ctx.waitUntil(purgeCacheForAction("products", caches.default));

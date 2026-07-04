@@ -67,6 +67,7 @@ const YARZ_FORTRESS = (() => {
   let _fpjsConfidence = 0;
   let _fingerprintReady = false;
   let _lastSyncTime = 0;
+  let _deviceInfo = null; // v1.0: Full device info from YARZ_DEVICE
 
   // ===== LOCALSTORAGE HELPERS =====
   function _readLS(key, fallback) {
@@ -569,6 +570,26 @@ const YARZ_FORTRESS = (() => {
     return 0;
   }
 
+  // v1.0: New risk signals from device-detector.js
+  function _signalHeadless() {
+    if (_deviceInfo && _deviceInfo.isHeadless) return 95;
+    return 0;
+  }
+  function _signalAntiDetect() {
+    if (_deviceInfo && _deviceInfo.isAntiDetect) return 70;
+    return 0;
+  }
+  function _signalDesktop() {
+    if (_deviceInfo && _deviceInfo.isDesktop) return 40;
+    return 0;
+  }
+  function _signalSoftwareGPU() {
+    if (!_profile) return 0;
+    var r = String(_profile.webglRenderer || '').toLowerCase();
+    if (/swiftshader|llvmpipe|software|google inc\. \(google\)/.test(r)) return 30;
+    return 0;
+  }
+
   // ===== SCORE ORDER =====
   function scoreOrder(orderData) {
     if (!_initialized) init();
@@ -597,7 +618,11 @@ const YARZ_FORTRESS = (() => {
       ['canvas_blocked',  _signalCanvasTamper()],
       ['time_of_day',     _signalTimeOfDay()],
       ['vpn_proxy',       _signalVPN()],
-      ['fpjs_low_conf',   _signalFingerprintMismatch()]
+      ['fpjs_low_conf',   _signalFingerprintMismatch()],
+      ['headless',        _signalHeadless()],
+      ['anti_detect',     _signalAntiDetect()],
+      ['desktop_order',   _signalDesktop()],
+      ['software_gpu',    _signalSoftwareGPU()]
     ];
 
     var total = 0;
@@ -785,6 +810,7 @@ const YARZ_FORTRESS = (() => {
       visitorId: _visitorId,
       compositeHash: _compositeHash,
       profile: _profile,
+      deviceInfo: _deviceInfo, // v1.0: Full device info from YARZ_DEVICE
       ipData: _ipData,
       fpjsId: _fpjsVisitorId,
       fpjsConfidence: _fpjsConfidence,
@@ -804,6 +830,15 @@ const YARZ_FORTRESS = (() => {
       _deviceId = _readLS(CFG.KEYS.DEVICE, null);
       _visitorId = _readLS(CFG.KEYS.VISITOR_ID, null);
       _compositeHash = _readLS(CFG.KEYS.COMPOSITE, null);
+
+      // v1.0: Run device-detector.js for comprehensive brand/model/GPU/headless detection
+      if (window.YARZ_DEVICE && typeof window.YARZ_DEVICE.detect === 'function') {
+        try {
+          _deviceInfo = await window.YARZ_DEVICE.detect();
+        } catch (e) {
+          console.warn('YARZ_DEVICE detect failed:', e);
+        }
+      }
 
       // Capture full fingerprint
       _profile = await _captureFullFingerprint();
@@ -871,6 +906,7 @@ const YARZ_FORTRESS = (() => {
     getVisitorId: getVisitorId,
     getCompositeHash: getCompositeHash,
     getDeviceProfile: getDeviceProfile,
+    getDeviceInfo: function() { return _deviceInfo; }, // v1.0
     getEventLog: getEventLog,
     getLocalBlocklist: getLocalBlocklist,
     getIPData: getIPData,
