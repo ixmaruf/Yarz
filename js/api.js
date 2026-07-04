@@ -202,14 +202,10 @@ var YARZ_API = (function() {
             // Price aliases
             if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
             if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
-            // Map disc_percent (Supabase) → discountPercent
-            if (p.discountPercent === undefined || p.discountPercent === null) {
-              p.discountPercent = p.disc_percent !== undefined ? parseFloat(p.disc_percent) :
-                                  p.discPct !== undefined ? p.discPct : 0;
-            }
-            // Always recalculate discountPercent when regular > sale (so strikethrough always shows)
-            if (parseFloat(p.regularPrice) > 0 && parseFloat(p.salePrice) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice)) {
-              p.discountPercent = Math.round(((parseFloat(p.regularPrice) - parseFloat(p.salePrice)) / parseFloat(p.regularPrice)) * 100);
+            if (p.discountPercent === undefined) {
+              p.discountPercent = p.discPct !== undefined ? p.discPct :
+                (p.regularPrice > 0 && p.salePrice >= 0 ?
+                  Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
             }
             // Build sizes object from individual stock fields
             if (!p.sizes || typeof p.sizes !== 'object') {
@@ -609,14 +605,10 @@ var YARZ_API = (function() {
           // Map price fields
           if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
           if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
-          // Map disc_percent (Supabase) → discountPercent
-          if (p.discountPercent === undefined || p.discountPercent === null) {
-            p.discountPercent = p.disc_percent !== undefined ? parseFloat(p.disc_percent) :
-                                p.discPct !== undefined ? p.discPct : 0;
-          }
-          // Always recalculate discountPercent when regular > sale (so strikethrough always shows)
-          if (parseFloat(p.regularPrice) > 0 && parseFloat(p.salePrice) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice)) {
-            p.discountPercent = Math.round(((parseFloat(p.regularPrice) - parseFloat(p.salePrice)) / parseFloat(p.regularPrice)) * 100);
+          if (p.discountPercent === undefined) {
+            p.discountPercent = p.discPct !== undefined ? p.discPct :
+              (p.regularPrice > 0 && p.salePrice >= 0 ?
+                Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
           }
 
           // Map sizes → { M: qty, L: qty, XL: qty, XXL: qty }
@@ -1146,10 +1138,10 @@ var YARZ_API = (function() {
       const zone1Charge = parseFloat(get('zone_1_charge')) || 70;
       const zone2Charge = parseFloat(get('zone_2_charge')) || 140;
 
-      // ✅ Delivery locations — dynamic manager backed by the DELIVERY_CHARGES table.
+      // ✅ Delivery locations — dynamic manager backed by the DELIVERY_CHARGES sheet tab.
       // Supports unlimited owner-defined locations while preserving legacy Zone 1/2 fields.
       let deliveryLocations = [];
-      const rawDeliveryLocations = get('delivery_locations') || s.delivery_locations || s.deliveryLocations || s.delivery_charges || '';
+      const rawDeliveryLocations = get('delivery_locations') || s.delivery_locations || s.deliveryLocations || '';
       if (Array.isArray(rawDeliveryLocations)) {
         deliveryLocations = rawDeliveryLocations;
       } else if (rawDeliveryLocations) {

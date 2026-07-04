@@ -8962,116 +8962,6 @@ body {
   pointer-events: none;
 }
 
-/* ─── Custom Dropdown (replaces native <select>) ─── */
-.custom-dropdown {
-  position: relative;
-  width: 100%;
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.custom-dropdown-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: #FFFFFF;
-  font-size: 14px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  color: var(--text-primary);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-.custom-dropdown.open .custom-dropdown-trigger {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
-}
-.custom-dropdown-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  text-align: left;
-}
-.custom-dropdown-arrow {
-  width: 18px;
-  height: 18px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: 8px;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.custom-dropdown.open .custom-dropdown-arrow {
-  transform: rotate(180deg);
-}
-.custom-dropdown-panel {
-  display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 280px;
-  overflow-y: auto;
-  background: #FFFFFF;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(26, 20, 17, 0.12), 0 2px 8px rgba(26, 20, 17, 0.06);
-  z-index: 1000;
-  padding: 4px;
-  animation: dropdownSlideIn 0.2s ease-out;
-}
-.custom-dropdown.open .custom-dropdown-panel {
-  display: block;
-}
-@keyframes dropdownSlideIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.custom-dropdown-option {
-  padding: 11px 14px;
-  font-size: 14px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  color: var(--text-primary);
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.custom-dropdown-option:hover {
-  background: var(--cream-200, #F4F2EC);
-}
-.custom-dropdown-option.selected {
-  background: var(--accent);
-  color: #FFFFFF;
-  font-weight: 600;
-}
-.custom-dropdown-option.selected:hover {
-  background: var(--accent);
-  opacity: 0.9;
-}
-.custom-dropdown-group-label {
-  padding: 8px 14px 4px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-.custom-dropdown-panel::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-dropdown-panel::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.15);
-  border-radius: 4px;
-}
-
 /* Filter section headings */
 #filter-drawer .cart-body h4 {
   color: var(--text-primary) !important;
@@ -9690,40 +9580,10 @@ select:focus {
 .filter-chip {
   background: var(--bg-secondary, #FFFFFF) !important;
   border: 1px solid var(--border-color) !important;
-  color: var(--text-secondary) !important;
 }
 .filter-chip:hover {
   background: var(--cream-200, #F4F2EC) !important;
   border-color: var(--text-primary) !important;
-  color: var(--text-primary) !important;
-}
-.filter-chip.active {
-  background: var(--accent) !important;
-  color: #FFFFFF !important;
-  border-color: var(--accent) !important;
-}
-
-/* Custom dropdown mobile overrides */
-.custom-dropdown-trigger {
-  background: var(--bg-secondary, #FFFFFF) !important;
-  border: 1px solid var(--border-color) !important;
-}
-.custom-dropdown-panel {
-  background: var(--bg-card, #FAFAF7) !important;
-  border: 1px solid var(--border-color) !important;
-}
-.custom-dropdown-option {
-  color: var(--text-primary) !important;
-}
-.custom-dropdown-option:hover {
-  background: var(--cream-200, #F4F2EC) !important;
-}
-.custom-dropdown-option.selected {
-  background: var(--accent) !important;
-  color: #FFFFFF !important;
-}
-.custom-dropdown-group-label {
-  color: var(--text-muted) !important;
 }
 
 /* Modal box & overlay */
