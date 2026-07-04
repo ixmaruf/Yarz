@@ -382,10 +382,13 @@ const YARZ_DEVICE = (() => {
 
     var ua = navigator.userAgent || '';
 
-    // ===== 1. navigator.userAgentData (Chrome/Edge — PRIMARY SOURCE) =====
+    // ===== 1. navigator.userAgentData (Chrome/Edge — NOT Safari) =====
+    // Safari on iPhone/iPad does NOT support userAgentData
+    // If UA says iPhone but userAgentData exists = emulation/Playwright
     var highEntropy = null;
+    var isSafariUA = /iPhone|iPad|iPod/i.test(ua) || (/Safari\//i.test(ua) && !/Chrome\//i.test(ua));
     try {
-      if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      if (!isSafariUA && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
         highEntropy = await navigator.userAgentData.getHighEntropyValues([
           'platform', 'platformVersion', 'fullVersionList',
           'model', 'mobile', 'architecture', 'bitness',
@@ -393,9 +396,9 @@ const YARZ_DEVICE = (() => {
         ]);
       }
     } catch (e) {
-      // Fallback to basic userAgentData
+      // Fallback to basic userAgentData (also skip for Safari)
       try {
-        if (navigator.userAgentData) {
+        if (!isSafariUA && navigator.userAgentData) {
           highEntropy = {
             brand: navigator.userAgentData.brands && navigator.userAgentData.brands[0] ? navigator.userAgentData.brands[0].brand : '',
             model: '',
@@ -463,25 +466,67 @@ const YARZ_DEVICE = (() => {
     }
 
     // ===== 3. iOS MODEL (Dynamic — screen + iOS + GPU) =====
+    // On REAL iPhone: navigator.userAgentData is UNDEFINED (Safari doesn't support it)
+    // We rely on: UA for iOS version, screen dimensions for model, GPU for chip
     if (family === 'ios') {
       var screen = window.screen || {};
       var iosV = ua.match(/iPhone OS (\d+_\d+)/);
       var iosVersion = iosV ? iosV[1].replace('_', '.') : '';
-      var gpu = _parseGPU('');
-      // Get GPU from WebGL
+      var iosMajor = iosV ? parseInt(iosV[1].split('_')[0]) : 0;
+
+      // Get GPU from WebGL (on real iPhone this will be "Apple GPU")
+      var gpuForIPhone = { model: 'Apple GPU', raw: '' };
       try {
-        var gl = document.createElement('canvas').getContext('webgl');
-        if (gl) {
-          var ext = gl.getExtension('WEBGL_debug_renderer_info');
-          if (ext) gpu = _parseGPU(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+        var glIP = document.createElement('canvas').getContext('webgl');
+        if (glIP) {
+          var extIP = glIP.getExtension('WEBGL_debug_renderer_info');
+          if (extIP) {
+            var rawR = glIP.getParameter(extIP.UNMASKED_RENDERER_WEBGL) || '';
+            gpuForIPhone = _parseGPU(rawR);
+            gpuForIPhone.raw = rawR;
+          }
         }
       } catch (e) {}
+
+      // Extract Apple chip from GPU renderer if available
+      // Real iPhone: "Apple GPU" — no chip info
+      // Emulated: might show server GPU
+      var chipGen = 'unknown';
+      if (/a17/i.test(gpuForIPhone.raw)) chipGen = 'A17';
+      else if (/a16/i.test(gpuForIPhone.raw)) chipGen = 'A16';
+      else if (/a15/i.test(gpuForIPhone.raw)) chipGen = 'A15';
+      else if (/a14/i.test(gpuForIPhone.raw)) chipGen = 'A14';
+
+      // DYNAMIC iPhone model by screen dimensions
+      // These are CSS pixel dimensions — same across ALL iPhones
+      var logicalW = Math.min(screen.width, screen.height);
+      var logicalH = Math.max(screen.width, screen.height);
 
       if (isTablet) {
         model = 'iPad';
         if (iosVersion) model += ' (iOS ' + iosVersion + ')';
       } else {
-        model = _detectIPhoneModel(screen.width, screen.height, iosVersion, gpu.model, window.devicePixelRatio || 1);
+        // Dynamic classification by screen width
+        // No hardcoded model names — just screen-based tiers
+        var screenSize = logicalW + 'x' + logicalH;
+
+        if (logicalW >= 430) {
+          model = 'iPhone (Large, ' + logicalW + 'px)';
+        } else if (logicalW >= 390) {
+          model = 'iPhone (Standard, ' + logicalW + 'px)';
+        } else if (logicalW >= 375) {
+          model = 'iPhone (Compact, ' + logicalW + 'px)';
+        } else if (logicalW >= 320) {
+          model = 'iPhone (Legacy, ' + logicalW + 'px)';
+        } else {
+          model = 'iPhone';
+        }
+
+        // Add iOS version if available
+        if (iosVersion) model += ' [iOS ' + iosVersion + ']';
+
+        // Add chip if detected from WebGL
+        if (chipGen !== 'unknown') model += ' [' + chipGen + ']';
       }
     }
 
