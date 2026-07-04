@@ -202,10 +202,14 @@ var YARZ_API = (function() {
             // Price aliases
             if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
             if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
-            if (p.discountPercent === undefined) {
-              p.discountPercent = p.discPct !== undefined ? p.discPct :
-                (p.regularPrice > 0 && p.salePrice >= 0 ?
-                  Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+            // Map disc_percent (Supabase) → discountPercent
+            if (p.discountPercent === undefined || p.discountPercent === null) {
+              p.discountPercent = p.disc_percent !== undefined ? parseFloat(p.disc_percent) :
+                                  p.discPct !== undefined ? p.discPct : 0;
+            }
+            // Always recalculate discountPercent when regular > sale (so strikethrough always shows)
+            if (parseFloat(p.regularPrice) > 0 && parseFloat(p.salePrice) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice)) {
+              p.discountPercent = Math.round(((parseFloat(p.regularPrice) - parseFloat(p.salePrice)) / parseFloat(p.regularPrice)) * 100);
             }
             // Build sizes object from individual stock fields
             if (!p.sizes || typeof p.sizes !== 'object') {
@@ -605,10 +609,14 @@ var YARZ_API = (function() {
           // Map price fields
           if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
           if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
-          if (p.discountPercent === undefined) {
-            p.discountPercent = p.discPct !== undefined ? p.discPct :
-              (p.regularPrice > 0 && p.salePrice >= 0 ?
-                Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+          // Map disc_percent (Supabase) → discountPercent
+          if (p.discountPercent === undefined || p.discountPercent === null) {
+            p.discountPercent = p.disc_percent !== undefined ? parseFloat(p.disc_percent) :
+                                p.discPct !== undefined ? p.discPct : 0;
+          }
+          // Always recalculate discountPercent when regular > sale (so strikethrough always shows)
+          if (parseFloat(p.regularPrice) > 0 && parseFloat(p.salePrice) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice)) {
+            p.discountPercent = Math.round(((parseFloat(p.regularPrice) - parseFloat(p.salePrice)) / parseFloat(p.regularPrice)) * 100);
           }
 
           // Map sizes → { M: qty, L: qty, XL: qty, XXL: qty }

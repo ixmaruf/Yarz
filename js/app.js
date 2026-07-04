@@ -756,7 +756,7 @@ const YARZ = (() => {
           $('#sbb-price').textContent = formatPrice(p.salePrice);
           var oldPrice = $('#sbb-old-price');
           if (oldPrice) {
-            var hasDisc = parseFloat(p.discountPercent) > 0 && parseFloat(p.regularPrice) > parseFloat(p.salePrice);
+            var hasDisc = parseFloat(p.regularPrice) > parseFloat(p.salePrice);
             oldPrice.textContent = hasDisc ? formatPrice(p.regularPrice) : '';
           }
           // Only enable buttons if in stock
@@ -1363,7 +1363,7 @@ const YARZ = (() => {
     var isOut = !p.inStock;
     var salePrice = parseFloat(p.salePrice) || 0;
     var regPrice = parseFloat(p.regularPrice) || 0;
-    var hasDiscount = parseFloat(p.discountPercent) > 0 && regPrice > salePrice;
+    var hasDiscount = regPrice > salePrice;
     var safeName = _cleanInlineName(p.name);
     
     // v10.5 SUPER POWERFUL: Instant Image Loading for top row
@@ -1826,7 +1826,7 @@ const YARZ = (() => {
 
     var salePrice = parseFloat(product.salePrice) || 0;
     var regPrice  = parseFloat(product.regularPrice) || 0;
-    var hasDiscount = parseFloat(product.discountPercent) > 0 && regPrice > salePrice;
+    var hasDiscount = regPrice > salePrice;
     var safeName = _cleanInlineName(product.name);
 
     var overlay = document.createElement('div');
@@ -3972,7 +3972,7 @@ const YARZ = (() => {
     }
 
     var images = [product.image1, product.image2, product.image3, product.image4, product.image5, product.image6].filter(Boolean);
-    var hasDiscount = parseFloat(product.discountPercent) > 0 && parseFloat(product.regularPrice) > parseFloat(product.salePrice);
+    var hasDiscount = parseFloat(product.regularPrice) > parseFloat(product.salePrice);
     // ✅ v16: Honor admin-controlled per-size visibility on the product detail page.
     var sizes = getVisibleSizes(product.category, product);
     var deliveryLocations = getDeliveryLocations();
