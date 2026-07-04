@@ -817,6 +817,12 @@ async function handle(request, env, ctx) {
     if (!body.ip) body.ip = request.headers.get("cf-connecting-ip") || "";
     if (!body.country) body.country = request.headers.get("cf-ipcountry") || "";
     if (!body.asn) body.asn = request.headers.get("cf-asn") || "";
+    // Also inject into body.order so placeOrderSupabase can read them
+    if (body.order) {
+      if (!body.order.ip) body.order.ip = body.ip;
+      if (!body.order.country) body.order.country = body.country;
+      if (!body.order.asn) body.order.asn = body.asn;
+    }
     const r = await placeOrderSupabase(env, body);
     if (r) {
       ctx.waitUntil(purgeCacheForAction("products", caches.default));
