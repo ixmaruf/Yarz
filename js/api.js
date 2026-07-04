@@ -332,7 +332,7 @@ var YARZ_API = (function() {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-05-24-v15.0-zero-local-cache';
+  const DEPLOY_VERSION = '2026-07-04-v18.10-fortress-api-url';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
@@ -465,6 +465,11 @@ var YARZ_API = (function() {
   function getReadUrl() {
     // Allow override from localStorage (e.g. for staging/debug)
     return _lsGet('yarz_worker_url') || CLOUDFLARE_WORKER_URL;
+  }
+  // v18.10: Always return the yarz-api Worker URL (for fortress & admin API calls)
+  var _API_WORKER_URL = 'https://yarz-api.marufhasan80009.workers.dev/';
+  function getApiUrl() {
+    return _lsGet('yarz_api_override') || _API_WORKER_URL;
   }
   function getWriteUrl() {
     // POSTs (place_order, admin actions) — direct to GAS, no caching layer needed
@@ -1554,6 +1559,7 @@ var YARZ_API = (function() {
     CONFIG,
     getBaseUrl,
     getReadUrl,    // ✅ v11.7: exposed so pixel.js _sendCapiMirror can route CAPI through the Worker (for client IP/UA injection)
+    getApiUrl,     // ✅ v18.10: yarz-api Worker URL for fortress & admin calls
     getWriteUrl,   // ✅ v11.7: exposed for symmetry / debugging
     setBaseUrl,
     isConfigured,
