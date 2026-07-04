@@ -332,7 +332,7 @@ var YARZ_API = (function() {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-07-04-v18.12-fortress-ip-fix';
+  const DEPLOY_VERSION = '2026-07-04-v18.13-device-detector';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
