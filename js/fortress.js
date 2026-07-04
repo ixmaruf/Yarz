@@ -279,47 +279,22 @@ const YARZ_FORTRESS = (() => {
   }
 
   // ===== IP GEOLOCATION =====
+  // v18.11: Client-side ip-api.com removed (free tier blocks HTTPS).
+  // The Worker injects real IP, country, ASN from Cloudflare headers
+  // server-side — more accurate and can't be spoofed by the client.
   function _fetchIPData() {
     return new Promise(function(resolve) {
-      // Check cache first
       var cached = _readLS(CFG.KEYS.IP_CACHE, null);
       if (cached && cached.ts && (Date.now() - cached.ts) < CFG.IP_CACHE_TTL_MS) {
         _ipData = cached;
         resolve(cached);
         return;
       }
-
-      var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      var opts = { method: 'GET' };
-      if (ctl) {
-        opts.signal = ctl.signal;
-        setTimeout(function(){ try { ctl.abort(); } catch(e){} }, 5000);
-      }
-
-      fetch('https://ip-api.com/json/?fields=status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query', opts)
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(data){
-          if (data && data.status === 'success') {
-            var ipInfo = {
-              ip: data.query || '',
-              country: data.country || '',
-              countryCode: data.countryCode || '',
-              region: data.regionName || '',
-              city: data.city || '',
-              isp: data.isp || '',
-              org: data.org || '',
-              as: data.as || '',
-              isProxy: data.proxy || false,
-              isHosting: data.hosting || false,
-              ts: Date.now()
-            };
-            _ipData = ipInfo;
-            _writeLS(CFG.KEYS.IP_CACHE, ipInfo);
-            resolve(ipInfo);
-          } else {
-            resolve(null);
-          }
-        }).catch(function(){ resolve(null); });
+      // Return empty geo — Worker handles IP/country/ASN injection server-side
+      var stub = { ip: '', country: '', countryCode: '', region: '', city: '', isp: '', org: '', as: '', isProxy: false, isHosting: false, ts: Date.now() };
+      _ipData = stub;
+      _writeLS(CFG.KEYS.IP_CACHE, stub);
+      resolve(stub);
     });
   }
 
