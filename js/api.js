@@ -332,7 +332,7 @@ var YARZ_API = (function() {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-07-04-v18.10-fortress-api-url';
+  const DEPLOY_VERSION = '2026-07-04-v18.11-order-routing-fix';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
@@ -827,7 +827,7 @@ var YARZ_API = (function() {
     const lo = String(action || '').toLowerCase();
     let base;
     if (POST_VIA_WORKER.has(lo)) {
-      base = localStorage.getItem('yarz_post_url') || getReadUrl(); // Worker URL
+      base = localStorage.getItem('yarz_post_url') || getApiUrl(); // Worker API (yarz-api)
     } else {
       base = localStorage.getItem('yarz_post_url') || getWriteUrl(); // Direct GAS
     }
