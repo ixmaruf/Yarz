@@ -760,11 +760,6 @@ const YARZ_DEVICE = (() => {
       deviceId: deviceId
     };
 
-    // v2.6: Async resolve model code → marketing name (fire & forget)
-    if (modelCode && brand && brand !== 'Unknown' && brand !== 'Windows PC' && brand !== 'Apple') {
-      _resolveModelName(brand, modelCode);
-    }
-
     return _result;
   }
 

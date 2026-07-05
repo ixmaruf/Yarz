@@ -538,19 +538,6 @@ async function placeOrderSupabase(env, body) {
     if (orderData.flagReason) args.p_flag_reason = orderData.flagReason;
     // v1.0: Full device info JSON from device-detector.js
     if (orderData.deviceInfo) {
-      // v2.6: Resolve marketing name from device_models table
-      try {
-        var di = orderData.deviceInfo;
-        var mc = di.modelCode || '';
-        var br = di.brand || '';
-        if (mc && br && br !== 'Unknown' && br !== 'Windows PC' && br !== 'Apple') {
-          var modelLookup = await supabaseRequest(env, "device_models?model_code=eq." + encodeURIComponent(mc) + "&select=marketing_name");
-          if (modelLookup && modelLookup.length > 0 && modelLookup[0].marketing_name) {
-            di.marketingName = modelLookup[0].marketing_name;
-            di.model = modelLookup[0].marketing_name + ' (' + mc + ')';
-          }
-        }
-      } catch(e) {}
       args.p_device_info = JSON.stringify(orderData.deviceInfo);
     }
     try {
