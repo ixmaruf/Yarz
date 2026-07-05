@@ -501,35 +501,42 @@ const YARZ_DEVICE = (() => {
       else if (/a15/i.test(gpuForIPhone.raw)) chipGen = 'A15';
       else if (/a14/i.test(gpuForIPhone.raw)) chipGen = 'A14';
 
-      // DYNAMIC iPhone model by screen dimensions
-      // These are CSS pixel dimensions — same across ALL iPhones
+      // DYNAMIC iPhone model by screen dimensions + iOS version
+      // Each iPhone model has unique CSS pixel dimensions
       var logicalW = Math.min(screen.width, screen.height);
       var logicalH = Math.max(screen.width, screen.height);
+      var pr = window.devicePixelRatio || 1;
 
       if (isTablet) {
         model = 'iPad';
-        if (iosVersion) model += ' (iOS ' + iosVersion + ')';
-      } else {
-        // Dynamic classification by screen width
-        // No hardcoded model names — just screen-based tiers
-        var screenSize = logicalW + 'x' + logicalH;
-
-        if (logicalW >= 430) {
-          model = 'iPhone (Large, ' + logicalW + 'px)';
-        } else if (logicalW >= 390) {
-          model = 'iPhone (Standard, ' + logicalW + 'px)';
-        } else if (logicalW >= 375) {
-          model = 'iPhone (Compact, ' + logicalW + 'px)';
-        } else if (logicalW >= 320) {
-          model = 'iPhone (Legacy, ' + logicalW + 'px)';
-        } else {
-          model = 'iPhone';
-        }
-
-        // Add iOS version if available
+        if (logicalW >= 1024) model = 'iPad Pro 12.9"';
+        else if (logicalW >= 834) model = 'iPad Pro 11" / iPad Air';
+        else if (logicalW >= 810) model = 'iPad (10th gen)';
+        else if (logicalW >= 768) model = 'iPad mini / iPad (9th gen)';
         if (iosVersion) model += ' [iOS ' + iosVersion + ']';
-
-        // Add chip if detected from WebGL
+      } else {
+        // v2.4: Comprehensive iPhone model detection
+        // Key: "width×height" → closest model match
+        var matched = '';
+        // Pro Max / Plus tier (428-440px wide)
+        if (logicalW >= 430 && logicalH >= 920) matched = 'iPhone 16 Pro Max / 15 Pro Max';
+        else if (logicalW >= 428 && logicalH >= 920) matched = 'iPhone 14 Pro Max / 13 Pro Max / 12 Pro Max';
+        else if (logicalW >= 428 && logicalH >= 926) matched = 'iPhone 15 Plus / 14 Plus';
+        // Pro / Standard tier (390-422px wide)
+        else if (logicalW >= 420 && logicalH >= 900) matched = 'iPhone 16 Pro';
+        else if (logicalW >= 400 && logicalH >= 870) matched = 'iPhone 15 Pro';
+        else if (logicalW >= 393 && logicalH >= 850) matched = 'iPhone 16 / 15 / 15 Pro';
+        else if (logicalW >= 390 && logicalH >= 840) matched = 'iPhone 14 Pro / 13 Pro / 13 / 12 Pro / 12';
+        // Mini / Classic tier (375px wide)
+        else if (logicalW >= 375 && logicalH >= 800) matched = 'iPhone 13 mini / 12 mini / 11 Pro / X / XS';
+        else if (logicalW >= 375 && logicalH >= 660 && logicalH < 800) matched = 'iPhone SE (3rd/2nd) / 8 / 7 / 6s / 6';
+        // Legacy tier
+        else if (logicalW >= 360 && logicalH >= 770) matched = 'iPhone 12 mini / 13 mini';
+        else if (logicalW >= 320 && logicalH >= 560) matched = 'iPhone SE (1st) / 5s / 5';
+        else matched = 'iPhone';
+        
+        model = matched;
+        if (iosVersion) model += ' [iOS ' + iosVersion + ']';
         if (chipGen !== 'unknown') model += ' [' + chipGen + ']';
       }
     }
