@@ -8918,9 +8918,9 @@ body {
   background: var(--cream-200);
 }
 .filter-chip.active {
-  background: var(--accent);
+  background: var(--accent, #C8102E);
   color: #FFFFFF;
-  border-color: var(--accent);
+  border-color: var(--accent, #C8102E);
   font-weight: 600;
 }
 
@@ -12321,4 +12321,34 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   }
 }
 
-
+/* ===== Dark Mode — Filter & Select Fixes ===== */
+body.dark .filter-chip {
+  background: #1e2028 !important;
+  color: #c8c9ce !important;
+  border-color: #333 !important;
+}
+body.dark .filter-chip:hover {
+  background: #2a2d37 !important;
+  border-color: #555 !important;
+}
+body.dark .filter-chip.active {
+  background: var(--accent, #C8102E) !important;
+  color: #fff !important;
+  border-color: var(--accent, #C8102E) !important;
+}
+body.dark .filter-select {
+  background: #1e2028 !important;
+  color: #c8c9ce !important;
+  border-color: #333 !important;
+}
+body.dark .filter-select option {
+  background: #1e2028 !important;
+  color: #c8c9ce !important;
+}
+body.dark .filter-select-wrap::after {
+  color: #888 !important;
+}
+body.dark .filter-toggle-btn {
+  color: var(--accent, #e74c3c) !important;
+  border-color: var(--accent, #e74c3c) !important;
+}
