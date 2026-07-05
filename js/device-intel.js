@@ -230,6 +230,15 @@ const YARZ_DEVICE = (() => {
     var opMatch = ua.match(/\b(IN\d{4}|LE\d{4,5})\b/);
     if (opMatch && !modelCode) { modelCode = opMatch[1]; model = modelCode; }
 
+    // Tecno: T + 3-4 digits OR letter+digit combos like CH7n
+    var tecnoMatch = ua.match(/\bT(?:ECNO\s+)?([A-Z]{2}\d[A-Za-z0-9]|\d{3,4})\b/i);
+    if (!tecnoMatch) tecnoMatch = ua.match(/\bTECNO\s+([A-Z0-9]{2,6})\b/i);
+    if (tecnoMatch && !modelCode) { modelCode = tecnoMatch[1]; model = modelCode; }
+
+    // Infinix: X + 4 digits
+    var infMatch = ua.match(/\b(X\d{4}[A-Z]?)\b/i);
+    if (infMatch && !modelCode) { modelCode = infMatch[1]; model = modelCode; }
+
     // Generic Android model extraction — anything after brand name
     if (!modelCode && model === 'Unknown') {
       // Try to extract model from UA string pattern: "Android XXX; ModelName Build/XXX"
@@ -240,49 +249,7 @@ const YARZ_DEVICE = (() => {
       }
     }
 
-    // v2.4: If brand is still 'Android', try inferring from model code pattern
-    if (brand === 'Android' && modelCode) {
-      var inferred = _inferBrandFromModelCode(modelCode);
-      if (inferred) brand = inferred;
-    }
-
     return { brand: brand, model: model, modelCode: modelCode, inAppBrowser: inAppBrowser };
-  }
-
-  // v2.6: Resolve model code → marketing name via Worker API
-  // Runs async after detection so it doesn't block page load
-  function _resolveModelName(brand, modelCode) {
-    if (!modelCode || !brand || brand === 'Unknown' || brand === 'Windows PC' || brand === 'Apple') return;
-    // Build Worker URL
-    var workerUrl = 'https://yarz-api.marufhasan80009.workers.dev/';
-    try {
-      var resp = fetch(workerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resolve_model', model_code: modelCode, brand: brand })
-      });
-      resp.then(function(r) { return r.json(); }).then(function(data) {
-        if (data && data.success && data.name && _result) {
-          _result.marketingName = data.name;
-          _result.model = data.name + ' (' + modelCode + ')';
-        }
-      }).catch(function() {});
-    } catch(e) {}
-  }
-
-  // v2.4: Infer brand from model code when UA/userAgentData don't have it
-  function _inferBrandFromModelCode(code) {
-    if (!code) return '';
-    if (/^SM-|^SC-|^GT-|^SPH|^SCH|^SCH/i.test(code)) return 'Samsung';
-    if (/^M\d{4}/i.test(code)) return 'Xiaomi';
-    if (/^RMX/i.test(code)) return 'Realme';
-    if (/^CPH/i.test(code)) return 'Oppo';
-    if (/^V\d{4}/i.test(code)) return 'Vivo';
-    if (/^IN\d{4}|^LE\d{4,5}/i.test(code)) return 'OnePlus';
-    if (/^NX\d+/i.test(code)) return 'Nubia';
-    if (/^TA-|^N\d{3}[A-Z]/i.test(code)) return 'Nokia';
-    if (/^2[2-9]\d{2}[A-Z]/i.test(code)) return 'Huawei';
-    return '';
   }
 
   // ===== DYNAMIC DESKTOP DETECTION =====
