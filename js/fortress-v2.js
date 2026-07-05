@@ -886,7 +886,12 @@ const YARZ_FORTRESS = (() => {
       });
 
       // Sync server blocklist
-      _syncFromServer();
+      _syncFromServer().then(function() {
+        // v3.0: Dispatch event when blocklist is ready
+        try {
+          document.dispatchEvent(new CustomEvent('yarz:blocklist-ready', { detail: { blocked: isBlocked() } }));
+        } catch(e) {}
+      });
 
     } catch (e) {
       console.warn('YARZ Fortress v2 init failed:', e);

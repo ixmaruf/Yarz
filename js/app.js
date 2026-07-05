@@ -8124,18 +8124,10 @@ const YARZ = (() => {
     // Shield auto-initializes on load; Fortress auto-initializes on load.
     // Pixel init moved to after storeInfo is loaded
 
-    // v3.0: Check block status on page load — show popup immediately for blocked visitors
-    // Retry up to 3 times (fortress sync may take a few seconds)
-    function _checkBlockedOnLoad(attempt) {
-      if (window.YARZ_FORTRESS && YARZ_FORTRESS.syncBlocklist) {
-        YARZ_FORTRESS.syncBlocklist().then(function() {
-          if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); }
-        }).catch(function() {
-          if (attempt < 3) setTimeout(function(){ _checkBlockedOnLoad(attempt + 1); }, 2000);
-        });
-      }
-    }
-    setTimeout(function(){ _checkBlockedOnLoad(0); }, 2000);
+    // v3.0: Show block popup on page load when blocklist is ready
+    document.addEventListener('yarz:blocklist-ready', function(e) {
+      if (e.detail && e.detail.blocked) { showBlockPopup(); }
+    });
 
     initHeaderScroll();
     updateCartCount();
