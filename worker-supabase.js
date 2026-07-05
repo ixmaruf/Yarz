@@ -280,13 +280,15 @@ async function supabaseRequest(env, path, init) {
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase not configured (URL or service_role key missing)");
   const fullUrl = url.replace(/\/+$/, "") + "/rest/v1/" + path;
-  const res = await fetch(fullUrl, Object.assign({
-    headers: {
-      "apikey": key,
-      "Authorization": "Bearer " + key,
-      "Content-Type": "application/json"
-    }
-  }, init || {}));
+  const defaultHeaders = {
+    "apikey": key,
+    "Authorization": "Bearer " + key,
+    "Content-Type": "application/json"
+  };
+  // Merge init headers with defaults (init headers override defaults)
+  const mergedHeaders = Object.assign({}, defaultHeaders, (init && init.headers) || {});
+  const mergedInit = Object.assign({}, init || {}, { headers: mergedHeaders });
+  const res = await fetch(fullUrl, mergedInit);
   if (!res.ok) {
     const txt = await res.text();
     throw new Error("Supabase " + res.status + ": " + txt.substring(0, 300));
@@ -937,7 +939,7 @@ async function handle(request, env, ctx) {
           phones_seen: phonesSeen,
           ips_seen: ipsSeen
         }),
-        headers: { "Prefer": "resolution=merge-duplicates" }
+        headers: { "Prefer": "return=representation,resolution=merge-duplicates" }
       });
       return jsonResponse({ success: true, ok: true, data: r });
     } catch (e) {
