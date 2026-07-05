@@ -315,6 +315,15 @@ async function handleSupabase(env, action, payload, request) {
     if (action === "steadfastlistpolicestations") return await steadfastPoliceStations(env);
     if (action === "steadfastsavekeys")      return await steadfastSaveKeys(env, payload || {});
     if (action === "steadfastlistkeys")      return await steadfastKeysList(env);
+    // __fortress_lookup: return blocked devices + threats
+    if (action === "__fortress_lookup") {
+      try {
+        const blocked = await supabaseRequest(env, "blocked_devices?order=created_at.desc&select=*");
+        return { ok: true, devices: blocked || [], threats: [] };
+      } catch (e) {
+        return { ok: true, devices: [], threats: [], error: e.message };
+      }
+    }
     return null; // signal: fall back to GAS
   }
 
