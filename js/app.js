@@ -5580,7 +5580,7 @@ const YARZ = (() => {
     try { window._yarzCheckoutClosedAt = Date.now(); } catch (e) {}
   }
 
-  async submitOrder() {
+  async function submitOrder() {
     // ✅ v15.35 FIX: Disable Place Order button immediately so customer can't
     // accidentally double-click before the confirm modal opens. Also, this
     // prevents any 60s SWR background refresh (store_info / products) from
