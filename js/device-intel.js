@@ -144,22 +144,57 @@ const YARZ_DEVICE = (() => {
       modelCode = highEntropy.model;
     }
 
-    // Extract brand from User-Agent
-    if (/samsung|sm-/i.test(ua)) brand = 'Samsung';
-    else if (/xiaomi|mi\s/i.test(ua)) brand = 'Xiaomi';
-    else if (/redmi/i.test(ua)) brand = 'Redmi';
-    else if (/poco/i.test(ua)) brand = 'POCO';
-    else if (/oneplus/i.test(ua)) brand = 'OnePlus';
-    else if (/realme/i.test(ua)) brand = 'Realme';
-    else if (/oppo/i.test(ua)) brand = 'Oppo';
-    else if (/vivo/i.test(ua)) brand = 'Vivo';
-    else if (/tecno/i.test(ua)) brand = 'Tecno';
-    else if (/infinix/i.test(ua)) brand = 'Infinix';
-    else if (/huawei/i.test(ua)) brand = 'Huawei';
-    else if (/honor/i.test(ua)) brand = 'Honor';
-    else if (/motorola|moto/i.test(ua)) brand = 'Motorola';
-    else if (/nokia/i.test(ua)) brand = 'Nokia';
-    else if (/pixel/i.test(ua)) brand = 'Google';
+    // v2.5: Detect in-app browser type (Facebook, Instagram, WhatsApp)
+    var inAppBrowser = '';
+    if (/FBAN\/FBIOS|FBAN\/FBAV|FBAV\//i.test(ua)) inAppBrowser = 'Facebook';
+    else if (/Instagram/i.test(ua)) inAppBrowser = 'Instagram';
+    else if (/WhatsApp\//i.test(ua)) inAppBrowser = 'WhatsApp';
+    else if (/BytedanceWebview|TikTok/i.test(ua)) inAppBrowser = 'TikTok';
+    else if (/Line\//i.test(ua)) inAppBrowser = 'LINE';
+    else if (/SamsungBrowser/i.test(ua)) inAppBrowser = 'Samsung Internet';
+    else if (/UCBrowser|UCWEB/i.test(ua)) inAppBrowser = 'UC Browser';
+
+    // v2.5: Extract brand from FBBD/FBMF params (Facebook/Instagram browser)
+    // UA contains: "FBMF/samsung;FBBD/samsung" or "FBMF/xiaomi;FBBD/xiaomi"
+    var fbbdMatch = ua.match(/FB[BMD]F\/([a-z0-9_-]+)/i);
+    if (fbbdMatch) {
+      var fbBrand = fbbdMatch[1].toLowerCase();
+      if (/samsung/i.test(fbBrand)) brand = 'Samsung';
+      else if (/xiaomi/i.test(fbBrand)) brand = 'Xiaomi';
+      else if (/redmi/i.test(fbBrand)) brand = 'Redmi';
+      else if (/poco/i.test(fbBrand)) brand = 'POCO';
+      else if (/oneplus/i.test(fbBrand)) brand = 'OnePlus';
+      else if (/realme/i.test(fbBrand)) brand = 'Realme';
+      else if (/oppo/i.test(fbBrand)) brand = 'Oppo';
+      else if (/vivo/i.test(fbBrand)) brand = 'Vivo';
+      else if (/tecno/i.test(fbBrand)) brand = 'Tecno';
+      else if (/infinix/i.test(fbBrand)) brand = 'Infinix';
+      else if (/huawei/i.test(fbBrand)) brand = 'Huawei';
+      else if (/honor/i.test(fbBrand)) brand = 'Honor';
+      else if (/motorola|moto/i.test(fbBrand)) brand = 'Motorola';
+      else if (/nokia/i.test(fbBrand)) brand = 'Nokia';
+      else if (/google|pixel/i.test(fbBrand)) brand = 'Google';
+      else if (/apple/i.test(fbBrand)) brand = 'Apple';
+    }
+
+    // Extract brand from User-Agent (fallback — works in all browsers)
+    if (brand === 'Android') {
+      if (/samsung|sm-/i.test(ua)) brand = 'Samsung';
+      else if (/xiaomi|mi\s/i.test(ua)) brand = 'Xiaomi';
+      else if (/redmi/i.test(ua)) brand = 'Redmi';
+      else if (/poco/i.test(ua)) brand = 'POCO';
+      else if (/oneplus/i.test(ua)) brand = 'OnePlus';
+      else if (/realme/i.test(ua)) brand = 'Realme';
+      else if (/oppo/i.test(ua)) brand = 'Oppo';
+      else if (/vivo/i.test(ua)) brand = 'Vivo';
+      else if (/tecno/i.test(ua)) brand = 'Tecno';
+      else if (/infinix/i.test(ua)) brand = 'Infinix';
+      else if (/huawei/i.test(ua)) brand = 'Huawei';
+      else if (/honor/i.test(ua)) brand = 'Honor';
+      else if (/motorola|moto/i.test(ua)) brand = 'Motorola';
+      else if (/nokia/i.test(ua)) brand = 'Nokia';
+      else if (/pixel/i.test(ua)) brand = 'Google';
+    }
 
     // v2.4: Extract brand from navigator.userAgentData.brands (Chrome on mobile)
     if (brand === 'Android' && highEntropy && highEntropy.brands) {
@@ -211,7 +246,7 @@ const YARZ_DEVICE = (() => {
       if (inferred) brand = inferred;
     }
 
-    return { brand: brand, model: model, modelCode: modelCode };
+    return { brand: brand, model: model, modelCode: modelCode, inAppBrowser: inAppBrowser };
   }
 
   // v2.4: Infer brand from model code when UA/userAgentData don't have it
@@ -421,6 +456,16 @@ const YARZ_DEVICE = (() => {
     var isTablet = false;
     var isDesktop = false;
     var family = 'unknown';
+
+    // v2.5: Detect in-app browser type (Facebook, Instagram, WhatsApp, TikTok, etc.)
+    var inAppBrowser = '';
+    if (/FBAN\/FBIOS|FBAN\/FBAV|FBAV\//i.test(ua)) inAppBrowser = 'Facebook';
+    else if (/Instagram/i.test(ua)) inAppBrowser = 'Instagram';
+    else if (/WhatsApp\//i.test(ua)) inAppBrowser = 'WhatsApp';
+    else if (/BytedanceWebview|TikTok/i.test(ua)) inAppBrowser = 'TikTok';
+    else if (/Line\//i.test(ua)) inAppBrowser = 'LINE';
+    else if (/SamsungBrowser/i.test(ua)) inAppBrowser = 'Samsung Internet';
+    else if (/UCBrowser|UCWEB/i.test(ua)) inAppBrowser = 'UC Browser';
 
     if (/android/i.test(ua)) {
       family = 'android';
@@ -667,6 +712,9 @@ const YARZ_DEVICE = (() => {
       isAntiDetect: antiDetect.isAntiDetect,
       antiDetectSignals: antiDetect.signals,
       webdriver: navigator.webdriver === true,
+
+      // v2.5: In-app browser detection (Facebook, Instagram, WhatsApp, etc.)
+      inAppBrowser: inAppBrowser || '',
 
       // Canvas
       canvasHash: canvasHash,
