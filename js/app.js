@@ -5677,8 +5677,21 @@ const YARZ = (() => {
     // throws, the order flow continues undisturbed (defense-in-depth).
     try {
       if (window.YARZ_FORTRESS) {
-        // v3.0: Re-sync blocklist before scoring (ensures fresh server data)
+        // v3.0: Sync blocklist AND check isBlocked with internal _deviceId
         await YARZ_FORTRESS.syncBlocklist();
+        // Direct block check — uses fortress internal _deviceId
+        if (YARZ_FORTRESS.isBlocked()) {
+          showBlockPopup();
+          __resetOnExit();
+          return;
+        }
+        // Also check with visitor_id and composite hash for extra safety
+        var _fid = YARZ_FORTRESS.getDeviceId ? YARZ_FORTRESS.getDeviceId() : '';
+        var _fvid = YARZ_FORTRESS.getVisitorId ? YARZ_FORTRESS.getVisitorId() : '';
+        var _fch = YARZ_FORTRESS.getCompositeHash ? YARZ_FORTRESS.getCompositeHash() : '';
+        if (_fid && YARZ_FORTRESS.isBlocked(_fid)) { showBlockPopup(); __resetOnExit(); return; }
+        if (_fvid && YARZ_FORTRESS.isBlocked(_fvid)) { showBlockPopup(); __resetOnExit(); return; }
+        if (_fch && YARZ_FORTRESS.isBlocked(_fch)) { showBlockPopup(); __resetOnExit(); return; }
         var fortressResult = YARZ_FORTRESS.scoreOrder({
           name: name, phone: phone, address: address,
           _formOpenTime: state._checkoutOpenedAt || 0,

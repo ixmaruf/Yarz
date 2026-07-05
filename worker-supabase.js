@@ -946,7 +946,7 @@ async function handle(request, env, ctx) {
   // __fortress_block (admin POST) -> block a device in blocked_devices table
   if (supabaseEnabled && action === "__fortress_block" && request.method === "POST") {
     try {
-      const deviceId = body.device_id || body.deviceId || "";
+      const deviceId = (body.device_id || body.deviceId || "").replace(/^"|"$/g, '');
       const reason = body.reason || body.block_reason || "manual";
       const blockedBy = body.blocked_by || body.blockedBy || "admin";
       const phonesSeen = body.phones_seen || body.phonesSeen || "";
@@ -975,7 +975,7 @@ async function handle(request, env, ctx) {
   // __fortress_unblock (admin POST) -> unblock a device
   if (supabaseEnabled && action === "__fortress_unblock" && request.method === "POST") {
     try {
-      const deviceId = body.device_id || body.deviceId || "";
+      const deviceId = (body.device_id || body.deviceId || "").replace(/^"|"$/g, '');
       if (!deviceId) return jsonResponse({ success: false, msg: "device_id required" }, 400);
       await supabaseRequest(env, "blocked_devices?device_id=eq." + encodeURIComponent(deviceId), {
         method: "PATCH",
