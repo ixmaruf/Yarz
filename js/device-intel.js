@@ -581,29 +581,28 @@ const YARZ_DEVICE = (() => {
         else if (logicalW >= 768) model = 'iPad mini / iPad (9th gen)';
         if (iosVersion) model += ' [iOS ' + iosVersion + ']';
       } else {
-        // v2.4: Comprehensive iPhone model detection
-        // Key: "width×height" → closest model match
-        var matched = '';
-        // Pro Max / Plus tier (428-440px wide)
-        if (logicalW >= 430 && logicalH >= 920) matched = 'iPhone 16 Pro Max / 15 Pro Max';
-        else if (logicalW >= 428 && logicalH >= 920) matched = 'iPhone 14 Pro Max / 13 Pro Max / 12 Pro Max';
-        else if (logicalW >= 428 && logicalH >= 926) matched = 'iPhone 15 Plus / 14 Plus';
-        // Pro / Standard tier (390-422px wide)
-        else if (logicalW >= 420 && logicalH >= 900) matched = 'iPhone 16 Pro';
-        else if (logicalW >= 400 && logicalH >= 870) matched = 'iPhone 15 Pro';
-        else if (logicalW >= 393 && logicalH >= 850) matched = 'iPhone 16 / 15 / 15 Pro';
-        else if (logicalW >= 390 && logicalH >= 840) matched = 'iPhone 14 Pro / 13 Pro / 13 / 12 Pro / 12';
-        // Mini / Classic tier (375px wide)
-        else if (logicalW >= 375 && logicalH >= 800) matched = 'iPhone 13 mini / 12 mini / 11 Pro / X / XS';
-        else if (logicalW >= 375 && logicalH >= 660 && logicalH < 800) matched = 'iPhone SE (3rd/2nd) / 8 / 7 / 6s / 6';
-        // Legacy tier
-        else if (logicalW >= 360 && logicalH >= 770) matched = 'iPhone 12 mini / 13 mini';
-        else if (logicalW >= 320 && logicalH >= 560) matched = 'iPhone SE (1st) / 5s / 5';
-        else matched = 'iPhone';
-        
-        model = matched;
-        if (iosVersion) model += ' [iOS ' + iosVersion + ']';
-        if (chipGen !== 'unknown') model += ' [' + chipGen + ']';
+        // v2.7: Precise iPhone by exact screen × DPR × iOS version
+        var matched = '', W = logicalW, H = logicalH;
+        if (W===440&&H===956) matched='iPhone 16 Pro Max';
+        else if (W===422&&H===908) matched='iPhone 16 Pro';
+        else if (W===430&&H===932) matched=(iosMajor>=18)?'iPhone 16 Plus':'iPhone 15 Pro Max';
+        else if (W===402&&H===874) matched='iPhone 15 Pro';
+        else if (W===393&&H===852) matched=(iosMajor>=18)?'iPhone 16 / 16 Pro':'iPhone 15 / 15 Pro';
+        else if (W===428&&H===926) matched=(iosMajor>=16)?'iPhone 14 Pro Max':(iosMajor>=15)?'iPhone 13 Pro Max':'iPhone 12 Pro Max';
+        else if (W===390&&H===844) matched=(iosMajor>=16)?'iPhone 14 Pro':(iosMajor>=15)?'iPhone 13 Pro / 13':'iPhone 12 Pro / 12';
+        else if (W===414&&H===896&&pr<=2) matched='iPhone 11 / XR';
+        else if (W===414&&H===896&&pr>=3) matched='iPhone 11 Pro Max';
+        else if (W===375&&H===812&&pr>=3) matched=(iosMajor>=15)?'iPhone 13 mini / 12 mini':'iPhone 11 Pro / X / XS';
+        else if (W===375&&H===667&&pr<=2) matched=(iosMajor>=15)?'iPhone SE (3rd)':'iPhone 8 / 7 / 6s';
+        else if (W===414&&H===736) matched='iPhone 8+ / 7+ / 6s+';
+        else if (W===320&&H===568) matched='iPhone SE (1st) / 5s';
+        else if (W>=428) matched='iPhone Pro Max / Plus';
+        else if (W>=390) matched='iPhone Pro / Standard';
+        else if (W>=375) matched='iPhone mini / Classic';
+        else matched='iPhone';
+        model=matched;
+        if (iosVersion) model+=' [iOS '+iosVersion+']';
+        if (chipGen!=='unknown') model+=' ['+chipGen+']';
       }
     }
 
