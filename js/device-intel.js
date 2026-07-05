@@ -226,8 +226,8 @@ const YARZ_DEVICE = (() => {
     var vivoMatch = ua.match(/\b(V\d{4}[A-Z]?)\b/);
     if (vivoMatch && !modelCode) { modelCode = vivoMatch[1]; model = modelCode; }
 
-    // OnePlus: IN + 4 digits or LE + 5 digits
-    var opMatch = ua.match(/\b(IN\d{4}|LE\d{5})\b/);
+    // OnePlus: IN + 4 digits or LE + 4-5 digits
+    var opMatch = ua.match(/\b(IN\d{4}|LE\d{4,5})\b/);
     if (opMatch && !modelCode) { modelCode = opMatch[1]; model = modelCode; }
 
     // Generic Android model extraction — anything after brand name
@@ -257,7 +257,7 @@ const YARZ_DEVICE = (() => {
     if (/^RMX/i.test(code)) return 'Realme';
     if (/^CPH/i.test(code)) return 'Oppo';
     if (/^V\d{4}/i.test(code)) return 'Vivo';
-    if (/^IN\d{4}|^LE\d{5}/i.test(code)) return 'OnePlus';
+    if (/^IN\d{4}|^LE\d{4,5}/i.test(code)) return 'OnePlus';
     if (/^NX\d+/i.test(code)) return 'Nubia';
     if (/^TA-|^N\d{3}[A-Z]/i.test(code)) return 'Nokia';
     if (/^2[2-9]\d{2}[A-Z]/i.test(code)) return 'Huawei';
