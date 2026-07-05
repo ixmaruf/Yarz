@@ -161,6 +161,15 @@ const YARZ_DEVICE = (() => {
     else if (/nokia/i.test(ua)) brand = 'Nokia';
     else if (/pixel/i.test(ua)) brand = 'Google';
 
+    // v2.4: Extract brand from navigator.userAgentData.brands (Chrome on mobile)
+    if (brand === 'Android' && highEntropy && highEntropy.brands) {
+      var knownBrands = { 'Samsung':'Samsung','Xiaomi':'Xiaomi','Google':'Google','OnePlus':'OnePlus','Oppo':'Oppo','Vivo':'Vivo','Realme':'Realme','Huawei':'Huawei','Honor':'Honor','Motorola':'Motorola','Nokia':'Nokia','Tecno':'Tecno','Infinix':'Infinix','POCO':'POCO','Redmi':'Redmi','Nothing':'Nothing','Sony':'Sony','Asus':'Asus','LG':'LG' };
+      for (var i = 0; i < highEntropy.brands.length; i++) {
+        var bName = highEntropy.brands[i].brand || '';
+        if (knownBrands[bName]) { brand = knownBrands[bName]; break; }
+      }
+    }
+
     // Extract raw model code from UA — this is the ACTUAL device identifier
     // Samsung: SM-XXXX pattern
     var smMatch = ua.match(/\b(SM-[A-Z]\d{2,5}[A-Z0-9]*)\b/i);
@@ -196,7 +205,28 @@ const YARZ_DEVICE = (() => {
       }
     }
 
+    // v2.4: If brand is still 'Android', try inferring from model code pattern
+    if (brand === 'Android' && modelCode) {
+      var inferred = _inferBrandFromModelCode(modelCode);
+      if (inferred) brand = inferred;
+    }
+
     return { brand: brand, model: model, modelCode: modelCode };
+  }
+
+  // v2.4: Infer brand from model code when UA/userAgentData don't have it
+  function _inferBrandFromModelCode(code) {
+    if (!code) return '';
+    if (/^SM-|^SC-|^GT-|^SPH|^SCH|^SCH/i.test(code)) return 'Samsung';
+    if (/^M\d{4}/i.test(code)) return 'Xiaomi';
+    if (/^RMX/i.test(code)) return 'Realme';
+    if (/^CPH/i.test(code)) return 'Oppo';
+    if (/^V\d{4}/i.test(code)) return 'Vivo';
+    if (/^IN\d{4}|^LE\d{5}/i.test(code)) return 'OnePlus';
+    if (/^NX\d+/i.test(code)) return 'Nubia';
+    if (/^TA-|^N\d{3}[A-Z]/i.test(code)) return 'Nokia';
+    if (/^2[2-9]\d{2}[A-Z]/i.test(code)) return 'Huawei';
+    return '';
   }
 
   // ===== DYNAMIC DESKTOP DETECTION =====
