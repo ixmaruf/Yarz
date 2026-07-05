@@ -332,7 +332,7 @@ var YARZ_API = (function() {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-07-05-v18.14-deviceinfo-fix';
+  const DEPLOY_VERSION = '2026-07-05-v18.15-mobile-detect';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,

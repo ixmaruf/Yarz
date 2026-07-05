@@ -5580,7 +5580,7 @@ const YARZ = (() => {
     try { window._yarzCheckoutClosedAt = Date.now(); } catch (e) {}
   }
 
-  function submitOrder() {
+  async function submitOrder() {
     // ✅ v15.35 FIX: Disable Place Order button immediately so customer can't
     // accidentally double-click before the confirm modal opens. Also, this
     // prevents any 60s SWR background refresh (store_info / products) from
@@ -5589,6 +5589,11 @@ const YARZ = (() => {
     var __pob = $('#checkout-submit-btn');
     if (__pob) __pob.disabled = true;
     state._orderInFlight = true;
+    
+    // v2.3: Wait for device detection to complete (mobile needs this)
+    if (window.YARZ_DEVICE && YARZ_DEVICE._detectPromise) {
+      try { await Promise.race([YARZ_DEVICE._detectPromise, new Promise(function(r){setTimeout(r,2000)});]); } catch(e) {}
+    }
     var __resetOnExit = function () {
       // Re-enable the button + clear the lock if user cancels or validation fails
       if (__pob) __pob.disabled = false;
@@ -6125,8 +6130,18 @@ const YARZ = (() => {
         // v1.0: Full device info JSON from device-detector.js
         // v2.1: Use YARZ_FORTRESS.getDeviceInfo() (set during init) as primary source
         // Falls back to YARZ_DEVICE.getResult() if fortress not available
-        deviceInfo: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceInfo) ? YARZ_FORTRESS.getDeviceInfo() :
-                    (window.YARZ_DEVICE && YARZ_DEVICE.getResult) ? YARZ_DEVICE.getResult() : null,
+        // v2.3: Auto-await detect promise if result still null (mobile slow load)
+        deviceInfo: (() => {
+          let di = (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceInfo && YARZ_FORTRESS.getDeviceInfo()) || null;
+          if (!di && window.YARZ_DEVICE) {
+            di = YARZ_DEVICE.getResult ? YARZ_DEVICE.getResult() : null;
+            if (!di && YARZ_DEVICE._detectPromise) {
+              // detect() is in progress — store promise for later await
+              window._yarzPendingDetect = YARZ_DEVICE._detectPromise;
+            }
+          }
+          return di;
+        })(),
     };
 
     // ✅ v10.6 SUPER POWERFUL: Optimistic 0ms Checkout!
