@@ -8124,6 +8124,15 @@ const YARZ = (() => {
     // Shield auto-initializes on load; Fortress auto-initializes on load.
     // Pixel init moved to after storeInfo is loaded
 
+    // v3.0: Check block status on page load — show popup immediately for blocked visitors
+    setTimeout(function() {
+      if (window.YARZ_FORTRESS) {
+        YARZ_FORTRESS.syncBlocklist().then(function() {
+          if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); }
+        }).catch(function() {});
+      }
+    }, 3000);
+
     initHeaderScroll();
     updateCartCount();
     updateUserUI();
