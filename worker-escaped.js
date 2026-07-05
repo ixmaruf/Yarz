@@ -815,6 +815,11 @@ async function handle(request, env, ctx) {
   // Supabase enabled? Default true so production always uses Supabase unless explicitly disabled.
   const supabaseEnabled = env.SUPABASE_ENABLED !== "false";
 
+  // health endpoint — no GAS needed
+  if (supabaseEnabled && action === "health" && request.method === "GET") {
+    return jsonResponse({ success: true, ok: true, status: "healthy", timestamp: new Date().toISOString(), supabase: true });
+  }
+
   // place_order (public POST) -> Supabase create_manual_order RPC
   if (supabaseEnabled && action === "place_order" && request.method === "POST") {
     // v18.10: Inject IP & ASN from Cloudflare request headers for fortress tracking
@@ -876,12 +881,16 @@ async function handle(request, env, ctx) {
     } catch (e) {
       console.warn("[place_order] ip-api.com enrichment failed:", e.message);
     }
-    const r = await placeOrderSupabase(env, body);
-    if (r) {
-      ctx.waitUntil(purgeCacheForAction("products", caches.default));
-      return jsonResponse(r);
+    try {
+      const r = await placeOrderSupabase(env, body);
+      if (r) {
+        ctx.waitUntil(purgeCacheForAction("products", caches.default));
+        return jsonResponse(r);
+      }
+    } catch (e) {
+      console.error("[place_order] unexpected error:", e.message);
     }
-    // null = fall back to GAS
+    return jsonResponse({ success: false, ok: false, msg: "Order could not be processed. Missing required fields (phone, product, or items)." }, 400);
   }
 
   // __fortress_public_blocklist (public GET) -> blocked_devices list for client-side fortress
@@ -994,12 +1003,16 @@ async function handle(request, env, ctx) {
     }
   }
 
-  // Default: GAS upstream
-  const gasResp = await routeToGas(request, body, env, ctx);
-  // Copy through CORS headers
-  const headers = new Headers(gasResp.headers);
-  Object.entries(corsHeaders()).forEach(function(kv){ headers.set(kv[0], kv[1]); });
-  return new Response(gasResp.body, { status: gasResp.status, headers: headers });
+  // Default: GAS upstream (wrapped in try/catch — if GAS_DEPLOYMENT_ID is not set, return error)
+  try {
+    const gasResp = await routeToGas(request, body, env, ctx);
+    const headers = new Headers(gasResp.headers);
+    Object.entries(corsHeaders()).forEach(function(kv){ headers.set(kv[0], kv[1]); });
+    return new Response(gasResp.body, { status: gasResp.status, headers: headers });
+  } catch (e) {
+    console.error("[handle] fallback routeToGas failed:", e.message);
+    return jsonResponse({ success: false, ok: false, msg: "Action not available: " + (action || "unknown"), error: e.message }, 400);
+  }
 }
 
 async function purgeCacheForAction(action, cache) {

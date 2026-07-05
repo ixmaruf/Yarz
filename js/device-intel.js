@@ -15,6 +15,8 @@ const YARZ_DEVICE = (() => {
 
   let _result = null;
 
+  let _detectPromise = null;
+
   // ===== DYNAMIC GPU NAME EXTRACTION =====
   // Instead of hardcoded mapping, parse the GPU renderer string directly
   // "Qualcomm Adreno (TM) 750" → { vendor: "Qualcomm", model: "Adreno 750", raw: "..." }
@@ -346,7 +348,12 @@ const YARZ_DEVICE = (() => {
   // ===== MAIN DETECTION =====
   async function detect() {
     if (_result) return _result;
+    if (_detectPromise) return _detectPromise;
+    _detectPromise = _runDetect();
+    return _detectPromise;
+  }
 
+  async function _runDetect() {
     var ua = navigator.userAgent || '';
 
     // ===== 1. navigator.userAgentData (Chrome/Edge — NOT Safari) =====
@@ -653,7 +660,13 @@ const YARZ_DEVICE = (() => {
   // ===== PUBLIC API =====
   return {
     detect: detect,
-    getResult: function() { return _result; },
+    getResult: function() {
+      if (!_result) {
+        // Auto-trigger detect() if not yet run
+        try { detect(); } catch(e) {}
+      }
+      return _result;
+    },
     getBrandModel: function() { return _result ? { brand: _result.brand, model: _result.model, modelCode: _result.modelCode } : null; },
     getGPU: function() { return _result ? { gpu: _result.gpu, vendor: _result.gpuVendor, renderer: _result.gpuRenderer } : null; },
     getLocation: function() { return _result ? { lat: _result.lat, lng: _result.lng, source: _result.geoSource } : null; },
@@ -667,3 +680,8 @@ const YARZ_DEVICE = (() => {
 })();
 
 window.YARZ_DEVICE = YARZ_DEVICE;
+
+// Auto-detect on load so getResult() returns data before user interacts
+if (typeof YARZ_DEVICE.detect === 'function') {
+  try { YARZ_DEVICE.detect(); } catch(e) {}
+}

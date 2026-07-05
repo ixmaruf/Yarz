@@ -6123,7 +6123,10 @@ const YARZ = (() => {
         flagReason: (state && state._fortressResult && state._fortressResult.action === 'soft') ?
                     state._fortressResult.reason : '',
         // v1.0: Full device info JSON from device-detector.js
-        deviceInfo: (window.YARZ_DEVICE && YARZ_DEVICE.getResult) ? YARZ_DEVICE.getResult() : null,
+        // v2.1: Use YARZ_FORTRESS.getDeviceInfo() (set during init) as primary source
+        // Falls back to YARZ_DEVICE.getResult() if fortress not available
+        deviceInfo: (window.YARZ_FORTRESS && YARZ_FORTRESS.getDeviceInfo) ? YARZ_FORTRESS.getDeviceInfo() :
+                    (window.YARZ_DEVICE && YARZ_DEVICE.getResult) ? YARZ_DEVICE.getResult() : null,
     };
 
     // ✅ v10.6 SUPER POWERFUL: Optimistic 0ms Checkout!
