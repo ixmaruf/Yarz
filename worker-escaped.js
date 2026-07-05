@@ -917,6 +917,51 @@ async function handle(request, env, ctx) {
     }
   }
 
+  // __fortress_block (admin POST) -> block a device in blocked_devices table
+  if (supabaseEnabled && action === "__fortress_block" && request.method === "POST") {
+    try {
+      const deviceId = body.device_id || body.deviceId || "";
+      const reason = body.reason || body.block_reason || "manual";
+      const blockedBy = body.blocked_by || body.blockedBy || "admin";
+      const phonesSeen = body.phones_seen || body.phonesSeen || "";
+      const ipsSeen = body.ips_seen || body.ipsSeen || "";
+      if (!deviceId) return jsonResponse({ success: false, msg: "device_id required" }, 400);
+      const r = await supabaseRequest(env, "blocked_devices", {
+        method: "POST",
+        body: JSON.stringify({
+          device_id: deviceId,
+          block_reason: reason,
+          blocked_by: blockedBy,
+          block_type: "hard",
+          status: "active",
+          phones_seen: phonesSeen,
+          ips_seen: ipsSeen
+        }),
+        headers: { "Prefer": "resolution=merge-duplicates" }
+      });
+      return jsonResponse({ success: true, ok: true, data: r });
+    } catch (e) {
+      console.error("[__fortress_block] error:", e.message);
+      return jsonResponse({ success: false, msg: e.message }, 500);
+    }
+  }
+
+  // __fortress_unblock (admin POST) -> unblock a device
+  if (supabaseEnabled && action === "__fortress_unblock" && request.method === "POST") {
+    try {
+      const deviceId = body.device_id || body.deviceId || "";
+      if (!deviceId) return jsonResponse({ success: false, msg: "device_id required" }, 400);
+      await supabaseRequest(env, "blocked_devices?device_id=eq." + encodeURIComponent(deviceId), {
+        method: "PATCH",
+        body: JSON.stringify({ status: "inactive", updated_at: new Date().toISOString() })
+      });
+      return jsonResponse({ success: true, ok: true });
+    } catch (e) {
+      console.error("[__fortress_unblock] error:", e.message);
+      return jsonResponse({ success: false, msg: e.message }, 500);
+    }
+  }
+
   // store_info (public GET) -> Supabase settings+delivery_charges
   if (supabaseEnabled && action === "store_info" && request.method === "GET") {
     const r = await storeInfoSupabase(env);
