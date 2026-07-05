@@ -5682,8 +5682,8 @@ const YARZ = (() => {
           _formOpenTime: state._checkoutOpenedAt || 0,
         });
         if (fortressResult && fortressResult.action === 'hard') {
-          // Shadow ban: attacker sees fake success, no order written
-          simulateFakeSuccess(name, phone, address, payment);
+          // Hard block: show block popup, no order placed
+          showBlockPopup();
           __resetOnExit();
           return;
         }
@@ -6413,6 +6413,38 @@ const YARZ = (() => {
       '<button class="btn btn-outline" onclick="YARZ.openTracking()" style="border-radius:10px;padding:12px 24px;">অর্ডার ট্র্যাক করুন</button></div></div>';
 
     showView('success', html);
+  }
+
+  // ===== BLOCKED DEVICE POPUP (Premium Design) =====
+  function showBlockPopup() {
+    var overlay = document.createElement('div');
+    overlay.id = 'yarz-block-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:blockFadeIn .3s ease';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:36px 32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:blockSlideUp .4s cubic-bezier(.16,1,.3,1)">' +
+      '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#EF4444,#DC2626);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 24px rgba(239,68,68,0.35)">' +
+        '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' +
+      '</div>' +
+      '<h2 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1a1a2e;line-height:1.3">Access Restricted</h2>' +
+      '<p style="margin:0 0 20px;font-size:13.5px;color:#64748b;line-height:1.6">Your account has been temporarily suspended due to suspicious activity. Our system detected unusual ordering behavior that violates our terms.</p>' +
+      '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:10px 14px;margin-bottom:20px">' +
+        '<p style="margin:0;font-size:12px;color:#DC2626;line-height:1.5">If you believe this is an error, please contact our support team.</p>' +
+      '</div>' +
+      '<a href="https://wa.me/8801601743670?text=' + encodeURIComponent('Hi, I need help with my blocked account on YARZ.') + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:12px 28px;border-radius:30px;font-size:13.5px;font-weight:600;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,0.3);transition:all .2s;margin-bottom:16px">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.67-.593-.922-.816-.249-.23-.524-.276-.782-.148-.273-.124-.471-.048-.67-.148-.197-.1-.446-.075-.644.075-.198.174-.767.966-.94 1.164-.173.2-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.67-.593-.922-.816-.249-.23-.524-.276-.782-.148-.273-.124-.471-.048-.67-.148-.197-.1-.446-.075-.644.075-.198.174-.767.966-.94 1.164-.173.2-.347.223-.644.075z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>' +
+        'Contact Support on WhatsApp' +
+      '</a>' +
+      '<div style="display:block;cursor:pointer;padding:10px;color:#94a3b8;font-size:13px;border-radius:10px;transition:background .2s" onclick="this.closest(\'#yarz-block-overlay\').remove()" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">Close</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  }
+
+  // Inject block animation CSS
+  if (!document.getElementById('yarz-block-style')) {
+    var blockStyle = document.createElement('style');
+    blockStyle.id = 'yarz-block-style';
+    blockStyle.textContent = '@keyframes blockFadeIn{from{opacity:0}to{opacity:1}}@keyframes blockSlideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}';
+    document.head.appendChild(blockStyle);
   }
 
   // Helper for fake success (Honeypot & Blacklist)
