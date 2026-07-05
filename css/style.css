@@ -9581,6 +9581,11 @@ select:focus {
   background: var(--bg-secondary, #FFFFFF) !important;
   border: 1px solid var(--border-color) !important;
 }
+.filter-chip.active {
+  background: var(--accent, #C8102E) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent, #C8102E) !important;
+}
 .filter-chip:hover {
   background: var(--cream-200, #F4F2EC) !important;
   border-color: var(--text-primary) !important;
