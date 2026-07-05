@@ -5594,6 +5594,22 @@ const YARZ = (() => {
     if (window.YARZ_DEVICE && YARZ_DEVICE._detectPromise) {
       try { await Promise.race([YARZ_DEVICE._detectPromise, new Promise(function(r){setTimeout(r,2000)})]); } catch(e) {}
     }
+
+    // v3.0: IMMEDIATE block check — sync blocklist, then check isBlocked
+    // This runs BEFORE try-catch so it cannot be swallowed by errors
+    if (window.YARZ_FORTRESS) {
+      try { await YARZ_FORTRESS.syncBlocklist(); } catch(e) {}
+      if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); state._orderInFlight = false; return; }
+      // Also check visitor_id, composite hash
+      try {
+        var _fid = YARZ_FORTRESS.getDeviceId ? YARZ_FORTRESS.getDeviceId() : '';
+        var _fvid = YARZ_FORTRESS.getVisitorId ? YARZ_FORTRESS.getVisitorId() : '';
+        var _fch = YARZ_FORTRESS.getCompositeHash ? YARZ_FORTRESS.getCompositeHash() : '';
+        if (_fid && YARZ_FORTRESS.isBlocked(_fid)) { showBlockPopup(); state._orderInFlight = false; return; }
+        if (_fvid && YARZ_FORTRESS.isBlocked(_fvid)) { showBlockPopup(); state._orderInFlight = false; return; }
+        if (_fch && YARZ_FORTRESS.isBlocked(_fch)) { showBlockPopup(); state._orderInFlight = false; return; }
+      } catch(e) {}
+    }
     var __resetOnExit = function () {
       // Re-enable the button + clear the lock if user cancels or validation fails
       if (__pob) __pob.disabled = false;
