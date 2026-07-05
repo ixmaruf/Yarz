@@ -610,10 +610,9 @@ var YARZ_API = (function() {
           // Map price fields
           if (p.regularPrice === undefined && p.regular !== undefined) p.regularPrice = p.regular;
           if (p.salePrice === undefined && p.sale !== undefined) p.salePrice = p.sale;
-          if (p.discountPercent === undefined) {
-            p.discountPercent = p.discPct !== undefined ? p.discPct :
-              (p.regularPrice > 0 && p.salePrice >= 0 ?
-                Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
+          if (p.discountPercent === undefined || p.discountPercent === 0) {
+            p.discountPercent = (p.regularPrice > 0 && p.salePrice > 0 && p.regularPrice > p.salePrice ?
+              Math.round(((p.regularPrice - p.salePrice) / p.regularPrice) * 100) : 0);
           }
 
           // Map sizes → { M: qty, L: qty, XL: qty, XXL: qty }
