@@ -4696,9 +4696,12 @@ const YARZ = (() => {
   }
 
   // ===== BUY NOW =====
-  function buyNow() {
+  async function buyNow() {
     // v3.0: Block check — blocked devices cannot order
-    if (window.YARZ_FORTRESS && YARZ_FORTRESS.isBlocked()) { showBlockPopup(); return; }
+    if (window.YARZ_FORTRESS) {
+      try { await YARZ_FORTRESS.syncBlocklist(); } catch(e) {}
+      if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); return; }
+    }
     // ✅ v16: Clear any stale Buy Now session flags up-front so an abandoned
     // previous express-purchase can't accidentally trigger a cart revert now.
     state._buyNowMode = false;
@@ -4819,9 +4822,12 @@ const YARZ = (() => {
     } catch (e) { return 0; }
   }
 
-  function openCheckout() {
+  async function openCheckout() {
     // v3.0: Block check — blocked devices cannot checkout
-    if (window.YARZ_FORTRESS && YARZ_FORTRESS.isBlocked()) { showBlockPopup(); return; }
+    if (window.YARZ_FORTRESS) {
+      try { await YARZ_FORTRESS.syncBlocklist(); } catch(e) {}
+      if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); return; }
+    }
     if (state.cart.length === 0) { showToast('Cart is empty', 'warning'); return; }
     toggleCart(false);
 
