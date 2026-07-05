@@ -5672,11 +5672,13 @@ const YARZ = (() => {
     }
 
     // ✅ v1.0: YARZ Fortress — device fingerprint + risk scoring. Runs BEFORE
-    // Shield so device-level blocks fire first. Hard block = shadow ban.
+    // Shield so device-level blocks fire first. Hard block = show block popup.
     // Wrapped in try-catch: if the Fortress script is blocked/ad-blocked or
     // throws, the order flow continues undisturbed (defense-in-depth).
     try {
       if (window.YARZ_FORTRESS) {
+        // v3.0: Re-sync blocklist before scoring (ensures fresh server data)
+        await YARZ_FORTRESS.syncBlocklist();
         var fortressResult = YARZ_FORTRESS.scoreOrder({
           name: name, phone: phone, address: address,
           _formOpenTime: state._checkoutOpenedAt || 0,

@@ -662,22 +662,25 @@ const YARZ_FORTRESS = (() => {
 
   // ===== SERVER SYNC =====
   function _syncFromServer() {
-    if (!window.YARZ_API) return;
-    try {
-      var baseUrl = (typeof window.YARZ_API.getApiUrl === 'function') ? window.YARZ_API.getApiUrl() : ((typeof window.YARZ_API.getReadUrl === 'function') ? window.YARZ_API.getReadUrl() : '');
-      if (!baseUrl) return;
-      var url = baseUrl + '?action=__fortress_public_blocklist';
-      var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      var opts = { method: 'GET' };
-      if (ctl) { opts.signal = ctl.signal; setTimeout(function(){ try { ctl.abort(); } catch(e){} }, 5000); }
-      fetch(url, opts)
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(data){
-          if (data && Array.isArray(data.devices)) {
-            _serverBlocklist = new Set(data.devices);
-          }
-        }).catch(function(){});
-    } catch (e) {}
+    return new Promise(function(resolve) {
+      if (!window.YARZ_API) { resolve(); return; }
+      try {
+        var baseUrl = (typeof window.YARZ_API.getApiUrl === 'function') ? window.YARZ_API.getApiUrl() : ((typeof window.YARZ_API.getReadUrl === 'function') ? window.YARZ_API.getReadUrl() : '');
+        if (!baseUrl) { resolve(); return; }
+        var url = baseUrl + '?action=__fortress_public_blocklist';
+        var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var opts = { method: 'GET' };
+        if (ctl) { opts.signal = ctl.signal; setTimeout(function(){ try { ctl.abort(); } catch(e){} }, 5000); }
+        fetch(url, opts)
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){
+            if (data && Array.isArray(data.devices)) {
+              _serverBlocklist = new Set(data.devices);
+            }
+            resolve();
+          }).catch(function(){ resolve(); });
+      } catch (e) { resolve(); }
+    });
   }
 
   // ===== SAVE FINGERPRINT TO SERVER =====
@@ -913,6 +916,7 @@ const YARZ_FORTRESS = (() => {
     getFingerprintJSId: getFingerprintJSId,
     getFullPayload: getFullPayload,
     getCFG: function(){ return JSON.parse(JSON.stringify(CFG)); },
+    syncBlocklist: _syncFromServer,
     VERSION: CFG.VERSION
   };
 
