@@ -5580,7 +5580,7 @@ const YARZ = (() => {
     try { window._yarzCheckoutClosedAt = Date.now(); } catch (e) {}
   }
 
-  async function submitOrder() {
+  async submitOrder() {
     // ✅ v15.35 FIX: Disable Place Order button immediately so customer can't
     // accidentally double-click before the confirm modal opens. Also, this
     // prevents any 60s SWR background refresh (store_info / products) from
@@ -5592,7 +5592,7 @@ const YARZ = (() => {
     
     // v2.3: Wait for device detection to complete (mobile needs this)
     if (window.YARZ_DEVICE && YARZ_DEVICE._detectPromise) {
-      try { await Promise.race([YARZ_DEVICE._detectPromise, new Promise(function(r){setTimeout(r,2000)});]); } catch(e) {}
+      try { await Promise.race([YARZ_DEVICE._detectPromise, new Promise(function(r){setTimeout(r,2000)})]); } catch(e) {}
     }
     var __resetOnExit = function () {
       // Re-enable the button + clear the lock if user cancels or validation fails
