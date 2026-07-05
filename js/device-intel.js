@@ -249,6 +249,27 @@ const YARZ_DEVICE = (() => {
     return { brand: brand, model: model, modelCode: modelCode, inAppBrowser: inAppBrowser };
   }
 
+  // v2.6: Resolve model code → marketing name via Worker API
+  // Runs async after detection so it doesn't block page load
+  function _resolveModelName(brand, modelCode) {
+    if (!modelCode || !brand || brand === 'Unknown' || brand === 'Windows PC' || brand === 'Apple') return;
+    // Build Worker URL
+    var workerUrl = 'https://yarz-api.marufhasan80009.workers.dev/';
+    try {
+      var resp = fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resolve_model', model_code: modelCode, brand: brand })
+      });
+      resp.then(function(r) { return r.json(); }).then(function(data) {
+        if (data && data.success && data.name && _result) {
+          _result.marketingName = data.name;
+          _result.model = data.name + ' (' + modelCode + ')';
+        }
+      }).catch(function() {});
+    } catch(e) {}
+  }
+
   // v2.4: Infer brand from model code when UA/userAgentData don't have it
   function _inferBrandFromModelCode(code) {
     if (!code) return '';
@@ -738,6 +759,11 @@ const YARZ_DEVICE = (() => {
       detectedAt: new Date().toISOString(),
       deviceId: deviceId
     };
+
+    // v2.6: Async resolve model code → marketing name (fire & forget)
+    if (modelCode && brand && brand !== 'Unknown' && brand !== 'Windows PC' && brand !== 'Apple') {
+      _resolveModelName(brand, modelCode);
+    }
 
     return _result;
   }
