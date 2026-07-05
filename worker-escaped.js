@@ -934,7 +934,7 @@ async function handle(request, env, ctx) {
       const reason = body.reason || body.block_reason || "manual";
       const blockedBy = body.blocked_by || body.blockedBy || "admin";
       const phonesSeen = body.phones_seen || body.phonesSeen || "";
-      const ipsSeen = body.ips_seen || body.ipsSeen || "";
+      const ipsSeen = body.ips_seen || body.ipsSeen || body.ip || "";
       if (!deviceId) return jsonResponse({ success: false, msg: "device_id required" }, 400);
       const r = await supabaseRequest(env, "blocked_devices", {
         method: "POST",

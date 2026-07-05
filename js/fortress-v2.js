@@ -419,7 +419,10 @@ const YARZ_FORTRESS = (() => {
     if (_isServerBlocked(id)) return true;
     // Also check by visitor_id and composite hash
     if (_visitorId && (_isLocallyBlocked(_visitorId) || _isServerBlocked(_visitorId))) return true;
-    if (_compositeHash && (_isLocallyBlocked(_compositeHash) || _isServerBlocked(_compositeHash))) return true;
+    if (_compositeHash && (_isLocallyBlocked(_compositeHash) || _serverBlocklist.has(_compositeHash))) return true;
+    // v3.0: Also check by IP address — persists across browser data clears
+    if (_ipData && _ipData.ip && _serverBlocklist.has(_ipData.ip)) return true;
+    if (_ipData && _ipData.ip && _localBlocklist.has(_ipData.ip)) return true;
     return false;
   }
 
