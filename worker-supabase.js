@@ -48,7 +48,7 @@ const PUBLIC_CACHEABLE = new Set([
 // Public POST actions -- passthrough (rate-limited)
 const PUBLIC_POST = new Set([
   "place_order","subscribe_newsletter","subscribenewsletter","capi","fbcapi","ttapi","ttevents",
-  "__fortress_save_fingerprint"
+  "__fortress_save_fingerprint","resolve_model"
 ]);
 
 // Admin actions -- require session token verified upstream
@@ -316,6 +316,30 @@ async function handleSupabase(env, action, payload, request) {
     if (action === "steadfastlistpolicestations") return await steadfastPoliceStations(env);
     if (action === "steadfastsavekeys")      return await steadfastSaveKeys(env, payload || {});
     if (action === "steadfastlistkeys")      return await steadfastKeysList(env);
+    // Resolve device model code → marketing name
+    if (action === "resolve_model") {
+      try {
+        const code = (payload.model_code || payload.code || "").trim();
+        const brand = (payload.brand || "").trim();
+        if (!code) return { success: false, msg: "model_code required" };
+        // Look up in Supabase
+        const r = await supabaseRequest(env, "device_models?model_code=eq." + encodeURIComponent(code) + "&select=brand,marketing_name,gpu,released_year");
+        if (r && r.length > 0) {
+          return { success: true, name: r[0].marketing_name, brand: r[0].brand, gpu: r[0].gpu, year: r[0].released_year };
+        }
+        // Not found — save it as unknown for future resolution
+        if (brand && code) {
+          await supabaseRequest(env, "device_models", {
+            method: "POST",
+            body: JSON.stringify({ model_code: code, brand: brand, marketing_name: "", gpu: "", released_year: 0 }),
+            headers: { "Prefer": "resolution=merge-duplicates" }
+          }).catch(() => {});
+        }
+        return { success: true, name: "", brand: brand, known: false };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
     return null; // signal: fall back to GAS
   }
 
@@ -514,6 +538,19 @@ async function placeOrderSupabase(env, body) {
     if (orderData.flagReason) args.p_flag_reason = orderData.flagReason;
     // v1.0: Full device info JSON from device-detector.js
     if (orderData.deviceInfo) {
+      // v2.6: Resolve marketing name from device_models table
+      try {
+        var di = orderData.deviceInfo;
+        var mc = di.modelCode || '';
+        var br = di.brand || '';
+        if (mc && br && br !== 'Unknown' && br !== 'Windows PC' && br !== 'Apple') {
+          var modelLookup = await supabaseRequest(env, "device_models?model_code=eq." + encodeURIComponent(mc) + "&select=marketing_name");
+          if (modelLookup && modelLookup.length > 0 && modelLookup[0].marketing_name) {
+            di.marketingName = modelLookup[0].marketing_name;
+            di.model = modelLookup[0].marketing_name + ' (' + mc + ')';
+          }
+        }
+      } catch(e) {}
       args.p_device_info = JSON.stringify(orderData.deviceInfo);
     }
     try {
