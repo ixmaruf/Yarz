@@ -8125,13 +8125,17 @@ const YARZ = (() => {
     // Pixel init moved to after storeInfo is loaded
 
     // v3.0: Check block status on page load — show popup immediately for blocked visitors
-    setTimeout(function() {
-      if (window.YARZ_FORTRESS) {
+    // Retry up to 3 times (fortress sync may take a few seconds)
+    function _checkBlockedOnLoad(attempt) {
+      if (window.YARZ_FORTRESS && YARZ_FORTRESS.syncBlocklist) {
         YARZ_FORTRESS.syncBlocklist().then(function() {
           if (YARZ_FORTRESS.isBlocked()) { showBlockPopup(); }
-        }).catch(function() {});
+        }).catch(function() {
+          if (attempt < 3) setTimeout(function(){ _checkBlockedOnLoad(attempt + 1); }, 2000);
+        });
       }
-    }, 3000);
+    }
+    setTimeout(function(){ _checkBlockedOnLoad(0); }, 2000);
 
     initHeaderScroll();
     updateCartCount();
