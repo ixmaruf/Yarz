@@ -194,6 +194,7 @@ const YARZ_DEVICE = (() => {
       else if (/motorola|moto/i.test(ua)) brand = 'Motorola';
       else if (/nokia/i.test(ua)) brand = 'Nokia';
       else if (/pixel/i.test(ua)) brand = 'Google';
+      else if (/nothing/i.test(ua)) brand = 'Nothing';
     }
 
     // v2.4: Extract brand from navigator.userAgentData.brands (Chrome on mobile)
@@ -238,6 +239,14 @@ const YARZ_DEVICE = (() => {
     // Infinix: X + 4 digits
     var infMatch = ua.match(/\b(X\d{4}[A-Z]?)\b/i);
     if (infMatch && !modelCode) { modelCode = infMatch[1]; model = modelCode; }
+
+    // Google Pixel: "Pixel 8 Pro", "Pixel 7a", etc.
+    var pixelMatch = ua.match(/\b(Pixel\s+\d+\s*(?:Pro|a|XL)?)\b/i);
+    if (pixelMatch && !modelCode) { modelCode = pixelMatch[1]; model = pixelMatch[1]; }
+
+    // Nothing Phone: "Nothing Phone (2)" or "Nothing Phone (2a)"
+    var nothingMatch = ua.match(/Nothing\s+Phone\s*[\(（](\d+[a-z]?)[\)）]/i);
+    if (nothingMatch && !modelCode) { modelCode = 'Nothing Phone ' + nothingMatch[1]; model = modelCode; }
 
     // Generic Android model extraction — anything after brand name
     if (!modelCode && model === 'Unknown') {
