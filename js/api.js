@@ -332,21 +332,20 @@ var YARZ_API = (function() {
   })();
 
   // Deployment version — when this changes, ALL caches are force-cleared
-  const DEPLOY_VERSION = '2026-07-05-v18.15-mobile-detect';
+  const DEPLOY_VERSION = '2026-07-06-v18.25-fix-cache-ttl';
 
   const CONFIG = {
     API_KEY: GOOGLE_API_KEY,
     BASE_URL: APPS_SCRIPT_URL,
-    // ✅ v16.11 SESSION CACHING: Re-enabled short-term caching (5 min) using 
-    // ✅ v16.12 STRICT SESSION CACHE: Infinite cache within a single session.
-    // Removes the 5-minute background refresh. Cache is only cleared if customer 
-    // closes the tab or manually hits the refresh button.
-    CACHE_TTL: 999999999,             // Infinite within session
-    STALE_TTL: 999999999,             // Infinite within session
-    PRODUCT_CACHE_TTL: 999999999,     // Infinite within session
-    PRODUCT_STALE_TTL: 999999999,     // Infinite within session
-    SETTINGS_CACHE_TTL: 999999999,    // Infinite within session
-    SETTINGS_STALE_TTL: 999999999,    // Infinite within session
+    // ✅ v18.25: Reduced from infinite to 5-min TTL so admin Bulk Edit
+    // changes appear on the live website within minutes, not never.
+    // Stale-while-revalidate: serve cached data while fetching fresh in background.
+    CACHE_TTL: 5 * 60,             // 5 min fresh
+    STALE_TTL: 10 * 60,            // 10 min stale-while-revalidate
+    PRODUCT_CACHE_TTL: 5 * 60,     // 5 min fresh for products
+    PRODUCT_STALE_TTL: 10 * 60,    // 10 min stale for products
+    SETTINGS_CACHE_TTL: 5 * 60,    // 5 min fresh for settings
+    SETTINGS_STALE_TTL: 10 * 60,   // 10 min stale for settings
   };
 
   // ✅ v4.1: Action types that should NEVER be cached (real-time required)
