@@ -1626,9 +1626,7 @@ const YARZ = (() => {
         }
       }
 
-      var clickAction = "YARZ.openCollection(" + idx + ")";
-
-      html += '<div class="dynamic-category-card" onclick="' + clickAction + '" style="--card-index:' + idx + '">';
+      html += '<div class="dynamic-category-card" data-idx="' + idx + '" style="--card-index:' + idx + '">';
       html += '<div class="dcc-image">';
       if (imgSrc) {
         html += '<img src="' + imgSrc + '" alt="' + displayName + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">';
@@ -1674,6 +1672,43 @@ const YARZ = (() => {
     if (!grid) return;
     if (grid._yarzCatScrollInit) return;
     grid._yarzCatScrollInit = true;
+    
+    // ✅ v18.4: Delegated tap-vs-swipe handler — only opens collection on clean tap
+    var _touchStartX = 0;
+    var _touchStartY = 0;
+    var _touchMoved = false;
+    var _touchHandled = false;
+    var SWIPE_THRESHOLD = 10;
+    grid.addEventListener('touchstart', function(e) {
+      _touchStartX = e.touches[0].clientX;
+      _touchStartY = e.touches[0].clientY;
+      _touchMoved = false;
+      _touchHandled = false;
+    }, {passive: true});
+    grid.addEventListener('touchmove', function(e) {
+      var dx = Math.abs(e.touches[0].clientX - _touchStartX);
+      var dy = Math.abs(e.touches[0].clientY - _touchStartY);
+      if (dx > SWIPE_THRESHOLD || dy > SWIPE_THRESHOLD) _touchMoved = true;
+    }, {passive: true});
+    grid.addEventListener('touchend', function(e) {
+      if (_touchMoved) return;
+      var card = e.target.closest('.dynamic-category-card');
+      if (!card) return;
+      var idx = parseInt(card.getAttribute('data-idx'), 10);
+      if (!isNaN(idx)) {
+        _touchHandled = true;
+        try { YARZ.openCollection(idx); } catch(err) {}
+      }
+    }, {passive: true});
+    grid.addEventListener('click', function(e) {
+      if (_touchHandled) { _touchHandled = false; return; }
+      var card = e.target.closest('.dynamic-category-card');
+      if (!card) return;
+      var idx = parseInt(card.getAttribute('data-idx'), 10);
+      if (!isNaN(idx)) {
+        try { YARZ.openCollection(idx); } catch(err) {}
+      }
+    });
     
     // Add mouse drag support
     var isDown = false;
