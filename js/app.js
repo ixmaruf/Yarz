@@ -1530,6 +1530,9 @@ const YARZ = (() => {
       if (s[k] !== undefined) return s[k];
       var tc = k.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
       if (s[tc] !== undefined) return s[tc];
+      // ✅ v18.2: lowercase-with-spaces (Worker lowercases ALL keys via toLowerCase())
+      var lcSpaces = k.toLowerCase().replace(/_/g, ' ');
+      if (lcSpaces !== normalized && s[lcSpaces] !== undefined) return s[lcSpaces];
       return '';
     };
 
