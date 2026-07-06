@@ -318,7 +318,7 @@ async function handleSupabase(env, action, payload, request) {
     // __fortress_lookup: return blocked devices + threats
     if (action === "__fortress_lookup") {
       try {
-        const blocked = await supabaseRequest(env, "blocked_devices?order=created_at.desc&select=*");
+        const blocked = await supabaseRequest(env, "blocked_devices?order=created_at.desc&select=*&status=eq.active");
         return { ok: true, devices: blocked || [], threats: [] };
       } catch (e) {
         return { ok: true, devices: [], threats: [], error: e.message };
@@ -824,6 +824,47 @@ async function handle(request, env, ctx) {
 
   // Supabase enabled? Default true so production always uses Supabase unless explicitly disabled.
   const supabaseEnabled = env.SUPABASE_ENABLED !== "false";
+
+  // __analytics (public GET) — visitor analytics using Supabase website_visitors table
+  if (supabaseEnabled && path === "/__analytics" && request.method === "GET") {
+    try {
+      const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+      const today = new Date().toISOString().split("T")[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+      
+      await supabaseRequest(env, "website_visitors", {
+        method: "POST",
+        body: JSON.stringify({ visitor_ip: clientIp, visit_date: today }),
+        headers: { "Prefer": "resolution=merge-duplicates" }
+      }).catch(() => {});
+      
+      const todayData = await supabaseRequest(env, `website_visitors?visit_date=eq.${today}&select=id`, { method: "GET" });
+      const todayCount = Array.isArray(todayData) ? todayData.length : 0;
+      
+      const yesterdayData = await supabaseRequest(env, `website_visitors?visit_date=eq.${yesterday}&select=id`, { method: "GET" });
+      const yesterdayCount = Array.isArray(yesterdayData) ? yesterdayData.length : 0;
+      
+      const totalData = await supabaseRequest(env, `website_visitors?select=visitor_ip`, { method: "GET" }).catch(() => []);
+      const uniqueIps = new Set();
+      if (Array.isArray(totalData)) {
+        for (const row of totalData) {
+          if (row.visitor_ip) uniqueIps.add(row.visitor_ip);
+        }
+      }
+      
+      return jsonResponse({
+        success: true,
+        today: todayCount,
+        yesterday: yesterdayCount,
+        total: uniqueIps.size,
+        last7: todayCount,
+        pending: 0
+      });
+    } catch (e) {
+      console.error("[__analytics] error:", e.message);
+      return jsonResponse({ success: false, error: e.message, today: 0, yesterday: 0, total: 0 });
+    }
+  }
 
   // health endpoint — no GAS needed
   if (supabaseEnabled && action === "health" && request.method === "GET") {
