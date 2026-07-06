@@ -211,9 +211,32 @@
   // Console neutralization runs IMMEDIATELY — before any other script can log
   _neutralizeConsole();
 
+  // ===== I. VISITOR ANALYTICS BEACON =====
+  // Calls Worker /__analytics to record visit in Supabase website_visitors table
+  function _trackVisit() {
+    try {
+      var workerUrl = 'https://yarz-api.marufhasan80009.workers.dev/';
+      var ctrl = new AbortController();
+      setTimeout(function() { ctrl.abort(); }, 5000);
+      fetch(workerUrl + '?action=__analytics', {
+        method: 'GET',
+        signal: ctrl.signal,
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      }).catch(function() {});
+    } catch (e) {}
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
+  }
+
+  // Fire analytics beacon immediately (non-blocking, no delay)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _trackVisit);
+  } else {
+    _trackVisit();
   }
 })();
