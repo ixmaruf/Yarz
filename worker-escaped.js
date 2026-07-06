@@ -826,17 +826,27 @@ async function handle(request, env, ctx) {
   const supabaseEnabled = env.SUPABASE_ENABLED !== "false";
 
   // __analytics (public GET) — visitor analytics: visits (all hits) + unique (by IP per day)
+  // Only tracks visits from the main website (yarzclothing.xyz), NOT from admin panel
   if (supabaseEnabled && path === "/__analytics" && request.method === "GET") {
     try {
       const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
       const today = new Date().toISOString().split("T")[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
       
-      await supabaseRequest(env, "rpc/track_visit", {
-        method: "POST",
-        body: JSON.stringify({ p_ip: clientIp, p_date: today })
-      }).catch(() => {});
+      // Check if request is from admin panel — if so, skip tracking (just return counts)
+      const referer = (request.headers.get("referer") || "").toLowerCase();
+      const origin = (request.headers.get("origin") || "").toLowerCase();
+      const isAdmin = referer.includes("ixmaruf.github.io") || origin.includes("ixmaruf.github.io");
       
+      if (!isAdmin) {
+        // Real visitor from main site — track the visit
+        await supabaseRequest(env, "rpc/track_visit", {
+          method: "POST",
+          body: JSON.stringify({ p_ip: clientIp, p_date: today })
+        }).catch(() => {});
+      }
+      
+      // Always return current counts (admin needs to read them)
       const todayRows = await supabaseRequest(env, `website_visitors?visit_date=eq.${today}&select=visit_count,visitor_ip`, { method: "GET" }).catch(() => []);
       const todayVisits = Array.isArray(todayRows) ? todayRows.reduce((s, r) => s + (r.visit_count || 0), 0) : 0;
       const todayUnique = Array.isArray(todayRows) ? todayRows.length : 0;
