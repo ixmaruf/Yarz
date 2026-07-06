@@ -1673,10 +1673,10 @@ const YARZ = (() => {
     if (grid._yarzCatScrollInit) return;
     grid._yarzCatScrollInit = true;
 
-    // ✅ v18.21: Seamless infinite loop — clone cards for endless train effect
+    // ✅ v18.22: Bidirectional infinite loop — clone cards for wheel-like endless scroll
     var origCards = grid.querySelectorAll('.dynamic-category-card');
-    if (origCards.length > 1) {
-      var origCount = origCards.length;
+    var origCount = origCards.length;
+    if (origCount > 1) {
       for (var c = 0; c < origCount; c++) {
         var clone = origCards[c].cloneNode(true);
         clone.setAttribute('data-clone', '1');
@@ -1685,6 +1685,42 @@ const YARZ = (() => {
         grid.appendChild(clone);
       }
     }
+
+    // Calculate original section width (all original cards + gaps)
+    var origWidth = 0;
+    function calcOrigWidth() {
+      try {
+        var first = grid.querySelector('.dynamic-category-card:not([data-clone])');
+        var allOrig = grid.querySelectorAll('.dynamic-category-card:not([data-clone])');
+        if (first && allOrig.length > 0) {
+          var last = allOrig[allOrig.length - 1];
+          origWidth = last.offsetLeft + last.offsetWidth - first.offsetLeft + 16;
+        }
+      } catch(e) {}
+    }
+    calcOrigWidth();
+
+    // ✅ Bidirectional infinite wrap — scroll event listener
+    var _jumping = false;
+    grid.addEventListener('scroll', function() {
+      if (_jumping || grid.classList.contains('expanded') || origWidth <= 0) return;
+      var sl = grid.scrollLeft;
+
+      // Dragged LEFT past the beginning → jump to clone section (same visual position)
+      if (sl <= 1) {
+        _jumping = true;
+        grid.scrollLeft = sl + origWidth;
+        exactScrollLeft = grid.scrollLeft;
+        _jumping = false;
+      }
+      // Dragged RIGHT past the clones → jump back to original section
+      else if (sl >= origWidth * 2 - 2) {
+        _jumping = true;
+        grid.scrollLeft = sl - origWidth;
+        exactScrollLeft = grid.scrollLeft;
+        _jumping = false;
+      }
+    });
 
     // ✅ v18.4: Delegated tap-vs-swipe handler — only opens collection on clean tap
     var _touchStartX = 0;
@@ -1723,7 +1759,7 @@ const YARZ = (() => {
       }
     });
 
-    // ✅ v18.21: Desktop mouse wheel → horizontal scroll
+    // ✅ v18.22: Desktop mouse wheel → horizontal scroll
     grid.addEventListener('wheel', function(e) {
       if (grid.classList.contains('expanded')) return;
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -1735,10 +1771,10 @@ const YARZ = (() => {
       }
     }, {passive: false});
 
-    // Add mouse drag support
+    // Mouse drag support
     var isDown = false;
     var startX;
-    var scrollLeft;
+    var scrollLeftStart;
 
     // Track interaction state to pause animation
     var isInteracting = false;
@@ -1747,7 +1783,7 @@ const YARZ = (() => {
       isDown = true;
       isInteracting = true;
       startX = e.pageX - grid.offsetLeft;
-      scrollLeft = grid.scrollLeft;
+      scrollLeftStart = grid.scrollLeft;
       e.preventDefault();
     });
     grid.addEventListener('mouseleave', function() {
@@ -1763,7 +1799,7 @@ const YARZ = (() => {
       e.preventDefault();
       var x = e.pageX - grid.offsetLeft;
       var walk = (x - startX) * 1.5;
-      grid.scrollLeft = scrollLeft - walk;
+      grid.scrollLeft = scrollLeftStart - walk;
     });
 
     // Touch support tracking
@@ -1772,18 +1808,10 @@ const YARZ = (() => {
       setTimeout(function() { isInteracting = false; }, 1000);
     }, {passive: true});
 
-    // ✅ v18.21: Seamless infinite loop auto-scroll
+    // ✅ v18.22: Auto-scroll animation
     var exactScrollLeft = 0;
     var lastTime = null;
     var speedPerSecond = 22;
-    var origWidth = 0;
-    try {
-      var allCards = grid.querySelectorAll('.dynamic-category-card:not([data-clone])');
-      if (allCards.length > 0) {
-        var lastCard = allCards[allCards.length - 1];
-        origWidth = lastCard.offsetLeft + lastCard.offsetWidth - allCards[0].offsetLeft + 16;
-      }
-    } catch(e) {}
 
     function autoScroll(timestamp) {
       if (!lastTime) lastTime = timestamp;
@@ -1795,7 +1823,7 @@ const YARZ = (() => {
         var scrollAmount = (speedPerSecond * deltaTime) / 1000;
         exactScrollLeft += scrollAmount;
 
-        // Seamless loop: when past original cards, jump back
+        // Seamless loop: when past clone section, jump back
         if (origWidth > 0 && exactScrollLeft >= origWidth) {
           exactScrollLeft -= origWidth;
           grid.scrollLeft = exactScrollLeft;
