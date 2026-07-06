@@ -1673,7 +1673,10 @@ const YARZ = (() => {
     if (grid._yarzCatScrollInit) return;
     grid._yarzCatScrollInit = true;
 
-    // ✅ v18.22: Bidirectional infinite loop — clone cards for wheel-like endless scroll
+    // ✅ v18.23: Force instant scroll — no browser animation on teleport
+    grid.style.scrollBehavior = 'auto';
+
+    // ✅ v18.23: Bidirectional infinite loop — animation-frame boundary detection
     var origCards = grid.querySelectorAll('.dynamic-category-card');
     var origCount = origCards.length;
     if (origCount > 1) {
@@ -1686,80 +1689,46 @@ const YARZ = (() => {
       }
     }
 
-    // Calculate original section width (all original cards + gaps)
+    // Calculate original section width
     var origWidth = 0;
     function calcOrigWidth() {
-      try {
-        var first = grid.querySelector('.dynamic-category-card:not([data-clone])');
-        var allOrig = grid.querySelectorAll('.dynamic-category-card:not([data-clone])');
-        if (first && allOrig.length > 0) {
-          var last = allOrig[allOrig.length - 1];
-          origWidth = last.offsetLeft + last.offsetWidth - first.offsetLeft + 16;
-        }
-      } catch(e) {}
+      var allOrig = grid.querySelectorAll('.dynamic-category-card:not([data-clone])');
+      if (allOrig.length > 0) {
+        var first = allOrig[0];
+        var last = allOrig[allOrig.length - 1];
+        origWidth = (last.offsetLeft + last.offsetWidth) - first.offsetLeft + 16;
+      }
     }
     calcOrigWidth();
 
-    // ✅ Bidirectional infinite wrap — scroll event listener
-    var _jumping = false;
-    grid.addEventListener('scroll', function() {
-      if (_jumping || grid.classList.contains('expanded') || origWidth <= 0) return;
-      var sl = grid.scrollLeft;
-
-      // Dragged LEFT past the beginning → jump to clone section (same visual position)
-      if (sl <= 1) {
-        _jumping = true;
-        grid.scrollLeft = sl + origWidth;
-        exactScrollLeft = grid.scrollLeft;
-        _jumping = false;
-      }
-      // Dragged RIGHT past the clones → jump back to original section
-      else if (sl >= origWidth * 2 - 2) {
-        _jumping = true;
-        grid.scrollLeft = sl - origWidth;
-        exactScrollLeft = grid.scrollLeft;
-        _jumping = false;
-      }
-    });
-
-    // ✅ v18.4: Delegated tap-vs-swipe handler — only opens collection on clean tap
-    var _touchStartX = 0;
-    var _touchStartY = 0;
-    var _touchMoved = false;
-    var _touchHandled = false;
+    // Delegated tap-vs-swipe handler
+    var _touchStartX = 0, _touchStartY = 0, _touchMoved = false, _touchHandled = false;
     var SWIPE_THRESHOLD = 10;
     grid.addEventListener('touchstart', function(e) {
       _touchStartX = e.touches[0].clientX;
       _touchStartY = e.touches[0].clientY;
-      _touchMoved = false;
-      _touchHandled = false;
+      _touchMoved = false; _touchHandled = false;
     }, {passive: true});
     grid.addEventListener('touchmove', function(e) {
-      var dx = Math.abs(e.touches[0].clientX - _touchStartX);
-      var dy = Math.abs(e.touches[0].clientY - _touchStartY);
-      if (dx > SWIPE_THRESHOLD || dy > SWIPE_THRESHOLD) _touchMoved = true;
+      if (Math.abs(e.touches[0].clientX - _touchStartX) > SWIPE_THRESHOLD ||
+          Math.abs(e.touches[0].clientY - _touchStartY) > SWIPE_THRESHOLD) _touchMoved = true;
     }, {passive: true});
     grid.addEventListener('touchend', function(e) {
       if (_touchMoved) return;
       var card = e.target.closest('.dynamic-category-card');
       if (!card) return;
       var idx = parseInt(card.getAttribute('data-idx'), 10);
-      if (!isNaN(idx)) {
-        _touchHandled = true;
-        try { YARZ.openCollection(idx); } catch(err) {}
-      }
+      if (!isNaN(idx)) { _touchHandled = true; try { YARZ.openCollection(idx); } catch(err) {} }
     }, {passive: true});
     grid.addEventListener('click', function(e) {
       if (_touchHandled) { _touchHandled = false; return; }
       var card = e.target.closest('.dynamic-category-card');
       if (!card) return;
       var idx = parseInt(card.getAttribute('data-idx'), 10);
-      if (!isNaN(idx)) {
-        try { YARZ.openCollection(idx); } catch(err) {}
-      }
+      if (!isNaN(idx)) { try { YARZ.openCollection(idx); } catch(err) {} }
     });
 
-    // ✅ v18.22: Desktop mouse wheel → horizontal scroll
+    // Mouse wheel → horizontal scroll
     grid.addEventListener('wheel', function(e) {
       if (grid.classList.contains('expanded')) return;
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -1771,68 +1740,77 @@ const YARZ = (() => {
       }
     }, {passive: false});
 
-    // Mouse drag support
-    var isDown = false;
-    var startX;
-    var scrollLeftStart;
-
-    // Track interaction state to pause animation
+    // Mouse drag
+    var isDown = false, startX = 0, scrollLeftStart = 0;
     var isInteracting = false;
-
     grid.addEventListener('mousedown', function(e) {
-      isDown = true;
-      isInteracting = true;
+      isDown = true; isInteracting = true;
       startX = e.pageX - grid.offsetLeft;
       scrollLeftStart = grid.scrollLeft;
       e.preventDefault();
     });
-    grid.addEventListener('mouseleave', function() {
-      isDown = false;
-      isInteracting = false;
-    });
-    grid.addEventListener('mouseup', function() {
-      isDown = false;
-      setTimeout(function() { isInteracting = false; }, 800);
-    });
+    grid.addEventListener('mouseleave', function() { isDown = false; isInteracting = false; });
+    grid.addEventListener('mouseup', function() { isDown = false; setTimeout(function() { isInteracting = false; }, 800); });
     grid.addEventListener('mousemove', function(e) {
       if (!isDown) return;
       e.preventDefault();
-      var x = e.pageX - grid.offsetLeft;
-      var walk = (x - startX) * 1.5;
-      grid.scrollLeft = scrollLeftStart - walk;
+      grid.scrollLeft = scrollLeftStart - (e.pageX - grid.offsetLeft - startX) * 1.5;
     });
 
-    // Touch support tracking
+    // Touch tracking
     grid.addEventListener('touchstart', function() { isInteracting = true; }, {passive: true});
     grid.addEventListener('touchend', function() {
       setTimeout(function() { isInteracting = false; }, 1000);
     }, {passive: true});
 
-    // ✅ v18.22: Auto-scroll animation
+    // ✅ v18.23: All-in-one animation frame — handles auto-scroll + boundary teleport
     var exactScrollLeft = 0;
     var lastTime = null;
     var speedPerSecond = 22;
+    var _lastScrollLeft = 0;
 
     function autoScroll(timestamp) {
       if (!lastTime) lastTime = timestamp;
-      var deltaTime = timestamp - lastTime;
+      var dt = timestamp - lastTime;
       lastTime = timestamp;
-      if (deltaTime > 100) deltaTime = 16;
+      if (dt > 100) dt = 16;
 
-      if (!isInteracting && !grid.classList.contains('expanded')) {
-        var scrollAmount = (speedPerSecond * deltaTime) / 1000;
-        exactScrollLeft += scrollAmount;
+      if (grid.classList.contains('expanded')) {
+        _categoryScrollRAF = requestAnimationFrame(autoScroll);
+        return;
+      }
 
-        // Seamless loop: when past clone section, jump back
+      if (!isInteracting) {
+        // Auto-scroll forward
+        exactScrollLeft += (speedPerSecond * dt) / 1000;
+        // Wrap forward: past clone section → back to originals
         if (origWidth > 0 && exactScrollLeft >= origWidth) {
           exactScrollLeft -= origWidth;
-          grid.scrollLeft = exactScrollLeft;
-        } else {
-          grid.scrollLeft = exactScrollLeft;
         }
+        grid.scrollLeft = exactScrollLeft;
       } else {
+        // User is dragging/scrolling — read current position
+        var sl = grid.scrollLeft;
+
+        // ✅ BOUNDARY TELEPORT: detected by change in scrollLeft direction at edges
+        // If scrollLeft stopped changing (browser clamped it), we're at a boundary
+        if (origWidth > 0) {
+          // Near LEFT edge (scrollLeft ≈ 0 and not moving further left)
+          if (sl <= 2 && _lastScrollLeft >= sl) {
+            grid.scrollLeft = sl + origWidth;
+            exactScrollLeft = grid.scrollLeft;
+          }
+          // Near RIGHT edge of clones (scrollLeft ≈ origWidth*2 and not moving further right)
+          else if (sl >= origWidth * 2 - 2 && _lastScrollLeft <= sl) {
+            grid.scrollLeft = sl - origWidth;
+            exactScrollLeft = grid.scrollLeft;
+          }
+        }
+
+        _lastScrollLeft = grid.scrollLeft;
         exactScrollLeft = grid.scrollLeft;
       }
+
       _categoryScrollRAF = requestAnimationFrame(autoScroll);
     }
 
