@@ -1522,6 +1522,23 @@ const YARZ = (() => {
     if (!wrapper || !storeInfo) return;
 
     var sections = [];
+
+    // ✅ v18.3: Use pre-parsed sections from getGlobalControls() if available
+    // This is more reliable than re-parsing raw keys (Worker lowercases ALL keys)
+    var parsedSections = storeInfo._parsedDynamicSections;
+    if (parsedSections && parsedSections.length) {
+      parsedSections.forEach(function(sec) {
+        if (sec.title) {
+          sections.push({
+            title: sec.title || '',
+            category: sec.category || '',
+            links: sec.links || [],
+            image: sec.image || ''
+          });
+        }
+      });
+      // Skip raw key parsing — sections already parsed by api.js getGlobalControls()
+    }
     
     var getVal = function(s, k) {
       if (!s) return '';
@@ -1545,7 +1562,8 @@ const YARZ = (() => {
       return def;
     };
 
-    // Raw key lookup with highly robust multi-format checking (like api.js)
+    // Raw key lookup fallback (only if _parsedDynamicSections was empty/missing)
+    if (!sections.length) {
     for (var i = 1; i <= 50; i++) {
       var title = String(getVal(storeInfo, 'section_' + i + '_title') || getVal(storeInfo, 'section_' + i + 'title') || getVal(storeInfo, 'Section ' + i + ' Title'));
       var active = parseBool(getVal(storeInfo, 'section_' + i + '_active') || getVal(storeInfo, 'section_' + i + 'active') || getVal(storeInfo, 'section_' + i + '_show') || getVal(storeInfo, 'Section ' + i + ' Show'), true);
@@ -1563,6 +1581,7 @@ const YARZ = (() => {
         sections.push({ title: title, category: category, links: linkArray, image: image });
       }
     }
+    } // end fallback raw key parsing
 
     if (sections.length === 0) {
       wrapper.classList.add('is-empty');
