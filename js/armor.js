@@ -215,10 +215,10 @@
   // Calls Worker /__analytics to record visit in Supabase website_visitors table
   function _trackVisit() {
     try {
-      var workerUrl = 'https://yarz-api.marufhasan80009.workers.dev/';
+      var workerUrl = 'https://yarz-api.marufhasan80009.workers.dev/__analytics';
       var ctrl = new AbortController();
       setTimeout(function() { ctrl.abort(); }, 5000);
-      fetch(workerUrl + '?action=__analytics', {
+      fetch(workerUrl, {
         method: 'GET',
         signal: ctrl.signal,
         cache: 'no-store',
