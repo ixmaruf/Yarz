@@ -852,7 +852,8 @@ async function handle(request, env, ctx) {
 
   // __analytics (public GET) — visitor analytics: visits (all hits) + unique (by IP per day)
   // Only tracks visits from the main website (yarzclothing.xyz), NOT from admin panel
-  if (supabaseEnabled && path === "/__analytics" && request.method === "GET") {
+  // Supports both /__analytics path AND ?action=__analytics query param
+  if (supabaseEnabled && (path === "/__analytics" || action === "__analytics") && request.method === "GET") {
     try {
       const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
       const today = new Date().toISOString().split("T")[0];
