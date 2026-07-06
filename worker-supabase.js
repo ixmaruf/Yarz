@@ -850,48 +850,51 @@ async function handle(request, env, ctx) {
   // Supabase enabled? Default true so production always uses Supabase unless explicitly disabled.
   const supabaseEnabled = env.SUPABASE_ENABLED !== "false";
 
-  // __analytics (public GET) — visitor analytics using Supabase website_visitors table
+  // __analytics (public GET) — visitor analytics: visits (all hits) + unique (by IP per day)
   if (supabaseEnabled && path === "/__analytics" && request.method === "GET") {
     try {
       const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
       const today = new Date().toISOString().split("T")[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
       
-      // UPSERT today's visit — unique constraint on (visitor_ip, visit_date) prevents duplicates
-      await supabaseRequest(env, "website_visitors", {
+      // Atomic increment via RPC — one row per IP per day, visit_count goes up each time
+      await supabaseRequest(env, "rpc/track_visit", {
         method: "POST",
-        body: JSON.stringify({ visitor_ip: clientIp, visit_date: today }),
-        headers: { "Prefer": "resolution=merge-duplicates" }
+        body: JSON.stringify({ p_ip: clientIp, p_date: today })
       }).catch(() => {});
       
-      // Count today's unique visitors
-      const todayData = await supabaseRequest(env, `website_visitors?visit_date=eq.${today}&select=id`, { method: "GET" });
-      const todayCount = Array.isArray(todayData) ? todayData.length : 0;
+      // Today: sum of all visit_count rows + count of distinct IPs
+      const todayRows = await supabaseRequest(env, `website_visitors?visit_date=eq.${today}&select=visit_count,visitor_ip`, { method: "GET" }).catch(() => []);
+      const todayVisits = Array.isArray(todayRows) ? todayRows.reduce((s, r) => s + (r.visit_count || 0), 0) : 0;
+      const todayUnique = Array.isArray(todayRows) ? todayRows.length : 0;
       
-      // Count yesterday's unique visitors
-      const yesterdayData = await supabaseRequest(env, `website_visitors?visit_date=eq.${yesterday}&select=id`, { method: "GET" });
-      const yesterdayCount = Array.isArray(yesterdayData) ? yesterdayData.length : 0;
+      // Yesterday
+      const yestRows = await supabaseRequest(env, `website_visitors?visit_date=eq.${yesterday}&select=visit_count,visitor_ip`, { method: "GET" }).catch(() => []);
+      const yestVisits = Array.isArray(yestRows) ? yestRows.reduce((s, r) => s + (r.visit_count || 0), 0) : 0;
+      const yestUnique = Array.isArray(yestRows) ? yestRows.length : 0;
       
-      // Total unique visitors — use RPC for performance
-      const totalData = await supabaseRequest(env, `website_visitors?select=visitor_ip`, { method: "GET" }).catch(() => []);
+      // Total — all rows
+      const allRows = await supabaseRequest(env, `website_visitors?select=visit_count,visitor_ip`, { method: "GET" }).catch(() => []);
+      const totalVisits = Array.isArray(allRows) ? allRows.reduce((s, r) => s + (r.visit_count || 0), 0) : 0;
       const uniqueIps = new Set();
-      if (Array.isArray(totalData)) {
-        for (const row of totalData) {
-          if (row.visitor_ip) uniqueIps.add(row.visitor_ip);
-        }
+      if (Array.isArray(allRows)) {
+        for (const r of allRows) { if (r.visitor_ip) uniqueIps.add(r.visitor_ip); }
       }
       
       return jsonResponse({
         success: true,
-        today: todayCount,
-        yesterday: yesterdayCount,
-        total: uniqueIps.size,
-        last7: todayCount,
+        today: todayVisits,
+        todayUnique: todayUnique,
+        yesterday: yestVisits,
+        yesterdayUnique: yestUnique,
+        total: totalVisits,
+        totalUnique: uniqueIps.size,
+        last7: todayVisits,
         pending: 0
       });
     } catch (e) {
       console.error("[__analytics] error:", e.message);
-      return jsonResponse({ success: false, error: e.message, today: 0, yesterday: 0, total: 0 });
+      return jsonResponse({ success: false, error: e.message, today: 0, todayUnique: 0, yesterday: 0, yesterdayUnique: 0, total: 0, totalUnique: 0 });
     }
   }
 
