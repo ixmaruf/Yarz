@@ -1603,7 +1603,9 @@ const YARZ = (() => {
     html += '<button class="dynamic-section-view-more" onclick="YARZ.toggleCategoriesGrid(this)">View All</button>';
     html += '</div>';
 
+    // ✅ v18.24: Build category cards — wrapped in dcc-track for transform animation
     html += '<div class="dynamic-category-grid" id="dynamic-category-scroll-grid">';
+    html += '<div class="dcc-track" id="dynamic-category-track">';
 
     
     sections.forEach(function (sec, idx) {
@@ -1640,7 +1642,7 @@ const YARZ = (() => {
       html += '</div>';
     });
     
-    html += '</div></div></section>';
+    html += '</div></div></div></section>';
 
     if (allProductsSec) allProductsSec.style.display = '';
 
@@ -1669,15 +1671,13 @@ const YARZ = (() => {
   function initCategoryAutoScroll() {
     cancelAnimationFrame(_categoryScrollRAF);
     var grid = document.getElementById('dynamic-category-scroll-grid');
-    if (!grid) return;
+    var track = document.getElementById('dynamic-category-track');
+    if (!grid || !track) return;
     if (grid._yarzCatScrollInit) return;
     grid._yarzCatScrollInit = true;
 
-    // ✅ v18.23: Force instant scroll — no browser animation on teleport
-    grid.style.scrollBehavior = 'auto';
-
-    // ✅ v18.23: Bidirectional infinite loop — animation-frame boundary detection
-    var origCards = grid.querySelectorAll('.dynamic-category-card');
+    // ✅ v18.24: Transform-based infinite carousel — no scroll, pure translateX
+    var origCards = track.querySelectorAll('.dynamic-category-card');
     var origCount = origCards.length;
     if (origCount > 1) {
       for (var c = 0; c < origCount; c++) {
@@ -1685,136 +1685,127 @@ const YARZ = (() => {
         clone.setAttribute('data-clone', '1');
         clone.style.animationDelay = '0s';
         clone.style.opacity = '1';
-        grid.appendChild(clone);
+        track.appendChild(clone);
       }
     }
 
-    // Calculate original section width
+    // Width of original cards section
     var origWidth = 0;
-    function calcOrigWidth() {
-      var allOrig = grid.querySelectorAll('.dynamic-category-card:not([data-clone])');
-      if (allOrig.length > 0) {
-        var first = allOrig[0];
-        var last = allOrig[allOrig.length - 1];
-        origWidth = (last.offsetLeft + last.offsetWidth) - first.offsetLeft + 16;
-      }
+    var gap = parseInt(getComputedStyle(track).gap) || 16;
+    var trackCards = track.querySelectorAll('.dynamic-category-card');
+    for (var i = 0; i < origCount; i++) {
+      origWidth += trackCards[i].offsetWidth;
+      if (i < origCount - 1) origWidth += gap;
     }
-    calcOrigWidth();
 
-    // Delegated tap-vs-swipe handler
-    var _touchStartX = 0, _touchStartY = 0, _touchMoved = false, _touchHandled = false;
-    var SWIPE_THRESHOLD = 10;
-    grid.addEventListener('touchstart', function(e) {
-      _touchStartX = e.touches[0].clientX;
-      _touchStartY = e.touches[0].clientY;
-      _touchMoved = false; _touchHandled = false;
-    }, {passive: true});
-    grid.addEventListener('touchmove', function(e) {
-      if (Math.abs(e.touches[0].clientX - _touchStartX) > SWIPE_THRESHOLD ||
-          Math.abs(e.touches[0].clientY - _touchStartY) > SWIPE_THRESHOLD) _touchMoved = true;
-    }, {passive: true});
-    grid.addEventListener('touchend', function(e) {
-      if (_touchMoved) return;
-      var card = e.target.closest('.dynamic-category-card');
-      if (!card) return;
-      var idx = parseInt(card.getAttribute('data-idx'), 10);
-      if (!isNaN(idx)) { _touchHandled = true; try { YARZ.openCollection(idx); } catch(err) {} }
-    }, {passive: true});
-    grid.addEventListener('click', function(e) {
-      if (_touchHandled) { _touchHandled = false; return; }
-      var card = e.target.closest('.dynamic-category-card');
-      if (!card) return;
-      var idx = parseInt(card.getAttribute('data-idx'), 10);
-      if (!isNaN(idx)) { try { YARZ.openCollection(idx); } catch(err) {} }
-    });
-
-    // Mouse wheel → horizontal scroll
-    grid.addEventListener('wheel', function(e) {
-      if (grid.classList.contains('expanded')) return;
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        isInteracting = true;
-        grid.scrollLeft += e.deltaY;
-        clearTimeout(grid._wheelTimer);
-        grid._wheelTimer = setTimeout(function() { isInteracting = false; }, 600);
-      }
-    }, {passive: false});
-
-    // Mouse drag
-    var isDown = false, startX = 0, scrollLeftStart = 0;
-    var isInteracting = false;
-    grid.addEventListener('mousedown', function(e) {
-      isDown = true; isInteracting = true;
-      startX = e.pageX - grid.offsetLeft;
-      scrollLeftStart = grid.scrollLeft;
-      e.preventDefault();
-    });
-    grid.addEventListener('mouseleave', function() { isDown = false; isInteracting = false; });
-    grid.addEventListener('mouseup', function() { isDown = false; setTimeout(function() { isInteracting = false; }, 800); });
-    grid.addEventListener('mousemove', function(e) {
-      if (!isDown) return;
-      e.preventDefault();
-      grid.scrollLeft = scrollLeftStart - (e.pageX - grid.offsetLeft - startX) * 1.5;
-    });
-
-    // Touch tracking
-    grid.addEventListener('touchstart', function() { isInteracting = true; }, {passive: true});
-    grid.addEventListener('touchend', function() {
-      setTimeout(function() { isInteracting = false; }, 1000);
-    }, {passive: true});
-
-    // ✅ v18.23: All-in-one animation frame — handles auto-scroll + boundary teleport
-    var exactScrollLeft = 0;
+    // Animation state
+    var posX = 0;
+    var speed = 30;
     var lastTime = null;
-    var speedPerSecond = 22;
-    var _lastScrollLeft = 0;
+    var isPaused = false;
 
-    function autoScroll(timestamp) {
+    function animate(timestamp) {
       if (!lastTime) lastTime = timestamp;
       var dt = timestamp - lastTime;
       lastTime = timestamp;
       if (dt > 100) dt = 16;
 
-      if (grid.classList.contains('expanded')) {
-        _categoryScrollRAF = requestAnimationFrame(autoScroll);
-        return;
+      if (!isPaused && !grid.classList.contains('expanded')) {
+        posX -= (speed * dt) / 1000;
+        if (posX <= -origWidth) posX += origWidth;
+        track.style.transform = 'translateX(' + posX + 'px)';
       }
 
-      if (!isInteracting) {
-        // Auto-scroll forward
-        exactScrollLeft += (speedPerSecond * dt) / 1000;
-        // Wrap forward: past clone section → back to originals
-        if (origWidth > 0 && exactScrollLeft >= origWidth) {
-          exactScrollLeft -= origWidth;
-        }
-        grid.scrollLeft = exactScrollLeft;
-      } else {
-        // User is dragging/scrolling — read current position
-        var sl = grid.scrollLeft;
-
-        // ✅ BOUNDARY TELEPORT: detected by change in scrollLeft direction at edges
-        // If scrollLeft stopped changing (browser clamped it), we're at a boundary
-        if (origWidth > 0) {
-          // Near LEFT edge (scrollLeft ≈ 0 and not moving further left)
-          if (sl <= 2 && _lastScrollLeft >= sl) {
-            grid.scrollLeft = sl + origWidth;
-            exactScrollLeft = grid.scrollLeft;
-          }
-          // Near RIGHT edge of clones (scrollLeft ≈ origWidth*2 and not moving further right)
-          else if (sl >= origWidth * 2 - 2 && _lastScrollLeft <= sl) {
-            grid.scrollLeft = sl - origWidth;
-            exactScrollLeft = grid.scrollLeft;
-          }
-        }
-
-        _lastScrollLeft = grid.scrollLeft;
-        exactScrollLeft = grid.scrollLeft;
-      }
-
-      _categoryScrollRAF = requestAnimationFrame(autoScroll);
+      _categoryScrollRAF = requestAnimationFrame(animate);
     }
 
-    _categoryScrollRAF = requestAnimationFrame(autoScroll);
+    _categoryScrollRAF = requestAnimationFrame(animate);
+
+    // ===== USER INTERACTION =====
+    var dragStartX = 0, dragStartPos = 0, isDragging = false, hasMoved = false;
+    var _tapHandled = false;
+
+    // Touch
+    grid.addEventListener('touchstart', function(e) {
+      isPaused = true;
+      isDragging = true;
+      hasMoved = false;
+      _tapHandled = false;
+      dragStartX = e.touches[0].clientX;
+      dragStartPos = posX;
+    }, {passive: true});
+
+    grid.addEventListener('touchmove', function(e) {
+      if (!isDragging) return;
+      var dx = e.touches[0].clientX - dragStartX;
+      if (Math.abs(dx) > 5) hasMoved = true;
+      posX = dragStartPos + dx;
+      if (posX <= -origWidth) posX += origWidth;
+      if (posX > 0) posX -= origWidth;
+      track.style.transform = 'translateX(' + posX + 'px)';
+    }, {passive: true});
+
+    grid.addEventListener('touchend', function(e) {
+      isDragging = false;
+      if (!hasMoved) {
+        var card = e.target.closest('.dynamic-category-card');
+        if (card) {
+          var idx = parseInt(card.getAttribute('data-idx'), 10);
+          if (!isNaN(idx)) { _tapHandled = true; try { YARZ.openCollection(idx); } catch(err) {} }
+        }
+      }
+      setTimeout(function() { lastTime = null; isPaused = false; }, hasMoved ? 1500 : 500);
+    }, {passive: true});
+
+    // Mouse
+    grid.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      isPaused = true;
+      isDragging = true;
+      hasMoved = false;
+      _tapHandled = false;
+      dragStartX = e.clientX;
+      dragStartPos = posX;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      var dx = e.clientX - dragStartX;
+      if (Math.abs(dx) > 3) hasMoved = true;
+      posX = dragStartPos + dx;
+      if (posX <= -origWidth) posX += origWidth;
+      if (posX > 0) posX -= origWidth;
+      track.style.transform = 'translateX(' + posX + 'px)';
+    });
+
+    document.addEventListener('mouseup', function(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      if (!hasMoved) {
+        var card = e.target.closest('.dynamic-category-card');
+        if (card) {
+          var idx = parseInt(card.getAttribute('data-idx'), 10);
+          if (!isNaN(idx)) { try { YARZ.openCollection(idx); } catch(err) {} }
+        }
+      }
+      setTimeout(function() { lastTime = null; isPaused = false; }, hasMoved ? 1500 : 500);
+    });
+
+    // Mouse wheel
+    grid.addEventListener('wheel', function(e) {
+      if (grid.classList.contains('expanded')) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        isPaused = true;
+        posX -= e.deltaY * 0.5;
+        if (posX <= -origWidth) posX += origWidth;
+        if (posX > 0) posX -= origWidth;
+        track.style.transform = 'translateX(' + posX + 'px)';
+        clearTimeout(grid._wheelResume);
+        grid._wheelResume = setTimeout(function() { lastTime = null; isPaused = false; }, 800);
+      }
+    }, {passive: false});
   }
 
   // ===== RENDER BOTTOM SHOWCASE =====
@@ -1881,14 +1872,15 @@ const YARZ = (() => {
 
   function toggleCategoriesGrid(btn) {
     var grid = document.getElementById('dynamic-category-scroll-grid');
-    if (!grid) return;
+    var track = document.getElementById('dynamic-category-track');
+    if (!grid || !track) return;
     
-    var clones = grid.querySelectorAll('[data-clone]');
+    var clones = track.querySelectorAll('[data-clone]');
     if (grid.classList.contains('expanded')) {
       grid.classList.remove('expanded');
       clones.forEach(function(c) { c.style.display = ''; });
+      track.style.transform = '';
       if (btn) btn.textContent = 'View All';
-      grid.scrollTo({ left: 0, behavior: 'smooth' });
     } else {
       grid.classList.add('expanded');
       clones.forEach(function(c) { c.style.display = 'none'; });

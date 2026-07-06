@@ -1087,31 +1087,37 @@ html body #hero-slider .slide .banner-overlay,
 /* ===== DYNAMIC CATEGORY CARD GRID (v10.1) ===== */
 /* Premium category cards like reference design — portrait images with name overlay */
 .dynamic-category-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  gap: 16px;
+  display: block;
   width: 100%;
-  overflow-x: auto;
-  scroll-behavior: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 12px; /* Space for scrollbar or shadow */
-  scrollbar-width: none; /* Firefox */
+  overflow: hidden;
+  padding-bottom: 12px;
+  scrollbar-width: none;
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
-  will-change: scroll-position;
+  will-change: contents;
 }
 .dynamic-category-grid:active {
   cursor: grabbing;
+}
+.dcc-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  width: max-content;
+  will-change: transform;
 }
 .dynamic-category-grid::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
 }
 .dynamic-category-grid.expanded {
+  overflow: visible;
+}
+.dynamic-category-grid.expanded .dcc-track {
   flex-wrap: wrap;
   justify-content: center;
-  overflow-x: visible;
+  width: 100%;
+  gap: 12px;
 }
 .dynamic-section-header {
   display: flex;
@@ -1235,7 +1241,7 @@ html body #hero-slider .slide .banner-overlay,
 
 /* Tablet: 3 columns */
 @media (max-width: 992px) {
-  .dynamic-category-grid {
+  .dcc-track {
     gap: 14px;
   }
   .dynamic-category-card {
@@ -1248,7 +1254,7 @@ html body #hero-slider .slide .banner-overlay,
 
 /* Mobile: 2 columns */
 @media (max-width: 768px) {
-  .dynamic-category-grid {
+  .dcc-track {
     gap: 12px;
   }
   .dynamic-category-card {
@@ -1271,7 +1277,7 @@ html body #hero-slider .slide .banner-overlay,
 
 /* Small mobile: still 2 columns but tighter */
 @media (max-width: 400px) {
-  .dynamic-category-grid {
+  .dcc-track {
     gap: 8px;
   }
   .dcc-name {
@@ -1326,7 +1332,7 @@ html body #hero-slider .slide .banner-overlay,
 /* 🚀 CRITICAL FIX: Disable native smooth scrolling on the JS-animated container */
 /* This prevents S22 (120Hz) jitter, while CSS is safe and doesn't break old Android phones */
 #dynamic-category-scroll-grid {
-  scroll-behavior: auto !important;
+  position: relative;
 }
 
 .product-card {
