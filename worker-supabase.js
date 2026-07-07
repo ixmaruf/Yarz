@@ -719,13 +719,19 @@ async function currentMonthSnapshotSupabase(env) {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     // Use both website_orders and orders tables; sum what's there.
-    const [web, man] = await Promise.all([
+    const [web, man, txns, exps, ads] = await Promise.all([
       supabaseRequest(env, "website_orders?date=gte." + firstOfMonth + "&select=order_id,product,qty,price,total,status,cust_phone", { method: "GET" }).catch(() => []),
-      supabaseRequest(env, "orders?date=gte." + firstOfMonth + "&select=order_id,product,qty,price,total,status,cust_phone", { method: "GET" }).catch(() => [])
+      supabaseRequest(env, "orders?date=gte." + firstOfMonth + "&select=order_id,product,qty,price,total,status,cust_phone", { method: "GET" }).catch(() => []),
+      supabaseRequest(env, "transactions?date=gte." + firstOfMonth + "&select=revenue,cost,type", { method: "GET" }).catch(() => []),
+      supabaseRequest(env, "expenses?date=gte." + firstOfMonth + "&select=amount", { method: "GET" }).catch(() => []),
+      supabaseRequest(env, "ad_tracker?date=gte." + firstOfMonth + "&select=spend", { method: "GET" }).catch(() => [])
     ]);
     const wArr = Array.isArray(web) ? web : [];
     const mArr = Array.isArray(man) ? man : [];
     const all = wArr.concat(mArr);
+    const tArr = Array.isArray(txns) ? txns : [];
+    const eArr = Array.isArray(exps) ? exps : [];
+    const aArr = Array.isArray(ads) ? ads : [];
     const sum = (arr, key) => arr.reduce((s, r) => s + (Number(r[key]) || 0), 0);
     const counts = {};
     for (const r of all) {
@@ -736,6 +742,12 @@ async function currentMonthSnapshotSupabase(env) {
       .map(k => ({ product: k, qty: counts[k] }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
+    // Compute net profit from transactions (Sale + Return with negative values) minus expenses and ad spend
+    const txRevenue = sum(tArr, "revenue");
+    const txCost = sum(tArr, "cost");
+    const totalExpenses = sum(eArr, "amount");
+    const totalAdSpend = sum(aArr, "spend");
+    const net_profit = txRevenue - txCost - totalExpenses - totalAdSpend;
     return {
       success: true,
       ok: true,
@@ -747,6 +759,11 @@ async function currentMonthSnapshotSupabase(env) {
         revenue_website: sum(wArr, "total"),
         revenue_manual: sum(mArr, "total"),
         revenue_total: sum(all, "total"),
+        tx_revenue: txRevenue,
+        tx_cost: txCost,
+        total_expenses: totalExpenses,
+        total_ad_spend: totalAdSpend,
+        net_profit: net_profit,
         unique_customers_website: new Set(wArr.map(r => r.cust_phone).filter(Boolean)).size,
         unique_customers_manual: new Set(mArr.map(r => r.cust_phone).filter(Boolean)).size,
         top_products: topProducts
@@ -754,7 +771,7 @@ async function currentMonthSnapshotSupabase(env) {
     };
   } catch (e) {
     console.error("[currentMonthSnapshot] failed:", e.message);
-    return { success: true, ok: true, data: { month_start: new Date().toISOString(), website_orders: 0, manual_orders: 0, total_orders: 0, revenue_total: 0, top_products: [], error: e.message } };
+    return { success: true, ok: true, data: { month_start: new Date().toISOString(), website_orders: 0, manual_orders: 0, total_orders: 0, revenue_total: 0, net_profit: 0, top_products: [], error: e.message } };
   }
 }
 
