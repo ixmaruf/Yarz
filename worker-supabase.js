@@ -864,7 +864,7 @@ async function handle(request, env, ctx) {
   
   if (path === "/__customerltv") {
     action = "getcustomerltv";
-  } else if (path === "/__productanalytics6m") {
+  } else if (path === "/__productanalytics6m" || path === "/__productAnalytics6m") {
     action = "getproductanalytics6m";
   } else if (path === "/__currentmonthsnapshot") {
     action = "getcurrentmonthsnapshot";
