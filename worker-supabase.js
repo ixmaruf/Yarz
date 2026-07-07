@@ -758,6 +758,28 @@ async function currentMonthSnapshotSupabase(env) {
   }
 }
 
+async function productAnalytics6mSupabase(env) {
+  try {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const from = sixMonthsAgo.toISOString();
+    const data = await supabaseRequest(env, "transactions?date=gte." + from + "&type=eq.Sale&select=product,qty,revenue,cost,profit", { method: "GET" });
+    const arr = Array.isArray(data) ? data : [];
+    const prodMap = {};
+    for (const r of arr) {
+      const name = (r.product || "Unknown").trim() || "Unknown";
+      if (!prodMap[name]) prodMap[name] = { product_name: name, revenue: 0, cost: 0, units_sold: 0 };
+      prodMap[name].revenue += Number(r.revenue) || 0;
+      prodMap[name].cost += Number(r.cost) || 0;
+      prodMap[name].units_sold += Number(r.qty) || 0;
+    }
+    return { success: true, data: Object.values(prodMap) };
+  } catch (e) {
+    console.error("[productAnalytics6m] failed:", e.message);
+    return { success: true, data: [] };
+  }
+}
+
 function gasUpstream(env) {
   const id = env && env.GAS_DEPLOYMENT_ID;
   if (!id) throw new Error("GAS_DEPLOYMENT_ID not set; cannot route to legacy GAS fallback. Set it via `wrangler secret put GAS_DEPLOYMENT_ID` if you need GAS fallback.");
@@ -1119,6 +1141,11 @@ async function handle(request, env, ctx) {
   // FIX #32: home dashboard "This Month" was always empty
   if (supabaseEnabled && (action === "__currentmonthsnapshot" || action === "__currentMonthSnapshot" || action === "getcurrentmonthsnapshot")) {
     const r = await currentMonthSnapshotSupabase(env);
+    return jsonResponse(r);
+  }
+  // __productAnalytics6m (admin GET) -> Supabase product analytics from transactions
+  if (supabaseEnabled && (action === "__productanalytics6m" || action === "__productAnalytics6m" || action === "getproductanalytics6m")) {
+    const r = await productAnalytics6mSupabase(env);
     return jsonResponse(r);
   }
   // Health / pub-cacheable: try Supabase first if enabled
