@@ -182,7 +182,10 @@ const YARZ_FORTRESS = (() => {
 
   function _parseOS(ua) {
     if (!ua) return 'unknown';
-    var m = ua.match(/(Android|iPhone OS|Mac OS X|Windows NT|Linux|CrOS) ?[\d._]+/);
+    // v3.1: Extract Android version directly from UA (Chrome hides real version in some cases)
+    var androidMatch = ua.match(/Android\s+(\d+(?:\.\d+)?)/);
+    if (androidMatch) return 'Android ' + androidMatch[1];
+    var m = ua.match(/(iPhone OS|Mac OS X|Windows NT|Linux|CrOS) ?[\d._]+/);
     return m ? m[0] : 'unknown';
   }
 
@@ -679,11 +682,32 @@ const YARZ_FORTRESS = (() => {
           .then(function(data){
             if (data && Array.isArray(data.devices)) {
               _serverBlocklist = new Set(data.devices);
+              // v3.1: Also check if current IP is blocked right after sync
+              _checkIPBlockedAfterSync();
             }
             resolve();
           }).catch(function(){ resolve(); });
       } catch (e) { resolve(); }
     });
+  }
+
+  // v3.1: Check IP block after server sync completes
+  function _checkIPBlockedAfterSync() {
+    if (!_serverBlocklist || !_ipData || !_ipData.ip) return;
+    if (_serverBlocklist.has(_ipData.ip)) {
+      _showBlockPopup('IP_ADDRESS_BLOCKED');
+    }
+  }
+
+  // v3.1: Show block popup for blocked users
+  function _showBlockPopup(reason) {
+    // Don't show multiple popups
+    if (document.getElementById('yarz-block-overlay')) return;
+    var overlay = document.createElement('div');
+    overlay.id = 'yarz-block-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
+    overlay.innerHTML = '<div style="text-align:center;max-width:420px;padding:40px 24px;background:#111;border-radius:16px;border:1px solid rgba(239,68,68,0.3);margin:20px"><div style="width:70px;height:70px;border-radius:50%;background:rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px">&#128683;</div><h1 style="font-size:20px;font-weight:700;color:#ef4444;margin-bottom:10px;font-family:-apple-system,sans-serif">Access Restricted</h1><p style="font-size:13px;color:#999;line-height:1.6;font-family:-apple-system,sans-serif">Your access to this website has been permanently restricted.</p><p style="font-size:12px;color:#666;margin-top:12px;font-family:-apple-system,sans-serif">If you believe this is an error, please contact support.</p></div>';
+    document.body.appendChild(overlay);
   }
 
   // ===== SAVE FINGERPRINT TO SERVER =====

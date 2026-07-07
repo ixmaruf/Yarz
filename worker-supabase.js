@@ -39,6 +39,40 @@ function getTtls(env) {
   return { fresh, swr, hard };
 }
 
+// ✅ SERVER-SIDE BLOCK PAGE: Shown when request IP is in blocked_devices table
+const BLOCK_PAGE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Access Restricted — YARZ</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.wrap{text-align:center;max-width:480px;padding:40px 24px}
+.icon{width:80px;height:80px;border-radius:50%;background:rgba(239,68,68,0.12);
+display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px}
+h1{font-size:22px;font-weight:700;margin-bottom:12px;color:#ef4444}
+p{font-size:14px;color:#999;line-height:1.6;margin-bottom:8px}
+.code{font-family:monospace;font-size:12px;color:#666;margin-top:16px;
+padding:10px 16px;background:rgba(255,255,255,0.04);border-radius:8px;display:inline-block}
+hr{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:20px 0}
+small{font-size:11px;color:#555}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="icon">&#128683;</div>
+<h1>Access Restricted</h1>
+<p>Your access to this website has been permanently restricted.</p>
+<p>If you believe this is an error, please contact support.</p>
+<hr>
+<p>If you are the site owner, this block was triggered server-side.</p>
+<div class="code">IP: {{IP}}</div>
+</div>
+</body>
+</html>`;
+
 // Public actions (no admin auth, only API_KEY) -- safe to cache at edge
 const PUBLIC_CACHEABLE = new Set([
   "products","product","categories","store_info","delivery_charges","fb_feed","health",
@@ -260,7 +294,7 @@ function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Purge-Key",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Purge-Key, x-purge-secret",
     "Access-Control-Max-Age": "86400"
   };
 }
@@ -1182,7 +1216,7 @@ async function handlePurgeWebhook(request, env) {
   }
   const expected = (env && env.PURGE_SECRET) || "";
   if (expected) {
-    const provided = request.headers.get("x-purge-secret") || url.searchParams.get("secret") || "";
+    const provided = request.headers.get("x-purge-secret") || request.headers.get("x-purge-key") || url.searchParams.get("secret") || "";
     if (provided !== expected) {
       return new Response(JSON.stringify({ success: false, error: "Invalid purge secret" }), {
         status: 401,
@@ -1443,6 +1477,22 @@ export default {
     if (url.pathname.startsWith("/agent/")) {
       return handleAgentRoute(request, env, ctx);
     }
+    // ✅ SERVER-SIDE IP BLOCKING: Check if request IP is blocked before serving anything
+    if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "";
+        if (clientIp && clientIp !== "unknown") {
+          const blockedCheck = await supabaseRequest(env, "blocked_devices?select=device_id&status=eq.active&device_id=eq." + encodeURIComponent(clientIp), { method: "GET" });
+          if (Array.isArray(blockedCheck) && blockedCheck.length > 0) {
+            return new Response(BLOCK_PAGE_HTML.replace(/{{IP}}/g, clientIp), {
+              status: 403,
+              headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "no-store" }
+            });
+          }
+        }
+      } catch (e) { /* don't block page load on check failure */ }
+    }
+
     if (request.method === "GET" && isStaticRequest(url)) {
       return await fetchFromGitHubPages(request);
     }
