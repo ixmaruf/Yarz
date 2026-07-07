@@ -1117,7 +1117,7 @@ async function handle(request, env, ctx) {
 
   // __currentMonthSnapshot (admin GET) -> Supabase monthly stats
   // FIX #32: home dashboard "This Month" was always empty
-  if (supabaseEnabled && (action === "__currentmonthsnapshot" || action === "__currentMonthSnapshot") && request.method === "GET") {
+  if (supabaseEnabled && (action === "__currentmonthsnapshot" || action === "__currentMonthSnapshot" || action === "getcurrentmonthsnapshot")) {
     const r = await currentMonthSnapshotSupabase(env);
     return jsonResponse(r);
   }
@@ -1481,7 +1481,10 @@ export default {
     if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "";
-        if (clientIp && clientIp !== "unknown") {
+        // v18.11: Skip IP block for admin panel requests (Origin/Referer from GitHub Pages admin)
+        const reqOrigin = (request.headers.get("origin") || request.headers.get("referer") || "").toLowerCase();
+        const isAdminRequest = reqOrigin.includes("ixmaruf.github.io");
+        if (clientIp && clientIp !== "unknown" && !isAdminRequest) {
           const blockedCheck = await supabaseRequest(env, "blocked_devices?select=device_id&status=eq.active&device_id=eq." + encodeURIComponent(clientIp), { method: "GET" });
           if (Array.isArray(blockedCheck) && blockedCheck.length > 0) {
             return new Response(BLOCK_PAGE_HTML.replace(/{{IP}}/g, clientIp), {
