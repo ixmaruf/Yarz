@@ -1219,16 +1219,17 @@ html body #hero-slider .slide .banner-overlay,
 
 .dcc-name {
   display: block;
-  padding: 16px 8px 8px;
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  font-size: 24px;
-  font-weight: 700;
-  font-style: italic;
+  padding: 18px 10px 10px;
+  font-family: 'Bodoni Moda', 'Didot', 'Playfair Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 500;
+  font-style: normal;
   color: var(--text-primary, #1A1A2E);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-align: center;
   line-height: 1.1;
+  word-spacing: 0.08em;
 }
 
 /* Tablet: 3 columns */
