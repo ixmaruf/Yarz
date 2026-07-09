@@ -1121,8 +1121,9 @@ html body #hero-slider .slide .banner-overlay,
   justify-content: center;
   width: 100%;
   gap: 12px;
+}
+.dcc-track.track-expanded {
   transform: none !important;
-  animation: none !important;
 }
 .dynamic-section-header {
   display: flex;

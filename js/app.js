@@ -1882,11 +1882,13 @@ const YARZ = (() => {
     var clones = track.querySelectorAll('[data-clone]');
     if (grid.classList.contains('expanded')) {
       grid.classList.remove('expanded');
+      track.classList.remove('track-expanded');
       clones.forEach(function(c) { c.style.display = ''; });
       track.style.transform = '';
       if (btn) btn.textContent = 'View All';
     } else {
       grid.classList.add('expanded');
+      track.classList.add('track-expanded');
       clones.forEach(function(c) { c.style.display = 'none'; });
       cancelAnimationFrame(_categoryScrollRAF);
       track.style.transform = 'none';
