@@ -1595,7 +1595,7 @@ const YARZ = (() => {
 
     // Build category cards grid
     var html = '<section class="page-section" style="padding-top:28px;padding-bottom:12px;">';
-    html += '<div class="container">';
+    html += '<div class="container" style="max-width: 100% !important; padding-left: 32px; padding-right: 32px; width: 100%;">';
     
     // ✅ v10.4: Add Typography Header and View More Toggle
     html += '<div class="dynamic-section-header">';
@@ -1679,14 +1679,14 @@ const YARZ = (() => {
     var origCount = origCards.length;
     if (origCount < 1) return;
 
-    // v17.31: Duplicate categories until track fills viewport width
-    var gridWidth = grid.offsetWidth;
     var gap = parseInt(getComputedStyle(track).gap) || 8;
     var singleCardW = origCards[0].offsetWidth;
     var origSetWidth = origCount * singleCardW + (origCount - 1) * gap;
 
-    // Keep appending clones of all original cards until we fill the viewport
-    while (origSetWidth < gridWidth + singleCardW) {
+    // Duplicate categories until track fills viewport + one extra set for seamless loop
+    var gridWidth = grid.offsetWidth;
+    var needed = gridWidth + origSetWidth;
+    while (origSetWidth < needed) {
       for (var c = 0; c < origCount; c++) {
         var clone = origCards[c].cloneNode(true);
         clone.setAttribute('data-clone', '1');
