@@ -1616,7 +1616,7 @@
       var slider = document.getElementById('hero-slider');
       if (slider) {
         var bn = [];
-        for (var i=1;i<=5;i++){ var u=gi('hero_banner_'+i); if(u) bn.push({image:u,title:(gi('banner_title_'+i)||'').trim(),link:gi('banner_link_'+i)||'',color:gi('banner_text_color_'+i)||'#ffffff'}); }
+        for (var i=1;i<=5;i++){ var u=gi('hero_banner_'+i); if(u) bn.push({image:u,title:(gi('banner_title_'+i)||'').replace(/\u2014|\u2013/g,'—').trim().replace(/^YARZ\s*[—–-]\s*Premium Men'?s Fashion$/i,'').trim(),link:gi('banner_link_'+i)||'',color:gi('banner_text_color_'+i)||'#ffffff'}); }
         if (bn.length){
           var sh = bn.map(function(b,i){
             var s1000=esc(imgSrc(b.image,1000)), s1600=esc(imgSrc(b.image,1600)), s2000=esc(imgSrc(b.image,2000));
