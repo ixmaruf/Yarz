@@ -1087,8 +1087,7 @@ html body #hero-slider .slide .banner-overlay,
 /* ===== DYNAMIC CATEGORY CARD GRID (v10.1) ===== */
 /* Premium category cards — clean modern design like reference */
 .dynamic-category-grid {
-  display: flex;
-  justify-content: flex-end;
+  display: block;
   width: 100%;
   overflow: hidden;
   padding-bottom: 12px;
