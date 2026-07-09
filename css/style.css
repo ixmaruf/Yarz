@@ -1162,7 +1162,7 @@ html body #hero-slider .slide .banner-overlay,
   animation: dcc-fadeIn 0.5s ease forwards;
   animation-delay: calc(var(--card-index, 0) * 0.08s);
   opacity: 0;
-  flex: 0 0 220px;
+  flex: 0 0 calc((100% - 40px) / 5);
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -1240,7 +1240,7 @@ html body #hero-slider .slide .banner-overlay,
     gap: 6px;
   }
   .dynamic-category-card {
-    flex: 0 0 180px;
+    flex: 0 0 calc((100% - 24px) / 4);
   }
   .dynamic-category-grid.expanded .dynamic-category-card {
     flex: 0 0 calc(33.333% - 10px);
@@ -1253,7 +1253,7 @@ html body #hero-slider .slide .banner-overlay,
     gap: 6px;
   }
   .dynamic-category-card {
-    flex: 0 0 160px;
+    flex: 0 0 calc((100% - 12px) / 3);
   }
   .dynamic-category-grid.expanded .dynamic-category-card {
     flex: 0 0 calc(50% - 6px);
