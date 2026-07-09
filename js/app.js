@@ -7802,7 +7802,7 @@ const YARZ = (() => {
       if (store[imgKey]) {
         banners.push({
           image: store[imgKey],
-          title: store[titleKey] || '',
+          title: (store[titleKey] || '').trim(),
           link: store[linkKey] || '',
           textColor: store[colorKey] || '#ffffff', // default white
           subtitle: ''
