@@ -146,7 +146,7 @@ const YARZ = (() => {
   // ✅ v17.5: TTL-aware variant. The stored value is wrapped in {v: data, t: ts}
   // so we can return the fallback if the entry is older than `maxAgeMs`. Used
   // for PII keys (yarz_user, yarz_my_orders) — keeps the customer's name,
-  // address, phone, order history on-device for 90 days, then auto-expires.
+  // address, phone, order history on-device for 60 days, then auto-expires.
   function _safeReadLSWithTTL(key, fallback, maxAgeMs) {
     try {
       var raw = localStorage.getItem(key);
@@ -194,10 +194,8 @@ const YARZ = (() => {
     return arr.slice(0, max);
   }
   // ✅ v17.5: Typed helpers for the PII keys so call sites stay short and the
-  // TTL logic is in one place. 90 days per owner's spec (was 30 days in
-  // v17.5; bumped to 90 days in v17.15 to keep the checkout form pre-filled
-  // across the typical 30-day repurchase cycle of FB/IG-driven buyers).
-  const _PII_TTL_MS = 90 * 86400 * 1000;
+  // TTL logic is in one place. 60 days (matches server-side website_orders cleanup).
+  const _PII_TTL_MS = 60 * 86400 * 1000;
   function _getMyOrders() {
     return _safeReadLSWithTTL('yarz_my_orders', [], _PII_TTL_MS);
   }
@@ -212,7 +210,7 @@ const YARZ = (() => {
     else { try { localStorage.removeItem('yarz_user'); } catch (e) {} }
   }
   // ✅ v17.15: "Forget me on this device" button removed per owner direction.
-  // PII auto-expires after 90 days via the TTL envelope on yarz_user /
+  // PII auto-expires after 60 days via the TTL envelope on yarz_user /
   // yarz_my_orders, which is enough for the typical FB/IG-driven return cycle
   // and avoids the customer accidentally clearing their cart mid-shop.
   const state = {
@@ -225,7 +223,7 @@ const YARZ = (() => {
     currentSizeFilter: '',
     currentSort: 'default',
     cart: _safeReadLS('yarz_cart', []),
-    // ✅ v17.5: PII keys auto-expire after 90 days so a shared / kiosk device
+    // ✅ v17.5: PII keys auto-expire after 60 days so a shared / kiosk device
     // doesn't keep the previous user's name, address, phone, order history
     // forever. Owner-chosen TTL (bumped from 30 → 90 days in v17.15).
     user: _safeReadLSWithTTL('yarz_user', null, _PII_TTL_MS),
@@ -614,14 +612,14 @@ const YARZ = (() => {
         });
         var finalOrders = Object.values(unique);
 
-        // ✅ v16.5: 90-DAY EXPIRY — mirror the server policy. The Google Sheet
-        // auto-deletes orders older than ~3 months (daily 1 AM cleanup), so the
+        // ✅ v16.5: 60-DAY EXPIRY — mirror the server policy. The Supabase
+        // website_orders auto-deletes orders older than 60 days (daily cleanup), so the
         // customer's locally-cached copy must expire on the same window.
         // Without this, an aged-out order would (a) linger forever in the
         // customer's browser and (b) get falsely flagged "Cancelled" by the
         // admin-delete detection (it's gone from the server simply because it
         // aged out, not because it was cancelled).
-        var PII_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+        var PII_TTL_MS = 60 * 24 * 60 * 60 * 1000;
         var _now = Date.now();
         var _orderTime = function(o) {
           // Prefer placedAt (epoch ms); fall back to parsing date/updated.
@@ -6710,7 +6708,7 @@ const YARZ = (() => {
       '<div class="page-header" style="border:none;margin-bottom:16px;">' +
       '<h1>Order Tracking</h1>' +
       '<p>Enter your phone number to view your orders</p>' +
-      '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 90 days.</p></div>' +
+      '<div style="background:rgba(0,0,0,0.04);border-left:3px solid var(--accent);padding:10px 12px;border-radius:4px;margin-top:12px;margin-bottom:8px;"><p style="font-size:12px;color:var(--text-main);font-weight:600;margin:0;">📅 Showing your order history for the last 60 days.</p></div>' +
       '<p style="font-size:12px;color:var(--text-muted);font-family:var(--font-bengali);margin-top:4px;">আপনার ফোন নম্বর দিয়ে অর্ডার খুঁজুন</p>' +
       '</div>' +
       '<div class="tracking-card">' +
@@ -6831,7 +6829,7 @@ const YARZ = (() => {
         // GUARDED by apiSucceeded — never runs on a failed/empty-fallback
         // call, which would otherwise false-cancel every order on a blip.
         if (apiSucceeded) {
-          var _CANCEL_GRACE = 90 * 24 * 60 * 60 * 1000; // 90 days (upper bound)
+          var _CANCEL_GRACE = 60 * 24 * 60 * 60 * 1000; // 60 days (upper bound)
           var _MIN_AGE = 2 * 60 * 1000; // 2 min (lower bound — avoid race with a just-placed order)
           var _nowMs = Date.now();
           allLocal.forEach(function(lo) {
@@ -6843,7 +6841,7 @@ const YARZ = (() => {
             // looked confirmed to the customer). We now detect any locally-placed
             // order that is missing from a SUCCESSFUL API response, gated only by
             // a time window: old enough to rule out a place→track race (>2 min),
-            // and young enough to rule out a 90-day server cleanup (<90 days).
+            // and young enough to rule out a 60-day server cleanup (<60 days).
             var st = String(lo.status || '').toLowerCase().replace(/\s+/g,'');
             if (st === 'cancelled' || st === 'canceled' || st === 'returned' || st === 'delivered') return;
             var _lt = (typeof lo.placedAt === 'number') ? lo.placedAt : Date.parse(lo.date || lo.updated || lo.orderDate || '');
@@ -6907,10 +6905,10 @@ const YARZ = (() => {
         return tb - ta;
       });
 
-      // ✅ v16.5: Only show the last 90 days (matches the server cleanup + the
-      // "Showing your order history for the last 90 days" note). Orders with
+      // ✅ v16.5: Only show the last 60 days (matches the server cleanup + the
+      // "Showing your order history for the last 60 days" note). Orders with
       // no parseable date are kept so a just-placed order never disappears.
-      var _DISPLAY_WINDOW = 90 * 24 * 60 * 60 * 1000;
+      var _DISPLAY_WINDOW = 60 * 24 * 60 * 60 * 1000;
       var _nowDisp = Date.now();
       merged = merged.filter(function(o){
         var t = (typeof o.placedAt === 'number') ? o.placedAt : Date.parse(o.date || o.updated || o.orderDate || '');
