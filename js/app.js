@@ -1677,7 +1677,16 @@ const YARZ = (() => {
     // ✅ v18.24: Transform-based infinite carousel — no scroll, pure translateX
     var origCards = track.querySelectorAll('.dynamic-category-card');
     var origCount = origCards.length;
-    if (origCount > 1) {
+    if (origCount < 1) return;
+
+    // v17.31: Duplicate categories until track fills viewport width
+    var gridWidth = grid.offsetWidth;
+    var gap = parseInt(getComputedStyle(track).gap) || 8;
+    var singleCardW = origCards[0].offsetWidth;
+    var origSetWidth = origCount * singleCardW + (origCount - 1) * gap;
+
+    // Keep appending clones of all original cards until we fill the viewport
+    while (origSetWidth < gridWidth + singleCardW) {
       for (var c = 0; c < origCount; c++) {
         var clone = origCards[c].cloneNode(true);
         clone.setAttribute('data-clone', '1');
@@ -1685,16 +1694,11 @@ const YARZ = (() => {
         clone.style.opacity = '1';
         track.appendChild(clone);
       }
+      origSetWidth += origCount * singleCardW + origCount * gap;
     }
 
-    // Width of original cards section
-    var origWidth = 0;
-    var gap = parseInt(getComputedStyle(track).gap) || 8;
-    var trackCards = track.querySelectorAll('.dynamic-category-card');
-    for (var i = 0; i < origCount; i++) {
-      origWidth += trackCards[i].offsetWidth;
-      if (i < origCount - 1) origWidth += gap;
-    }
+    // Width of one full original set (for wrap logic)
+    var origWidth = origCount * singleCardW + (origCount - 1) * gap;
 
     // Animation state
     var posX = 0;
