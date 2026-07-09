@@ -1786,13 +1786,14 @@ const YARZ = (() => {
     document.addEventListener('mouseup', function(e) {
       if (!isDragging) return;
       isDragging = false;
-      if (!hasMoved) {
+      if (!hasMoved && !_tapHandled) {
         var card = e.target.closest('.dynamic-category-card');
         if (card) {
           var idx = parseInt(card.getAttribute('data-idx'), 10);
           if (!isNaN(idx)) { try { YARZ.openCollection(idx); } catch(err) {} }
         }
       }
+      _tapHandled = false;
       setTimeout(function() { lastTime = null; isPaused = false; }, hasMoved ? 1500 : 500);
     });
 
