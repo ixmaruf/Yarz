@@ -1106,6 +1106,7 @@ html body #hero-slider .slide .banner-overlay,
   flex-wrap: nowrap;
   gap: 8px;
   width: max-content;
+  margin-left: auto;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;

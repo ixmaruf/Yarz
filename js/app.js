@@ -1687,26 +1687,9 @@ const YARZ = (() => {
       }
     }
 
-    // v17.25: Dynamically size cards to fill grid width when few categories
-    var gridWidth = grid.offsetWidth;
-    var gap = parseInt(getComputedStyle(track).gap) || 8;
-    // Aim for ~5 cards visible, but respect actual count
-    var visibleCount = Math.min(origCount, Math.max(4, Math.round(gridWidth / 250)));
-    var totalGaps = (visibleCount - 1) * gap;
-    var cardWidth = Math.floor((gridWidth - totalGaps) / visibleCount);
-    if (cardWidth > 300) cardWidth = 300;
-    if (cardWidth < 160) cardWidth = 160;
-    origCards.forEach(function(card) {
-      card.style.flex = '0 0 ' + cardWidth + 'px';
-    });
-    // Also size clones
-    var cloneCards = track.querySelectorAll('.dynamic-category-card[data-clone]');
-    cloneCards.forEach(function(card) {
-      card.style.flex = '0 0 ' + cardWidth + 'px';
-    });
-
     // Width of original cards section
     var origWidth = 0;
+    var gap = parseInt(getComputedStyle(track).gap) || 8;
     var trackCards = track.querySelectorAll('.dynamic-category-card');
     for (var i = 0; i < origCount; i++) {
       origWidth += trackCards[i].offsetWidth;
