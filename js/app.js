@@ -7802,7 +7802,7 @@ const YARZ = (() => {
       if (store[imgKey]) {
         banners.push({
           image: store[imgKey],
-          title: (store[titleKey] || '').trim(),
+          title: (store[titleKey] || '').trim().replace(/^YARZ[\s—–\-]+Premium Men'?s Fashion$/i, '').trim(),
           link: store[linkKey] || '',
           textColor: store[colorKey] || '#ffffff', // default white
           subtitle: ''
