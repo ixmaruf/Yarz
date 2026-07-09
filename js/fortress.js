@@ -62,6 +62,7 @@ const YARZ_FORTRESS = (() => {
   let _localBlocklist = null;
   let _eventLog = [];
   let _serverBlocklist = null;
+  let _serverIPBlocklist = new Set();
   let _ipData = null;
   let _fpjsVisitorId = null;
   let _fpjsConfidence = 0;
@@ -412,6 +413,9 @@ const YARZ_FORTRESS = (() => {
   function _isServerBlocked(id) {
     return _serverBlocklist && _serverBlocklist.has(id);
   }
+  function _isServerIPBlocked(ip) {
+    return ip && _serverIPBlocklist.has(ip);
+  }
   function isBlocked(id) {
     id = id || _deviceId;
     if (_isLocallyBlocked(id)) return true;
@@ -419,6 +423,8 @@ const YARZ_FORTRESS = (() => {
     // Also check by visitor_id and composite hash
     if (_visitorId && (_isLocallyBlocked(_visitorId) || _isServerBlocked(_visitorId))) return true;
     if (_compositeHash && (_isLocallyBlocked(_compositeHash) || _isServerBlocked(_compositeHash))) return true;
+    // Check IP blocking
+    if (_ipData && _ipData.ip && _isServerIPBlocked(_ipData.ip)) return true;
     return false;
   }
 
@@ -650,6 +656,9 @@ const YARZ_FORTRESS = (() => {
         .then(function(data){
           if (data && Array.isArray(data.devices)) {
             _serverBlocklist = new Set(data.devices);
+          }
+          if (data && Array.isArray(data.ips)) {
+            _serverIPBlocklist = new Set(data.ips);
           }
         }).catch(function(){});
     } catch (e) {}
