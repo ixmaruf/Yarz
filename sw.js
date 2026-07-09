@@ -14,7 +14,7 @@
      3) Product images NEVER re-downloaded once cached
    ════════════════════════════════════════════════════════════════════ */
 
-const VERSION       = 'yarz-turbo-v17.17-2026-06-06';
+const VERSION       = 'yarz-turbo-v17.18-2026-07-10';
 const STATIC_CACHE  = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 // ✅ v17.5 PHASE 5: API_CACHE removed. The CF Worker handles edge caching
