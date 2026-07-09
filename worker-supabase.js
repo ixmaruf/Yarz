@@ -687,9 +687,6 @@ async function storeInfoSupabase(env) {
     if (!result.data.hero_banner_1) {
       result.data.hero_banner_1 = 'https://yarzclothing.xyz/images/og-banner.png';
     }
-    if (!result.data.banner_title_1) {
-      result.data.banner_title_1 = (result.data.name ? String(result.data.name) : 'YARZ') + ' \u2014 Premium Men\u2019s Fashion';
-    }
 
     return result;
 
