@@ -1151,11 +1151,11 @@ html body #hero-slider .slide .banner-overlay,
 
 .dynamic-category-card {
   position: relative;
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
   cursor: pointer;
-  background: var(--surface-1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: transparent;
+  transition: transform 0.3s ease;
   animation: dcc-fadeIn 0.5s ease forwards;
   animation-delay: calc(var(--card-index, 0) * 0.08s);
   opacity: 0;
@@ -1176,7 +1176,6 @@ html body #hero-slider .slide .banner-overlay,
 
 .dynamic-category-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.12);
 }
 
 .dynamic-category-card:active {
@@ -1188,6 +1187,7 @@ html body #hero-slider .slide .banner-overlay,
   width: 100%;
   aspect-ratio: 3 / 4;
   overflow: hidden;
+  border-radius: 0;
 }
 
 .dcc-image img {
@@ -1253,7 +1253,7 @@ html body #hero-slider .slide .banner-overlay,
     flex: 0 0 calc(50% - 6px);
   }
   .dynamic-category-card {
-    border-radius: 4px;
+    border-radius: 0;
   }
   .dcc-name {
     font-size: 12px;
