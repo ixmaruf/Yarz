@@ -1095,7 +1095,8 @@ html body #hero-slider .slide .banner-overlay,
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
-  will-change: contents;
+  will-change: transform;
+  contain: layout style;
 }
 .dynamic-category-grid:active {
   cursor: grabbing;
@@ -1106,6 +1107,8 @@ html body #hero-slider .slide .banner-overlay,
   gap: 16px;
   width: max-content;
   will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .dynamic-category-grid::-webkit-scrollbar {
   display: none;

@@ -1706,12 +1706,18 @@ const YARZ = (() => {
       if (!lastTime) lastTime = timestamp;
       var dt = timestamp - lastTime;
       lastTime = timestamp;
-      if (dt > 100) dt = 16;
+
+      // Cap dt to prevent jumps when tab is backgrounded
+      if (dt > 50) dt = 16;
 
       if (!isPaused && !grid.classList.contains('expanded')) {
         posX -= (speed * dt) / 1000;
-        if (posX <= -origWidth) posX += origWidth;
-        track.style.transform = 'translateX(' + posX + 'px)';
+
+        // Smooth wrap: if we've scrolled past one full set, reset seamlessly
+        if (posX <= -origWidth) {
+          posX = posX + origWidth;
+        }
+        track.style.transform = 'translate3d(' + posX + 'px, 0, 0)';
       }
 
       _categoryScrollRAF = requestAnimationFrame(animate);
@@ -1740,7 +1746,7 @@ const YARZ = (() => {
       posX = dragStartPos + dx;
       if (posX <= -origWidth) posX += origWidth;
       if (posX > 0) posX -= origWidth;
-      track.style.transform = 'translateX(' + posX + 'px)';
+      track.style.transform = 'translate3d(' + posX + 'px, 0, 0)';
     }, {passive: true});
 
     grid.addEventListener('touchend', function(e) {
@@ -1774,7 +1780,7 @@ const YARZ = (() => {
       posX = dragStartPos + dx;
       if (posX <= -origWidth) posX += origWidth;
       if (posX > 0) posX -= origWidth;
-      track.style.transform = 'translateX(' + posX + 'px)';
+      track.style.transform = 'translate3d(' + posX + 'px, 0, 0)';
     });
 
     document.addEventListener('mouseup', function(e) {
@@ -1799,7 +1805,7 @@ const YARZ = (() => {
         posX -= e.deltaY * 0.5;
         if (posX <= -origWidth) posX += origWidth;
         if (posX > 0) posX -= origWidth;
-        track.style.transform = 'translateX(' + posX + 'px)';
+        track.style.transform = 'translate3d(' + posX + 'px, 0, 0)';
         clearTimeout(grid._wheelResume);
         grid._wheelResume = setTimeout(function() { lastTime = null; isPaused = false; }, 800);
       }
