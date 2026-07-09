@@ -1087,7 +1087,8 @@ html body #hero-slider .slide .banner-overlay,
 /* ===== DYNAMIC CATEGORY CARD GRID (v10.1) ===== */
 /* Premium category cards — clean modern design like reference */
 .dynamic-category-grid {
-  display: block;
+  display: flex;
+  justify-content: flex-end;
   width: 100%;
   overflow: hidden;
   padding-bottom: 12px;
@@ -1106,7 +1107,6 @@ html body #hero-slider .slide .banner-overlay,
   flex-wrap: nowrap;
   gap: 8px;
   width: max-content;
-  margin-left: auto;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
