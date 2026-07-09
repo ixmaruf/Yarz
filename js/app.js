@@ -1689,7 +1689,7 @@ const YARZ = (() => {
 
     // Width of original cards section
     var origWidth = 0;
-    var gap = parseInt(getComputedStyle(track).gap) || 8;
+    var gap = parseInt(getComputedStyle(track).gap) || 16;
     var trackCards = track.querySelectorAll('.dynamic-category-card');
     for (var i = 0; i < origCount; i++) {
       origWidth += trackCards[i].offsetWidth;
