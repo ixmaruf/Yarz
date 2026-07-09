@@ -1197,7 +1197,7 @@ var YARZ_API = (function() {
         if (img) {
           heroBanners.push({
             image: img,
-            title: (s['banner_title_' + i] || s['banner_title ' + i] || '').replace(/\u2014|\u2013/g, '—').trim().replace(/^YARZ\s*[—–-]\s*Premium Men'?s Fashion$/i, '').trim(),
+            title: s['banner_title_' + i] || s['banner_title ' + i] || '',
             link: s['banner_link_' + i] || s['banner_link ' + i] || '',
             subtitle: ''
           });
