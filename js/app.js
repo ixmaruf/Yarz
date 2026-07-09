@@ -1767,7 +1767,7 @@ const YARZ = (() => {
       isPaused = true;
       isDragging = true;
       hasMoved = false;
-      _tapHandled = false;
+      if (!_tapHandled) _tapHandled = false;
       dragStartX = e.clientX;
       dragStartPos = posX;
       e.preventDefault();
