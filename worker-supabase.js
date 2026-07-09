@@ -1130,7 +1130,7 @@ async function handle(request, env, ctx) {
       const resp = new Response(JSON.stringify(r), {
         headers: Object.assign({
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=" + FRESH_TTL + ", stale-while-revalidate=" + SWR_TTL
+          "Cache-Control": "no-store"
         }, corsHeaders())
       });
       return resp;
