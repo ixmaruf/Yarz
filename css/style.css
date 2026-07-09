@@ -1085,7 +1085,7 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 /* ===== DYNAMIC CATEGORY CARD GRID (v10.1) ===== */
-/* Premium category cards like reference design — portrait images with name overlay */
+/* Premium category cards — clean modern design like reference */
 .dynamic-category-grid {
   display: block;
   width: 100%;
@@ -1108,7 +1108,7 @@ html body #hero-slider .slide .banner-overlay,
   will-change: transform;
 }
 .dynamic-category-grid::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
 }
 .dynamic-category-grid.expanded {
   overflow: visible;
@@ -1151,24 +1151,22 @@ html body #hero-slider .slide .banner-overlay,
 
 .dynamic-category-card {
   position: relative;
-  border-radius: 12px;
+  border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
-  aspect-ratio: 3 / 4;
   background: var(--surface-1);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   animation: dcc-fadeIn 0.5s ease forwards;
   animation-delay: calc(var(--card-index, 0) * 0.08s);
   opacity: 0;
-  flex: 0 0 200px;
+  flex: 0 0 220px;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
 }
 .dynamic-category-grid.expanded .dynamic-category-card {
   flex: 0 0 calc(25% - 12px);
-  max-width: 250px;
+  max-width: 280px;
 }
 
 @keyframes dcc-fadeIn {
@@ -1178,7 +1176,7 @@ html body #hero-slider .slide .banner-overlay,
 
 .dynamic-category-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.12);
 }
 
 .dynamic-category-card:active {
@@ -1186,10 +1184,10 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 .dcc-image {
-  position: absolute;
-  inset: 0;
+  position: relative;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
 }
 
 .dcc-image img {
@@ -1205,7 +1203,7 @@ html body #hero-slider .slide .banner-overlay,
 }
 
 .dynamic-category-card:hover .dcc-image img {
-  transform: scale(1.06);
+  transform: scale(1.04);
 }
 
 .dcc-placeholder {
@@ -1219,24 +1217,15 @@ html body #hero-slider .slide .banner-overlay,
   opacity: 0.5;
 }
 
-.dcc-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 16px 16px;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
-  z-index: 1;
-}
-
 .dcc-name {
   display: block;
+  padding: 12px 8px 4px;
   font-size: 14px;
-  font-weight: 700;
-  color: #FFFFFF;
+  font-weight: 600;
+  color: var(--text-main);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  letter-spacing: 0.06em;
+  text-align: center;
 }
 
 /* Tablet: 3 columns */
@@ -1245,7 +1234,7 @@ html body #hero-slider .slide .banner-overlay,
     gap: 14px;
   }
   .dynamic-category-card {
-    flex: 0 0 160px;
+    flex: 0 0 180px;
   }
   .dynamic-category-grid.expanded .dynamic-category-card {
     flex: 0 0 calc(33.333% - 10px);
@@ -1258,13 +1247,13 @@ html body #hero-slider .slide .banner-overlay,
     gap: 12px;
   }
   .dynamic-category-card {
-    flex: 0 0 130px;
+    flex: 0 0 160px;
   }
   .dynamic-category-grid.expanded .dynamic-category-card {
     flex: 0 0 calc(50% - 6px);
   }
   .dynamic-category-card {
-    border-radius: 10px;
+    border-radius: 4px;
   }
   .dcc-name {
     font-size: 12px;
