@@ -1687,20 +1687,9 @@ const YARZ = (() => {
       }
     }
 
-    // v17.29: Size cards to fill grid width evenly
-    var gridWidth = grid.offsetWidth;
-    var gap = parseInt(getComputedStyle(track).gap) || 8;
-    var totalGaps = (origCount - 1) * gap;
-    var cardW = Math.floor((gridWidth - totalGaps) / origCount);
-    if (cardW < 180) cardW = 180;
-    if (cardW > 320) cardW = 320;
-    var allCards = track.querySelectorAll('.dynamic-category-card');
-    for (var k = 0; k < allCards.length; k++) {
-      allCards[k].style.flex = '0 0 ' + cardW + 'px';
-    }
-
     // Width of original cards section
     var origWidth = 0;
+    var gap = parseInt(getComputedStyle(track).gap) || 8;
     var trackCards = track.querySelectorAll('.dynamic-category-card');
     for (var i = 0; i < origCount; i++) {
       origWidth += trackCards[i].offsetWidth;
