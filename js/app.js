@@ -1888,6 +1888,7 @@ const YARZ = (() => {
     } else {
       grid.classList.add('expanded');
       clones.forEach(function(c) { c.style.display = 'none'; });
+      cancelAnimationFrame(_categoryScrollRAF);
       track.style.transform = 'none';
       if (btn) btn.textContent = 'Collapse';
     }
