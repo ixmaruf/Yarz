@@ -55,7 +55,7 @@
   <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
   <link rel="preload" href="./js/api.js?v=18.25" as="script">
-  <link rel="preload" href="./css/style.css?v=17.18-editorial" as="style">
+  <link rel="preload" href="./css/style.css?v=17.19-source-serif" as="style">
 
   <!-- ✅ v13.0 LCP FIX: Preload last-known hero banner URL.
        On returning visits, this fires the LCP image fetch BEFORE any JS runs,
@@ -385,8 +385,8 @@
        Still saves ~40 KB vs the old SC family (4 vs 9 woff2 files). -->
   <!-- v15.74: Added Cormorant Garamond 700 (Bold) for the YARZ wordmark.
        Without 700, browsers were synthesizing fake-bold which looked thin/blurry on mobile. -->
-   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Bodoni+Moda:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Bodoni+Moda:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap"></noscript>
+   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Hind+Siliguri:wght@400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap"></noscript>
 
   <!-- Core CSS — v15.48 FOUC FIX: Use blocking <link rel="stylesheet"> so
        the page never paints unstyled. The earlier preload-swap pattern
@@ -398,7 +398,7 @@
          (b) The CSS is versioned + cached for 1 year by the Worker
          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
        Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=17.18-editorial">
+  <link rel="stylesheet" href="./css/style.css?v=17.19-source-serif">
   <style>
     .filter-chip.active{background:var(--accent,#C8102E)!important;color:#fff!important;border-color:var(--accent,#C8102E)!important}
     body.dark .filter-chip{background:#1e2028!important;color:#c8c9ce!important;border-color:#333!important}
