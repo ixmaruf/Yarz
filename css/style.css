@@ -1229,17 +1229,6 @@ html body #hero-slider .slide .banner-overlay,
   letter-spacing: 0.04em;
   text-align: center;
   line-height: 1.2;
-  position: relative;
-}
-
-.dcc-name::after {
-  content: '';
-  display: block;
-  width: 24px;
-  height: 3px;
-  background: #E85D4A;
-  margin: 8px auto 0;
-  border-radius: 2px;
 }
 
 /* Tablet: 3 columns */
