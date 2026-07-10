@@ -290,13 +290,19 @@ function safeUrl(u) {
   return "";
 }
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
+function corsHeaders(origin) {
+  const allowed = ["https://yarzclothing.xyz", "https://www.yarzclothing.xyz", "https://yarz-admin-panel.pages.dev", "https://yarz-admin.marufhasan80009.workers.dev"];
+  const h = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Purge-Key, x-purge-secret",
     "Access-Control-Max-Age": "86400"
   };
+  if (origin && allowed.includes(origin)) {
+    h["Access-Control-Allow-Origin"] = origin;
+  } else {
+    h["Access-Control-Allow-Origin"] = "https://yarzclothing.xyz";
+  }
+  return h;
 }
 
 function jsonResponse(data, status) {
@@ -943,21 +949,7 @@ async function handle(request, env, ctx) {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
 
-  // Debug endpoint: /__env shows which secrets/vars are injected (safe; does NOT print secret values)
-  const __url0 = new URL(request.url);
-  if (__url0.pathname === "/__env") {
-    return jsonResponse({
-      has_url: !!env.SUPABASE_URL,
-      url_prefix: env.SUPABASE_URL ? env.SUPABASE_URL.substring(0, 30) + "..." : null,
-      has_key: !!env.SUPABASE_SERVICE_ROLE_KEY,
-      key_len: env.SUPABASE_SERVICE_ROLE_KEY ? env.SUPABASE_SERVICE_ROLE_KEY.length : 0,
-      supabase_enabled: env.SUPABASE_ENABLED,
-      has_purge: !!env.PURGE_SECRET,
-      has_tg_token: !!env.TG_BOT_TOKEN,
-      has_tg_webhook: !!env.TG_WEBHOOK_SECRET,
-      env_keys: Object.keys(env).sort()
-    });
-  }
+  // ✅ SECURITY: /__env endpoint removed — was leaking secret metadata
 
   // Parse request
   let action = null;
@@ -1289,7 +1281,7 @@ async function handle(request, env, ctx) {
     return new Response(gasResp.body, { status: gasResp.status, headers: headers });
   } catch (e) {
     console.error("[handle] fallback routeToGas failed:", e.message);
-    return jsonResponse({ success: false, ok: false, msg: "Action not available: " + (action || "unknown"), error: e.message }, 400);
+    return jsonResponse({ success: false, ok: false, msg: "Service temporarily unavailable", error: "internal_error" }, 503);
   }
 }
 
@@ -1324,7 +1316,7 @@ async function handlePurgeWebhook(request, env) {
   }
   const expected = (env && env.PURGE_SECRET) || "";
   if (expected) {
-    const provided = request.headers.get("x-purge-secret") || request.headers.get("x-purge-key") || url.searchParams.get("secret") || "";
+    const provided = request.headers.get("x-purge-secret") || request.headers.get("x-purge-key") || "";
     if (provided !== expected) {
       return new Response(JSON.stringify({ success: false, error: "Invalid purge secret" }), {
         status: 401,
@@ -3008,6 +3000,12 @@ async function handleAgentSend(request, env) {
  * @returns {Promise<Response>}
  */
 async function handleAgentSettings(request, env) {
+  // ✅ SECURITY: Require AGENT_SECRET for all agent settings access
+  const authHeader = request.headers.get("Authorization") || "";
+  const agentSecret = env.AGENT_SECRET || "";
+  if (agentSecret && authHeader !== "Bearer " + agentSecret) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
   if (request.method === "GET") {
     const settings = await loadSettings(env);
     return jsonResponse({ success: true, data: settings });
@@ -3030,6 +3028,12 @@ async function handleAgentSettings(request, env) {
  * @returns {Promise<Response>}
  */
 async function handleAgentTest(request, env) {
+  // ✅ SECURITY: Require AGENT_SECRET for agent test
+  const authHeader = request.headers.get("Authorization") || "";
+  const agentSecret = env.AGENT_SECRET || "";
+  if (agentSecret && authHeader !== "Bearer " + agentSecret) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
   let body;
   try { body = await request.json(); } catch (e) {
     return jsonResponse({ success: false, error: "Invalid JSON" }, 400);

@@ -1,7 +1,12 @@
-name = "yarz-api"
+name = "yarz"
 main = "worker-supabase.js"
 compatibility_date = "2024-11-01"
 workers_dev = true
+
+routes = [
+  { pattern = "yarzclothing.xyz/*", zone_name = "yarzclothing.xyz" },
+  { pattern = "www.yarzclothing.xyz/*", zone_name = "yarzclothing.xyz" }
+]
 
 # =====================================================================
 # YARZ API Worker — Cloudflare configuration
