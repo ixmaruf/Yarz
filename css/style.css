@@ -6601,6 +6601,18 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
   .filter-applied {
     animation: filterPulse 0.3s ease;
   }
+
+/* Size Chart Details Animation */
+details[open] summary svg {
+  transform: rotate(180deg);
+}
+details summary::-webkit-details-marker {
+  display: none;
+}
+details summary::marker {
+  display: none;
+  content: '';
+}
   /* Compact sort chips */
   #filter-drawer .filter-sort-row {
     gap: 4px !important;

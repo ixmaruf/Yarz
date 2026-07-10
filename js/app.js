@@ -1370,6 +1370,110 @@ const YARZ = (() => {
   }
 
   // ===== RENDER PRODUCT CARD =====
+  /* ─── Size Chart Parser & Renderer ─── */
+  function _renderSizeChart(raw) {
+    if (!raw || !raw.trim()) return '';
+    var lines = raw.split('\n');
+    var title = '';
+    var headers = [];
+    var rows = [];
+    var note = '';
+    var currentSize = '';
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      // Skip separator lines
+      if (/^-+$/.test(line)) continue;
+
+      // Title: first non-separator line
+      if (!title && !/^Size:/i.test(line) && !/^\*/.test(line)) {
+        title = line;
+        continue;
+      }
+
+      // Size line: "Size: M (Medium)"
+      var sizeMatch = line.match(/^Size:\s*(.+)/i);
+      if (sizeMatch) {
+        currentSize = sizeMatch[1].trim();
+        continue;
+      }
+
+      // Data line: "Chest: 42  |  Length: 28  |  ..."
+      if (line.includes('|') && currentSize) {
+        var parts = line.split('|');
+        var rowData = {};
+        rowData.size = currentSize;
+        for (var j = 0; j < parts.length; j++) {
+          var kv = parts[j].trim().split(':');
+          if (kv.length >= 2) {
+            var key = kv[0].trim();
+            var val = kv.slice(1).join(':').trim();
+            rowData[key] = val;
+            if (headers.indexOf(key) === -1) headers.push(key);
+          }
+        }
+        rows.push(rowData);
+        continue;
+      }
+
+      // Note line: starts with *
+      if (/^\*/.test(line)) {
+        note = line;
+        continue;
+      }
+    }
+
+    if (rows.length === 0) {
+      // Fallback: render as plain text
+      return '<details style="margin-top:12px;border:1px solid #E8E4DC;border-radius:8px;">' +
+        '<summary style="font-size:12px;font-weight:600;cursor:pointer;color:#4A4A5A;padding:10px 12px;">Size Chart</summary>' +
+        '<div style="padding:0 12px 12px;font-size:12px;color:#4A4A5A;white-space:pre-line;">' + escHtml(raw) + '</div>' +
+        '</details>';
+    }
+
+    var h = '';
+    h += '<details style="margin-top:12px;border:1px solid #E8E4DC;border-radius:8px;overflow:hidden;">';
+    h += '<summary style="font-size:12px;font-weight:600;cursor:pointer;color:#1A1A2E;padding:10px 12px;background:#FBF8F1;list-style:none;display:flex;align-items:center;justify-content:space-between;">';
+    h += '<span>' + escHtml(title || 'Size Chart') + '</span>';
+    h += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><path d="m6 9 6 6 6-6"/></svg>';
+    h += '</summary>';
+
+    // Table
+    h += '<div style="padding:8px 0;overflow-x:auto;">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+
+    // Header row
+    h += '<thead><tr style="background:#F5F0E6;">';
+    h += '<th style="padding:6px 10px;text-align:left;font-weight:700;color:#1A1A2E;border-bottom:1px solid #E8E4DC;">Size</th>';
+    for (var hi = 0; hi < headers.length; hi++) {
+      h += '<th style="padding:6px 10px;text-align:center;font-weight:700;color:#1A1A2E;border-bottom:1px solid #E8E4DC;">' + escHtml(headers[hi]) + '</th>';
+    }
+    h += '</tr></thead>';
+
+    // Data rows
+    h += '<tbody>';
+    for (var ri = 0; ri < rows.length; ri++) {
+      var row = rows[ri];
+      var rowBg = ri % 2 === 0 ? '#FFFFFF' : '#FBF8F1';
+      h += '<tr style="background:' + rowBg + ';">';
+      h += '<td style="padding:6px 10px;font-weight:600;color:#1A1A2E;border-bottom:1px solid #F0ECE4;">' + escHtml(row.size) + '</td>';
+      for (var ci = 0; ci < headers.length; ci++) {
+        h += '<td style="padding:6px 10px;text-align:center;color:#4A4A5A;border-bottom:1px solid #F0ECE4;">' + escHtml(row[headers[ci]] || '-') + '</td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+
+    // Note
+    if (note) {
+      h += '<div style="padding:6px 10px;font-size:10px;color:#9CA3AF;margin-top:4px;">' + escHtml(note) + '</div>';
+    }
+
+    h += '</div></details>';
+    return h;
+  }
+
   function renderProductCard(p, index) {
     var isOut = !p.inStock;
     var salePrice = parseFloat(p.salePrice) || 0;
@@ -4228,12 +4332,9 @@ const YARZ = (() => {
     html += '</div></div>';
     }
 
-    // Size chart
+    // Size chart — beautiful formatted table
     if (product.sizeChart) {
-      html += '<details style="margin-top:12px;border:1px solid var(--border-light);border-radius:6px;padding:12px;">';
-      html += '<summary style="font-size:12px;font-weight:600;cursor:pointer;color:var(--text-secondary);">Size Chart</summary>';
-      html += '<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);white-space:pre-line;">' + escHtml(product.sizeChart) + '</div>';
-      html += '</details>';
+      html += _renderSizeChart(product.sizeChart);
     }
 
     // Quantity
