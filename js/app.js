@@ -3586,7 +3586,6 @@ const YARZ = (() => {
         html += '<option value="pant_' + s.code + '">' + s.label + '</option>';
         customHtml += '<div class="yarz-custom-dropdown__item" data-value="pant_' + s.code + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'pant_' + s.code + '\', \'' + s.label + '\')">' + s.label + '</div>';
       });
-      });
       html += '</optgroup>';
     }
     sizeSel.innerHTML = html;
