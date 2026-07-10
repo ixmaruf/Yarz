@@ -9373,6 +9373,36 @@ body {
   border-style: dashed !important;
 }
 
+/* Mobile overrides — square corners, slightly bigger */
+@media (max-width: 768px) {
+  .size-btn {
+    width: 40px !important;
+    height: 34px !important;
+    min-width: 40px !important;
+    min-height: 34px !important;
+    font-size: 11px !important;
+    border-radius: 0 !important;
+  }
+  .qty-btn {
+    width: 34px !important;
+    height: 32px !important;
+    min-width: 34px !important;
+    min-height: 32px !important;
+    border-radius: 0 !important;
+  }
+  .qty-controls {
+    border-radius: 0 !important;
+  }
+  .pd-actions .btn {
+    padding: 11px 20px !important;
+    font-size: 12px !important;
+    border-radius: 0 !important;
+  }
+  .pd-delivery-info {
+    border-radius: 0 !important;
+  }
+}
+
 .color-option.active,
 .color-option.selected {
   outline: 2px solid var(--accent) !important;
