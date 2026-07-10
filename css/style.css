@@ -6541,17 +6541,20 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
     overflow-y: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    padding: 10px 12px !important;
+    padding: 8px 12px !important;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px !important;
   }
   #filter-drawer .cart-footer {
     flex-shrink: 0 !important;
     background: #FFFFFF !important;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.04) !important;
-    padding: 8px 12px !important;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.06) !important;
+    padding: 10px 12px !important;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
     border-top: 1px solid #F0ECE4 !important;
-    z-index: 2;
+    z-index: 10;
+    position: sticky !important;
+    bottom: 0 !important;
   }
   #filter-drawer .cart-footer .btn {
     padding: 8px 14px !important;
