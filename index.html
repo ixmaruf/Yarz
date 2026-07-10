@@ -462,8 +462,8 @@
       padding-right: 0 !important;
       overflow: hidden !important;
       background: #F4F2EC !important;
-      /* Desktop ratio = owner's upload ratio (1406:738) */
-      aspect-ratio: 1406 / 738 !important;
+      /* Desktop ratio — shorter banner (was 1406:738, now wider) */
+      aspect-ratio: 1406 / 600 !important;
       contain: none !important;
     }
 
@@ -556,8 +556,7 @@
       outline: 0 !important;
     }
 
-    /* ── 8. MOBILE: taller aspect-ratio so the model is prominent.
-       v15.14 OWNER REQUEST: Use 1406/738 on ALL devices, no mobile change. */
+    /* ── 8. MOBILE: slightly shorter banner */
     @media (max-width: 768px) {
       html body .hero-section,
       html body section.hero-section {
@@ -569,16 +568,15 @@
         margin-left: -50vw !important;
         margin-right: -50vw !important;
         padding: 0 !important;
-        aspect-ratio: 1406 / 738 !important;
+        aspect-ratio: 1406 / 700 !important;
       }
     }
 
-    /* ── 9. SMALL PHONES (≤480px): same 1406/738 — keep ratio identical
-       on every device per owner request. */
+    /* ── 9. SMALL PHONES (≤480px): slightly shorter */
     @media (max-width: 480px) {
       html body .hero-section,
       html body section.hero-section {
-        aspect-ratio: 1406 / 738 !important;
+        aspect-ratio: 1406 / 700 !important;
       }
     }
 
