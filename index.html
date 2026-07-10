@@ -1197,6 +1197,9 @@
         <div class="form-group co-field">
           <textarea class="form-input" id="co-address" placeholder="Full Address — House, Road, Area *" autocomplete="off"></textarea>
         </div>
+        <div class="form-group co-field">
+            <input type="text" class="form-input" id="co-city" placeholder="City / Area (e.g. Mirpur, Bandar)" autocomplete="off">
+        </div>
         <div class="form-group" style="margin-bottom:13px;">
             <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Select Delivery Area <span class="required" style="color:var(--accent)">*</span></div>
             <!-- v16: radio-style zone cards (no dropdown). The hidden <select>
@@ -1206,9 +1209,6 @@
             <select id="co-location" onchange="YARZ.renderCheckoutSummary()" style="display:none" aria-hidden="true" tabindex="-1">
               <!-- Options injected dynamically from DELIVERY_CHARGES sheet -->
             </select>
-        </div>
-        <div class="form-group co-field">
-            <input type="text" class="form-input" id="co-city" placeholder="City / Area (e.g. Mirpur, Bandar)" autocomplete="off">
         </div>
         <div class="form-group co-field co-field--select">
           <!-- ✅ v15.93: Same custom chevron treatment for payment select. -->
