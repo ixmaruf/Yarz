@@ -438,7 +438,10 @@ async function handleSupabase(env, action, payload, request) {
             // ✅ FIX #28: camelCase aliases for app.js (L3808 condition: product.couponActive/Code/Disc)
             couponActive: p.coupon_active ?? p.CouponActive,
             couponCode: p.coupon_code ?? p.CouponCode,
-            couponDisc: p.coupon_disc_percent ?? p.CouponDisc
+            couponDisc: p.coupon_disc_percent ?? p.CouponDisc,
+            hidden_sizes: p.hidden_sizes ?? p.HiddenSizes ?? '',
+            size_type: p.size_type ?? p.SizeType ?? '',
+            accessory: p.accessory ?? p.Accessory ?? ''
           };
         }) : data;
         return { success: true, ok: true, data: mapped };
