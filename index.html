@@ -142,7 +142,7 @@
         // products` slot the admin Publish prewarms → ~50ms edge HIT. `_t`
         // is stripped by buildCacheKey so it only busts intermediate HTTP
         // caches, never forks the edge slot.
-        var url = base + '?key=AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k&action=products&_t=' + Date.now();
+        var url = base + '?action=products&_t=' + Date.now();
         // cache:'no-store' so the browser never persists this response either.
         window.__YARZ_EARLY_FETCH = fetch(url, { cache: 'no-store' }).then(function (r) {
           return r.ok ? r.json() : null;
@@ -179,27 +179,25 @@
   <!-- Security: Content Security Policy -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval'
+    script-src 'self' 'unsafe-inline'
       https://connect.facebook.net https://*.facebook.com https://*.fbcdn.net
       https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com
       https://analytics.tiktok.com https://*.tiktok.com
       https://sc-static.net https://*.snapchat.com
       https://*.pinterest.com
-      https://*.clarity.ms https://*.hotjar.com
-      https://script.google.com
+      https://*.clarity.ms
       https://openfpcdn.io
       https://static.cloudflareinsights.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
-    img-src 'self' data: blob: https: http:;
+    img-src 'self' data: blob: https:;
     connect-src 'self'
-      https://script.google.com https://*.googleapis.com https://*.googleusercontent.com
       https://*.workers.dev
       https://graph.facebook.com https://*.facebook.com
       https://analytics.tiktok.com https://*.tiktok.com
       https://www.google-analytics.com https://analytics.google.com
       https://*.clarity.ms
-      http://ip-api.com https://ip-api.com;
+      https://ip-api.com;
     frame-src 'self' https://*.facebook.com https://*.tiktok.com;
   ">
 

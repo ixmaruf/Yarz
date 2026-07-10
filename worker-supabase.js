@@ -908,7 +908,7 @@ async function lookupProductBySlug(slug, env) {
     for (const p of products) {
       const name = (p.Product || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       if (name === slugLower) {
-        console.log("[OG] Found product:", p.Product, "Image1:", p.Image1);
+        // ✅ SECURITY: Removed debug logging
         return p;
       }
     }
@@ -2684,13 +2684,13 @@ async function handleMessengerWebhook(request, env) {
   }
   const entries = (payload && payload.entry) || [];
   const results = [];
-  console.log("[MessengerWebhook] entries=" + entries.length + " body=" + JSON.stringify(payload).substring(0, 500));
+    // ✅ SECURITY: Removed debug logging
   for (const entry of entries) {
     const events = entry.messaging || [];
     for (const ev of events) {
       const senderId = ev.sender && ev.sender.id;
       const msg = ev.message;
-      console.log("[MessengerWebhook] senderId=" + senderId + " msgExists=" + !!msg + " msgKeys=" + (msg ? Object.keys(msg).join(",") : "none"));
+      // ✅ SECURITY: Removed debug logging
       if (!senderId || !msg) continue;
 
       // --- Parse all attachment types (image, audio/voice, video, file) ---
@@ -2721,7 +2721,7 @@ async function handleMessengerWebhook(request, env) {
       if (!text && audioUrl) text = "[কাস্টমার একটি ভয়েস মেসেজ পাঠিয়েছে। শুনে উত্তর দিন।]";
       if (!text) text = "[কাস্টমার একটি অ্যাটাচমেন্ট পাঠিয়েছে]";
 
-      console.log("[MessengerWebhook] text=" + text.substring(0, 200) + " imageUrl=" + (imageUrl ? "yes" : "no") + " audioUrl=" + (audioUrl ? "yes" : "no"));
+      // ✅ SECURITY: Removed debug logging
 
       const r = await handleAgentMessage(env, {
         senderId: senderId,

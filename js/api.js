@@ -117,8 +117,9 @@ var YARZ_API = (function() {
   // Public API credentials (intentionally readable — see note above)
   // APPS_SCRIPT_URL default is empty: Supabase/Worker is primary; GAS only used when explicitly configured.
   const APPS_SCRIPT_URL = _getStoredCredential('yarz_gas_url', '');
-  const GOOGLE_API_KEY = _getStoredCredential('yarz_api_key', 'AIzaSyApMtjj2baO6u19AvppjLtJ1GT1G61qo9k');
-  const SHEET_ID = _getStoredCredential('yarz_sheet_id', '1wQz5OQZAtISTD1FdSEs_j9-p0e-BHwYjmjN7PR9hA-Q');
+  // ✅ SECURITY: Google API key and Sheet ID removed — Supabase/Worker is primary
+  const GOOGLE_API_KEY = '';
+  const SHEET_ID = '';
 
   // ════════════════════════════════════════════════════════════════
   // ✅ v10.3 TURBO LOAD — Google Sheets API v4 Direct Read
