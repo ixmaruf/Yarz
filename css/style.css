@@ -12577,11 +12577,11 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 @media (max-width: 768px) {
   /* Size buttons — bigger on mobile, square corners */
   .size-btn {
-    width: 40px !important;
-    height: 34px !important;
-    min-width: 40px !important;
-    min-height: 34px !important;
-    font-size: 11px !important;
+    width: 46px !important;
+    height: 38px !important;
+    min-width: 46px !important;
+    min-height: 38px !important;
+    font-size: 12px !important;
     border-radius: 0px !important;
   }
   
