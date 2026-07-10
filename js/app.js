@@ -127,7 +127,12 @@ const YARZ = (() => {
           if (isMobile) {
             // Focus the close button instead of input on mobile
             var closeBtn = modalEl.querySelector('.modal-close');
-            if (closeBtn) { closeBtn.focus(); return; }
+            if (closeBtn) { 
+              closeBtn.focus(); 
+              // Blur after a short delay to prevent keyboard popup
+              setTimeout(function() { closeBtn.blur(); }, 100);
+              return; 
+            }
           }
           var firstInput = focusable.find(function(el) {
             return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
