@@ -2143,30 +2143,34 @@ const YARZ = (() => {
     if (!c.accessoriesActive) return;                 // admin master switch OFF
     if (!getAccessoryProducts().length) return;       // nothing flagged yet → hide
 
-    var title = escHtml(c.accessoriesTitle || "Men's Accessories");
-    var subtitle = escHtml(c.accessoriesSubtitle || 'Caps · Watches · Bracelets · Sunglasses');
+    var title = (c.accessoriesTitle || '').trim();
+    var subtitle = (c.accessoriesSubtitle || '').trim();
     var bannerImg = c.accessoriesBanner ? getImgSrc(c.accessoriesBanner, 1600) : '';
+    var hasText = title || subtitle;
 
     var inner = '';
     if (bannerImg) {
       inner =
-        '<img src="' + escHtml(bannerImg) + '" alt="' + title + '" loading="lazy" decoding="async" ' +
+        '<img src="' + escHtml(bannerImg) + '" alt="' + escHtml(title || 'Accessories') + '" loading="lazy" decoding="async" ' +
           'style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" ' +
           'onerror="this.style.display=\'none\'">' +
-        '<div class="acc-banner-overlay">' +
-          '<span class="acc-banner-eyebrow">The Edit</span>' +
-          '<h2 class="acc-banner-title">' + title + '</h2>' +
-          '<span class="acc-banner-sub">' + subtitle + '</span>' +
+        (hasText ?
+          '<div class="acc-banner-overlay">' +
+            (title ? '<h2 class="acc-banner-title">' + escHtml(title) + '</h2>' : '') +
+            (subtitle ? '<span class="acc-banner-sub">' + escHtml(subtitle) + '</span>' : '') +
+          '</div>' : '');
+    } else if (hasText) {
+      // No image but has text — render a gradient card with text
+      inner =
+        '<div class="acc-banner-overlay acc-banner-gradient">' +
+          (title ? '<h2 class="acc-banner-title">' + escHtml(title) + '</h2>' : '') +
+          (subtitle ? '<span class="acc-banner-sub">' + escHtml(subtitle) + '</span>' : '') +
           '<span class="acc-banner-cta">Explore <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>' +
         '</div>';
     } else {
-      // No image yet — render a clean gradient card so the section still looks
-      // intentional and premium (no broken/empty box).
+      // No image, no text — render a minimal dark card
       inner =
         '<div class="acc-banner-overlay acc-banner-gradient">' +
-          '<span class="acc-banner-eyebrow">The Edit</span>' +
-          '<h2 class="acc-banner-title">' + title + '</h2>' +
-          '<span class="acc-banner-sub">' + subtitle + '</span>' +
           '<span class="acc-banner-cta">Explore <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>' +
         '</div>';
     }
@@ -2175,7 +2179,7 @@ const YARZ = (() => {
     section.id = 'yarz-accessories-banner';
     section.className = 'container acc-banner-wrap';
     section.innerHTML =
-      '<button type="button" class="acc-banner" onclick="YARZ.openAccessories()" aria-label="' + title + '">' +
+      '<button type="button" class="acc-banner" onclick="YARZ.openAccessories()" aria-label="' + (title || 'Accessories') + '">' +
         inner +
       '</button>';
 

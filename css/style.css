@@ -12137,7 +12137,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   cursor: pointer;
   padding: 0;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 0;
   background: #14110E;
   aspect-ratio: 1100 / 360;
   box-shadow: 0 10px 30px -12px rgba(0,0,0,0.35);
@@ -12209,7 +12209,7 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
 .acc-banner:hover .acc-banner-cta { background: #C8102E; color: #FBF8F1; }
 
 @media (max-width: 768px) {
-  .acc-banner { aspect-ratio: 750 / 360; border-radius: 14px; }
+  .acc-banner { aspect-ratio: 750 / 360; border-radius: 0; }
   .acc-banner-overlay { padding: 0 7%; gap: 6px; }
 }
 @media (max-width: 480px) {
