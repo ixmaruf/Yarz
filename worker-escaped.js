@@ -705,8 +705,8 @@ function gasUpstream(env) {
 // GitHub Pages is the canonical static host for the customer site.
 // When yarzclothing.xyz receives a non-API GET (no ?action= and no ?key=),
 // proxy to GH Pages so visitors see the actual website instead of JSON.
-const GH_PAGES_BASE = "https://ixmaruf.github.io/Yarz";
-const GH_PAGES_HOST = "ixmaruf.github.io";
+const GH_PAGES_BASE = "https://yarz-website.pages.dev";
+const GH_PAGES_HOST = "yarz-website.pages.dev";
 
 function isStaticRequest(url) {
   // No action AND no key AND not a worker-internal path -> assume browser wants static
@@ -833,7 +833,7 @@ async function handle(request, env, ctx) {
       // Check if request is from admin panel — if so, skip tracking (just return counts)
       const referer = (request.headers.get("referer") || "").toLowerCase();
       const origin = (request.headers.get("origin") || "").toLowerCase();
-      const isAdmin = referer.includes("ixmaruf.github.io") || origin.includes("ixmaruf.github.io");
+      const isAdmin = referer.includes("yarz-admin-panel.pages.dev") || origin.includes("yarz-admin-panel.pages.dev");
       
       if (!isAdmin) {
         // Real visitor from main site — track the visit
@@ -1386,7 +1386,7 @@ export default {
     // modern browsers display it. This fixes the 404 in the browser console.
     if (url.pathname === "/favicon.ico") {
       try {
-        const svgResp = await fetch("https://ixmaruf.github.io/Yarz/favicon.svg");
+        const svgResp = await fetch("https://yarz-website.pages.dev/favicon.svg");
         if (svgResp.ok) {
           const svgBody = await svgResp.text();
           return new Response(svgBody, {

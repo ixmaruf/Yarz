@@ -806,8 +806,8 @@ function gasUpstream(env) {
 // GitHub Pages is the canonical static host for the customer site.
 // When yarzclothing.xyz receives a non-API GET (no ?action= and no ?key=),
 // proxy to GH Pages so visitors see the actual website instead of JSON.
-const GH_PAGES_BASE = "https://ixmaruf.github.io/Yarz";
-const GH_PAGES_HOST = "ixmaruf.github.io";
+const GH_PAGES_BASE = "https://yarz-website.pages.dev";
+const GH_PAGES_HOST = "yarz-website.pages.dev";
 
 function isStaticRequest(url) {
   // No action AND no key AND not a worker-internal path -> assume browser wants static
@@ -821,7 +821,7 @@ function isStaticRequest(url) {
   return true;
 }
 
-async function fetchFromGitHubPages(request) {
+async function fetchFromGitHubPages(request, env) {
   const url = new URL(request.url);
   const target = GH_PAGES_BASE + url.pathname + url.search;
   try {
@@ -840,6 +840,43 @@ async function fetchFromGitHubPages(request) {
       }
       return new Response("Static asset not found: " + url.pathname, { status: ghResp.status });
     }
+    // ✅ Dynamic OG tags for product pages
+    const productSlug = url.searchParams.get("product");
+    if (productSlug && ghResp.headers.get("content-type")?.includes("text/html")) {
+      try {
+        const product = await lookupProductBySlug(productSlug, env);
+        if (product) {
+          let html = await ghResp.text();
+          const imgSrc = product.Image1 || "";
+          const prodName = product.Product || "";
+          const salePrice = product.Sale || "";
+          const category = product.Category || "";
+          // Image URL: use directly if it's a full URL, otherwise use Cloudflare Images
+          const imgUrl = imgSrc ? (imgSrc.startsWith('http') ? imgSrc : `https://imagedelivery.net/QI-O2U_5pMvn8m3p5gApKg/${imgSrc}/product`) : "https://yarzclothing.xyz/images/og-banner.png";
+          const title = prodName + " | YARZ";
+          const desc = "৳" + salePrice + "। " + category + "। ক্যাশ অন ডেলিভারি। YARZ Bangladesh।";
+
+          html = html.replace(/<meta property="og:title" content="[^"]*"/, `<meta property="og:title" content="${escHtmlAttr(title)}"`);
+          html = html.replace(/<meta property="og:description" content="[^"]*"/, `<meta property="og:description" content="${escHtmlAttr(desc)}"`);
+          html = html.replace(/<meta property="og:image" content="[^"]*"/, `<meta property="og:image" content="${escHtmlAttr(imgUrl)}"`);
+          html = html.replace(/<meta property="og:image:secure_url" content="[^"]*"/, `<meta property="og:image:secure_url" content="${escHtmlAttr(imgUrl)}"`);
+          html = html.replace(/<meta property="og:image:alt" content="[^"]*"/, `<meta property="og:image:alt" content="${escHtmlAttr(prodName + ' — YARZ')}"`);
+          html = html.replace(/<meta property="og:url" content="[^"]*"/, `<meta property="og:url" content="https://www.yarzclothing.xyz/?product=${escHtmlAttr(productSlug)}"`);
+          html = html.replace(/<meta name="twitter:title" content="[^"]*"/, `<meta name="twitter:title" content="${escHtmlAttr(title)}"`);
+          html = html.replace(/<meta name="twitter:description" content="[^"]*"/, `<meta name="twitter:description" content="${escHtmlAttr(desc)}"`);
+          html = html.replace(/<meta name="twitter:image" content="[^"]*"/, `<meta name="twitter:image" content="${escHtmlAttr(imgUrl)}"`);
+          html = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtmlAttr(title)}</title>`);
+
+          const respHeaders = new Headers(ghResp.headers);
+          respHeaders.set("Access-Control-Allow-Origin", "*");
+          respHeaders.set("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+          return new Response(html, {status: ghResp.status, headers: respHeaders});
+        }
+      } catch (e) {
+        // Fall through to normal response
+      }
+    }
+
     // Pass through content, with permissive cache
     const respHeaders = new Headers(ghResp.headers);
     respHeaders.set("Access-Control-Allow-Origin", "*");
@@ -852,6 +889,33 @@ async function fetchFromGitHubPages(request) {
 
 function pathHasExtension(p) {
   return /\.[a-z0-9]{1,5}$/i.test(p);
+}
+
+// ✅ OG Tags: Look up product by slug for dynamic OG tags
+async function lookupProductBySlug(slug, env) {
+  if (!slug || !env) return null;
+  try {
+    const products = await supabaseRequest(env,
+      "website_sync_view?select=Product,Image1,Sale,Category&limit=1000", { method: "GET" });
+    if (!Array.isArray(products)) return null;
+    const slugLower = slug.toLowerCase();
+    for (const p of products) {
+      const name = (p.Product || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (name === slugLower) {
+        console.log("[OG] Found product:", p.Product, "Image1:", p.Image1);
+        return p;
+      }
+    }
+    console.log("[OG] No product found for slug:", slug);
+    return null;
+  } catch (e) {
+    console.error("[OG] lookup error:", e.message);
+    return null;
+  }
+}
+
+function escHtmlAttr(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ----------------------- ROUTER -----------------------
@@ -935,7 +999,7 @@ async function handle(request, env, ctx) {
       // Check if request is from admin panel — if so, skip tracking (just return counts)
       const referer = (request.headers.get("referer") || "").toLowerCase();
       const origin = (request.headers.get("origin") || "").toLowerCase();
-      const isAdmin = referer.includes("ixmaruf.github.io") || origin.includes("ixmaruf.github.io")
+      const isAdmin = referer.includes("yarz-admin-panel.pages.dev") || origin.includes("yarz-admin-panel.pages.dev")
                     || referer.includes("yARZ-Pro") || referer.includes("yARZ-pro");
       
       if (!isAdmin) {
@@ -1494,7 +1558,7 @@ export default {
     // modern browsers display it. This fixes the 404 in the browser console.
     if (url.pathname === "/favicon.ico") {
       try {
-        const svgResp = await fetch("https://ixmaruf.github.io/Yarz/favicon.svg");
+        const svgResp = await fetch("https://yarz-website.pages.dev/favicon.svg");
         if (svgResp.ok) {
           const svgBody = await svgResp.text();
           return new Response(svgBody, {
@@ -1527,7 +1591,7 @@ export default {
         const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "";
         // v18.11: Skip IP block for admin panel requests (Origin/Referer from GitHub Pages admin)
         const reqOrigin = (request.headers.get("origin") || request.headers.get("referer") || "").toLowerCase();
-        const isAdminRequest = reqOrigin.includes("ixmaruf.github.io");
+        const isAdminRequest = reqOrigin.includes("yarz-admin-panel.pages.dev");
         if (clientIp && clientIp !== "unknown" && !isAdminRequest) {
           const blockedCheck = await supabaseRequest(env, "blocked_devices?select=device_id&status=eq.active&device_id=eq." + encodeURIComponent(clientIp), { method: "GET" });
           if (Array.isArray(blockedCheck) && blockedCheck.length > 0) {
@@ -1541,7 +1605,7 @@ export default {
     }
 
     if (request.method === "GET" && isStaticRequest(url)) {
-      return await fetchFromGitHubPages(request);
+      return await fetchFromGitHubPages(request, env);
     }
     return handle(request, env, ctx);
   }

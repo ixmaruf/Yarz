@@ -75,7 +75,7 @@ var YARZ_API = (function() {
   //   • keeps cookies in scope (visitor cookie set by Worker is accessible)
   //
   // Detection: if current page hostname is anything OTHER than the local
-  // GitHub Pages preview (ixmaruf.github.io) or pure file://, assume the
+  // Cloudflare Pages (yarz-website.pages.dev) or pure file://, assume the
   // Worker is bound to the same origin and use relative URLs. The
   // localStorage override `yarz_worker_url` still wins for staging/debug.
   function _detectWorkerUrl() {
