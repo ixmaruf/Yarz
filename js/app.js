@@ -4064,11 +4064,11 @@ const YARZ = (() => {
       var isOneSz = isOneSize(product);
       var totalStock = isOneSz ? oneSizeStock(product) : (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
       if (totalStock > 0) {
-        var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#D4A053' : 'var(--text-secondary)';
+        var dotColor = totalStock <= 5 ? '#DC2626' : totalStock <= 10 ? '#D97706' : '#16A34A';
         var stockLabel = isOneSz ? totalStock + ' pieces in stock' : 'Select size to check stock';
-        _stockBarHtml = '<div id="stock-urgency-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:' + urgencyColor + ';">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' +
-          '<span id="stock-urgency-text" style="font-weight:600;">' + stockLabel + '</span>' +
+        _stockBarHtml = '<div id="stock-urgency-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;"></span>' +
+          '<span id="stock-urgency-text" style="font-size:12px;font-weight:500;color:var(--text-secondary,#3A3530);">' + stockLabel + '</span>' +
         '</div>';
       }
     }
@@ -4264,11 +4264,13 @@ const YARZ = (() => {
     if (!bar || !textEl || !product) return;
 
     var stock = _getEffectiveStock(product, size);
-    var color = stock <= 5 ? '#EF4444' : stock <= 10 ? '#D4A053' : 'var(--text-secondary)';
+    var dotColor = stock <= 5 ? '#DC2626' : stock <= 10 ? '#D97706' : '#16A34A';
     var label = stock + ' in ' + _sizeLabel(size) + ' stock';
 
     textEl.textContent = label;
-    bar.style.color = color;
+    // Update the dot color
+    var dot = bar.querySelector('span');
+    if (dot) dot.style.background = dotColor;
   }
 
   function selectSize(s) {
