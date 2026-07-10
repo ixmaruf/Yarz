@@ -4500,8 +4500,14 @@ const YARZ = (() => {
 
   // ✅ v16.1 ONE-SIZE: display helper — show "One Size" instead of the raw
   // "ONE" token wherever a size label is printed (cart, checkout, etc.).
-  function _sizeLabel(size) {
-    return (String(size).toUpperCase() === ONE_SIZE_CODE) ? 'One Size' : size;
+  function _sizeLabel(size, product) {
+    if (String(size).toUpperCase() === ONE_SIZE_CODE) return 'One Size';
+    // For pants, show waist size instead of letter
+    if (product && _effectiveIsPant(product.category, product)) {
+      var pantMap = { S: '28"', M: '30"', L: '32"', XL: '34"', XXL: '36"', '3XL': '38"' };
+      return pantMap[String(size).toUpperCase()] || size;
+    }
+    return size;
   }
 
   // Update the stock urgency bar when a size is selected
@@ -4513,7 +4519,7 @@ const YARZ = (() => {
     var stock = _getEffectiveStock(product, size);
     var dotColor = stock <= 5 ? '#DC2626' : stock <= 10 ? '#D97706' : '#16A34A';
     var bgColor = stock <= 5 ? 'rgba(220,38,38,0.08)' : stock <= 10 ? 'rgba(217,119,6,0.08)' : 'rgba(22,163,74,0.06)';
-    var label = stock + ' in ' + _sizeLabel(size) + ' stock';
+    var label = stock + ' in ' + _sizeLabel(size, product) + ' stock';
 
     textEl.textContent = label;
     bar.style.background = bgColor;
