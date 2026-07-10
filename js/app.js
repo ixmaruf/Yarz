@@ -8666,7 +8666,7 @@ const YARZ = (() => {
         if (coCity && !document.getElementById('co-order-notes')) {
           var notesGroup = document.createElement('div');
           notesGroup.className = 'form-group';
-          notesGroup.innerHTML = '<label>Order Notes / Gift Message</label><textarea class="form-input" id="co-order-notes" placeholder="Any special instructions or gift message..." style="min-height:60px;font-size:13px;"></textarea>';
+          notesGroup.innerHTML = '<label>Order Notes / Gift Message</label><textarea class="form-input" id="co-order-notes" placeholder="যেকোনো বিশেষ নির্দেশনা বা গিফট মেসেজ লিখুন..." style="min-height:60px;font-size:13px;"></textarea>';
           coCity.parentNode.parentNode.insertBefore(notesGroup, coCity.parentNode.nextSibling);
         }
       }
