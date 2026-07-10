@@ -9381,25 +9381,25 @@ body {
     min-width: 40px !important;
     min-height: 34px !important;
     font-size: 11px !important;
-    border-radius: 0 !important;
+    border-radius: 0px !important;
   }
   .qty-btn {
     width: 34px !important;
     height: 32px !important;
     min-width: 34px !important;
     min-height: 32px !important;
-    border-radius: 0 !important;
+    border-radius: 0px !important;
   }
   .qty-controls {
-    border-radius: 0 !important;
+    border-radius: 0px !important;
   }
   .pd-actions .btn {
     padding: 11px 20px !important;
     font-size: 12px !important;
-    border-radius: 0 !important;
+    border-radius: 0px !important;
   }
   .pd-delivery-info {
-    border-radius: 0 !important;
+    border-radius: 0px !important;
   }
 }
 
