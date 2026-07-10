@@ -4044,19 +4044,6 @@ const YARZ = (() => {
       html +=   '<div class="ct-helper">Buy Now চাপুন · চেকআউটে এই কোডটি বসান · ডিসকাউন্ট পান</div>';
       html += '</div>';
     }
-    if (product.description) {
-      var descText = escHtml(product.description);
-      var isLong = descText.length > 150 || (descText.match(/\n/g) || []).length >= 2;
-      html += '<div class="pd-description-container" style="margin-top:16px; margin-bottom:16px;">';
-      html += '<div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Description</div>';
-      if (isLong) {
-        html += '<div id="pd-desc-text" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; font-size: 14px; color: var(--text-secondary); line-height: 1.6; transition: all 0.3s ease;">' + descText + '</div>';
-        html += '<button onclick="YARZ.toggleDescription(this)" style="background:none; border:none; color:var(--brand); font-size:13px; font-weight:600; padding:0; margin-top:8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">Read More <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.3s"><path d="m6 9 6 6 6-6"/></svg></button>';
-      } else {
-        html += '<div style="white-space: pre-line; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">' + descText + '</div>';
-      }
-      html += '</div>';
-    }
 
     // Stock Urgency Bar — eye-catching but matches website design
     var _stockBarHtml = '';
@@ -4120,6 +4107,21 @@ const YARZ = (() => {
     html += '<button class="btn btn-primary btn-lg" onclick="YARZ.addToCart()" id="add-to-cart-btn"' + (!product.inStock ? ' disabled' : '') + '>' + escHtml(cartBtnText) + '</button>';
     html += '<button class="btn btn-outline btn-lg" onclick="YARZ.buyNow()" id="buy-now-btn"' + (!product.inStock ? ' disabled' : '') + '>Buy Now</button>';
     html += '</div>';
+
+    // Description — below action buttons
+    if (product.description) {
+      var descText = escHtml(product.description);
+      var isLong = descText.length > 150 || (descText.match(/\n/g) || []).length >= 2;
+      html += '<div class="pd-description-container" style="margin-top:16px; margin-bottom:16px;">';
+      html += '<div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Description</div>';
+      if (isLong) {
+        html += '<div id="pd-desc-text" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; font-size: 14px; color: var(--text-secondary); line-height: 1.6; transition: all 0.3s ease;">' + descText + '</div>';
+        html += '<button onclick="YARZ.toggleDescription(this)" style="background:none; border:none; color:var(--brand); font-size:13px; font-weight:600; padding:0; margin-top:8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">Read More <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.3s"><path d="m6 9 6 6 6-6"/></svg></button>';
+      } else {
+        html += '<div style="white-space: pre-line; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">' + descText + '</div>';
+      }
+      html += '</div>';
+    }
 
     // ✅ v17.10: Trust Badges Strip — admin-controlled (Advanced tab)
     // ✅ v15.6 FIX: Renamed from `trustBadges` (collided with boolean) to `trustBadgeItems`

@@ -12367,3 +12367,66 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   }
 }
 
+/* ════════════════════════════════════════════════════════════
+   MOBILE — Product page compact elements
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Size buttons — smaller on mobile */
+  .size-btn {
+    width: 34px !important;
+    height: 28px !important;
+    font-size: 10px !important;
+    border-radius: 6px !important;
+  }
+  
+  /* Size options gap */
+  .size-options {
+    gap: 4px !important;
+  }
+  
+  /* Quantity controls — smaller on mobile */
+  .qty-btn {
+    width: 28px !important;
+    height: 26px !important;
+  }
+  
+  .qty-controls {
+    border-radius: 8px !important;
+  }
+  
+  /* Action buttons — smaller on mobile */
+  .pd-actions .btn {
+    padding: 8px 16px !important;
+    font-size: 11px !important;
+  }
+  
+  /* Delivery info — smaller on mobile */
+  .pd-delivery-info {
+    border-radius: 8px !important;
+    padding: 8px !important;
+  }
+  
+  .pd-delivery-row {
+    font-size: 10px !important;
+    padding: 3px 0 !important;
+    gap: 6px !important;
+  }
+  
+  .pd-delivery-row svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  
+  /* Size label */
+  .pd-sizes .label {
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
+  }
+  
+  /* Quantity label */
+  .pd-qty .label {
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
+  }
+}
+
