@@ -3422,8 +3422,27 @@ const YARZ = (() => {
   function _selectSort(el) {
     document.querySelectorAll('.filter-chip[data-sort]').forEach(function(c){ c.classList.remove('active'); });
     el.classList.add('active');
+    // Visual feedback - pulse animation
+    el.style.transform = 'scale(0.95)';
+    setTimeout(function() { el.style.transform = ''; }, 150);
     state.currentSort = el.getAttribute('data-sort') || 'default';
     applyFilters();
+    _showFilterFeedback('Sort: ' + el.textContent.trim());
+  }
+
+  function _showFilterFeedback(msg) {
+    var existing = document.getElementById('filter-feedback-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'filter-feedback-toast';
+    toast.textContent = msg;
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1A1A2E;color:#FFF;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;opacity:0;transition:opacity 0.2s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+    document.body.appendChild(toast);
+    requestAnimationFrame(function() { toast.style.opacity = '1'; });
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      setTimeout(function() { toast.remove(); }, 200);
+    }, 1200);
   }
 
   /* ─── Custom Dropdown Functions ─── */
@@ -3454,7 +3473,7 @@ const YARZ = (() => {
     labelEl.textContent = label;
     
     // Update selected state
-    list.querySelectorAll('.yarz-custom-dropdown__item').forEach(function(item) {
+    list.querySelectorAll('div[data-value]').forEach(function(item) {
       if (item.getAttribute('data-value') === value) {
         item.style.background = '#1A1A2E';
         item.style.color = '#FFFFFF';
@@ -3471,9 +3490,11 @@ const YARZ = (() => {
     if (dropdownId === 'filter-category-dropdown') {
       var catSel = document.getElementById('filter-category-select');
       if (catSel) { catSel.value = value; catSel.dispatchEvent(new Event('change')); }
+      _showFilterFeedback('Category: ' + label);
     } else if (dropdownId === 'filter-size-dropdown') {
       var sizeSel = document.getElementById('filter-size-select');
       if (sizeSel) { sizeSel.value = value; sizeSel.dispatchEvent(new Event('change')); }
+      _showFilterFeedback('Size: ' + label);
     }
   }
 
