@@ -1273,7 +1273,7 @@ const YARZ = (() => {
   // This lets the owner force the right labels for custom categories the
   // auto-detect can't recognize (e.g. "Joggers", a Bengali category name).
   function _productSizeType(product) {
-    return product ? String(product.sizeType || '').trim().toLowerCase() : '';
+    return product ? String(product.sizeType || product.size_type || '').trim().toLowerCase() : '';
   }
   function _effectiveIsPant(category, product) {
     var st = _productSizeType(product);
@@ -1290,7 +1290,9 @@ const YARZ = (() => {
   var ONE_SIZE_CODE = 'ONE';
   function isOneSize(product) {
     if (!product) return false;
-    return String(product.hiddenSizes || '').trim().toUpperCase() === ONE_SIZE_FLAG;
+    // Check both camelCase (normalized) and snake_case (raw Worker) field names
+    var v = String(product.hiddenSizes || product.hidden_sizes || '').trim().toUpperCase();
+    return v === ONE_SIZE_FLAG;
   }
   // ✅ v16.3 MEN'S ACCESSORIES: a product flagged "accessory" in the admin
   // (INVENTORY column AZ → product.accessory === "Yes") belongs to the separate
@@ -1332,7 +1334,7 @@ const YARZ = (() => {
   function _parseHiddenSizes(product) {
     var map = {};
     if (!product) return map;
-    var raw = product.hiddenSizes;
+    var raw = product.hiddenSizes || product.hidden_sizes;
     if (!raw) return map;
     String(raw).split(',').forEach(function(s){
       var k = String(s).trim().toUpperCase();
