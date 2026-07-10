@@ -118,8 +118,11 @@ const YARZ = (() => {
     // Focus the first input (or close button) on open. 50ms delay
     // lets the modal's CSS transition start so the focus indicator
     // is visible.
+    // ✅ v18.37: Skip auto-focus on mobile to prevent keyboard popup
     setTimeout(function() {
       try {
+        var isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) return; // Don't focus input on mobile — it opens键盘
         var focusable = getFocusable();
         if (focusable.length) {
           var firstInput = focusable.find(function(el) {
