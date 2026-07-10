@@ -12604,7 +12604,11 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   }
   
   /* Action buttons — bigger on mobile, square corners */
-  .pd-actions .btn {
+  .pd-actions .btn,
+  .pd-actions .btn-primary,
+  .pd-actions .btn-outline,
+  #buy-now-btn,
+  #add-to-cart-btn {
     padding: 11px 20px !important;
     font-size: 12px !important;
     border-radius: 0px !important;
