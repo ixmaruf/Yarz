@@ -4058,22 +4058,17 @@ const YARZ = (() => {
       html += '</div>';
     }
 
-    // Stock Urgency Bar — compact, above size selector
+    // Stock Urgency Bar — matches website design language
     var _stockBarHtml = '';
     if (state.stockBar && product.inStock) {
       var isOneSz = isOneSize(product);
       var totalStock = isOneSz ? oneSizeStock(product) : (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
       if (totalStock > 0) {
-        var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#F59E0B' : '#22C55E';
-        var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
+        var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#D4A053' : 'var(--text-secondary)';
         var stockLabel = isOneSz ? totalStock + ' pieces in stock' : 'Select size to check stock';
-        _stockBarHtml = '<div id="stock-urgency-bar" style="margin-bottom:10px;">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
-            '<span id="stock-urgency-text" style="font-size:11px;font-weight:600;color:' + urgencyColor + ';letter-spacing:0.02em;">⚡ ' + stockLabel + '</span>' +
-          '</div>' +
-          '<div style="height:3px;background:var(--border-light,#E5E7EB);border-radius:2px;overflow:hidden;">' +
-            '<div id="stock-urgency-fill" style="height:100%;width:' + urgencyPct + '%;background:' + urgencyColor + ';border-radius:2px;transition:width 0.4s ease;"></div>' +
-          '</div>' +
+        _stockBarHtml = '<div id="stock-urgency-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:' + urgencyColor + ';">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' +
+          '<span id="stock-urgency-text" style="font-weight:600;">' + stockLabel + '</span>' +
         '</div>';
       }
     }
@@ -4266,18 +4261,14 @@ const YARZ = (() => {
   function _updateStockBar(product, size) {
     var bar = $('#stock-urgency-bar');
     var textEl = $('#stock-urgency-text');
-    var fillEl = $('#stock-urgency-fill');
-    if (!bar || !textEl || !fillEl || !product) return;
+    if (!bar || !textEl || !product) return;
 
     var stock = _getEffectiveStock(product, size);
-    var color = stock <= 5 ? '#EF4444' : stock <= 10 ? '#F59E0B' : '#22C55E';
-    var pct = Math.min(100, Math.max(10, (stock / 20) * 100));
-    var label = 'Only ' + stock + ' left in ' + _sizeLabel(size);
+    var color = stock <= 5 ? '#EF4444' : stock <= 10 ? '#D4A053' : 'var(--text-secondary)';
+    var label = stock + ' in ' + _sizeLabel(size) + ' stock';
 
-    textEl.textContent = '⚡ ' + label;
-    textEl.style.color = color;
-    fillEl.style.width = pct + '%';
-    fillEl.style.background = color;
+    textEl.textContent = label;
+    bar.style.color = color;
   }
 
   function selectSize(s) {
