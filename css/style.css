@@ -12575,12 +12575,14 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
    MOBILE — Product page compact elements
    ════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* Size buttons — smaller on mobile */
+  /* Size buttons — bigger on mobile, square corners */
   .size-btn {
-    width: 34px !important;
-    height: 28px !important;
-    font-size: 10px !important;
-    border-radius: 6px !important;
+    width: 40px !important;
+    height: 34px !important;
+    min-width: 40px !important;
+    min-height: 34px !important;
+    font-size: 11px !important;
+    border-radius: 0px !important;
   }
   
   /* Size options gap */
@@ -12588,25 +12590,29 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
     gap: 4px !important;
   }
   
-  /* Quantity controls — smaller on mobile */
+  /* Quantity controls — bigger on mobile, square corners */
   .qty-btn {
-    width: 28px !important;
-    height: 26px !important;
+    width: 34px !important;
+    height: 32px !important;
+    min-width: 34px !important;
+    min-height: 32px !important;
+    border-radius: 0px !important;
   }
   
   .qty-controls {
-    border-radius: 8px !important;
+    border-radius: 0px !important;
   }
   
-  /* Action buttons — smaller on mobile */
+  /* Action buttons — bigger on mobile, square corners */
   .pd-actions .btn {
-    padding: 8px 16px !important;
-    font-size: 11px !important;
+    padding: 11px 20px !important;
+    font-size: 12px !important;
+    border-radius: 0px !important;
   }
   
-  /* Delivery info — smaller on mobile */
+  /* Delivery info — square corners */
   .pd-delivery-info {
-    border-radius: 8px !important;
+    border-radius: 0px !important;
     padding: 8px !important;
   }
   
