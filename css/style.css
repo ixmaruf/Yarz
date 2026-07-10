@@ -12367,3 +12367,364 @@ a:not([class]):not([href*='facebook']):not([href*='whatsapp']):not([href*='wa.me
   }
 }
 
+
+/* ════════════════════════════════════════════════════════════
+   v18.42 — CHECKOUT MODAL REDESIGN
+   Clean, modern, premium checkout experience
+   ════════════════════════════════════════════════════════════ */
+
+/* — Modal shell — */
+#checkout-modal .modal-box {
+  border-radius: 16px !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.04) !important;
+  max-width: 440px !important;
+  overflow: hidden;
+}
+
+/* — Header — */
+#checkout-modal .modal-header {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #F0ECE4 !important;
+  padding: 20px 24px 18px !important;
+}
+#checkout-modal .modal-header h3 {
+  font-family: var(--font-body, 'Inter', sans-serif) !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  font-size: 18px !important;
+  letter-spacing: -0.01em;
+  color: #1A1A2E !important;
+}
+#checkout-modal .modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #E8E4DC;
+  background: #FFFFFF;
+  color: #4A4A5A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+#checkout-modal .modal-close:hover {
+  background: #F5F0E6;
+  border-color: #4A4A5A;
+  color: #1A1A2E;
+}
+
+/* — Body — */
+#checkout-modal .modal-body {
+  padding: 24px !important;
+}
+
+/* — Order Summary — */
+#checkout-modal #checkout-items {
+  background: #FBF8F1;
+  border: 1px solid #F0ECE4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+#checkout-modal #checkout-items > div,
+#checkout-modal #checkout-items > .checkout-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: #1A1A2E;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+#checkout-modal #checkout-items > div:last-child,
+#checkout-modal #checkout-items > .checkout-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* — Form fields — */
+#checkout-modal .form-group {
+  margin-bottom: 14px;
+}
+#checkout-modal .form-group label {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  color: #1A1A2E !important;
+  margin-bottom: 6px;
+}
+#checkout-modal .form-group label .required {
+  color: #C0392B;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* — Inputs — */
+#checkout-modal .form-input,
+#checkout-modal .form-select,
+#checkout-modal textarea.form-input {
+  border-radius: 10px !important;
+  border: 1.5px solid #E8E4DC !important;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  background: #FFFFFF !important;
+  color: #1A1A2E !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+  box-shadow: none !important;
+}
+#checkout-modal textarea.form-input {
+  min-height: 72px;
+  resize: vertical;
+  line-height: 1.5;
+}
+#checkout-modal .form-input::placeholder,
+#checkout-modal textarea.form-input::placeholder {
+  color: #9CA3AF;
+  opacity: 1;
+  font-weight: 400;
+}
+#checkout-modal .form-input:hover,
+#checkout-modal .form-select:hover,
+#checkout-modal textarea.form-input:hover {
+  border-color: #4A4A5A !important;
+}
+#checkout-modal .form-input:focus,
+#checkout-modal .form-select:focus,
+#checkout-modal textarea.form-input:focus {
+  border-color: #634A8E !important;
+  box-shadow: 0 0 0 3px rgba(99,74,142,0.08) !important;
+  outline: none !important;
+}
+
+/* — Form rows — */
+#checkout-modal .form-row {
+  display: flex;
+  gap: 12px;
+}
+#checkout-modal .form-row .form-group {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  #checkout-modal .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+/* — Zone cards — */
+#checkout-modal .yarz-zone-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#checkout-modal .yarz-zone-card {
+  flex: 1;
+  min-width: 120px;
+  padding: 12px 14px;
+  border: 1.5px solid #E8E4DC;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #FFFFFF;
+}
+#checkout-modal .yarz-zone-card:hover {
+  border-color: #4A4A5A;
+}
+#checkout-modal .yarz-zone-card__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #E8E4DC;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+#checkout-modal .yarz-zone-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A1A2E;
+}
+#checkout-modal .yarz-zone-card__price {
+  font-size: 12px;
+  color: #4A4A5A;
+  margin-left: auto;
+}
+#checkout-modal .yarz-zone-card.is-selected {
+  border-color: #634A8E;
+  background: rgba(99,74,142,0.04);
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__dot {
+  border-color: #634A8E;
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__dot::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: #634A8E;
+  border-radius: 50%;
+}
+#checkout-modal .yarz-zone-card.is-selected .yarz-zone-card__price {
+  color: #634A8E;
+  font-weight: 600;
+}
+
+/* — Payment select — */
+#checkout-modal #co-payment {
+  appearance: none;
+  -webkit-appearance: none;
+}
+#checkout-modal .yarz-select-wrap {
+  position: relative;
+}
+#checkout-modal .yarz-select-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 8px;
+  color: #4A4A5A;
+  pointer-events: none;
+}
+
+/* — Payment info box — */
+#checkout-modal .payment-info-box {
+  background: #FBF8F1;
+  border: 1px solid #F0ECE4;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 10px;
+}
+#checkout-modal .payment-info-box .pay-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1A1A2E;
+  margin-bottom: 8px;
+}
+#checkout-modal .payment-info-box .pay-number-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+#checkout-modal .payment-info-box .pay-number {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1A1A2E;
+  letter-spacing: 0.02em;
+}
+#checkout-modal .payment-info-box .pay-instruction {
+  font-size: 12px;
+  color: #4A4A5A;
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.04);
+}
+#checkout-modal .payment-info-box .pay-instruction strong {
+  color: #1A1A2E;
+  font-weight: 700;
+}
+#checkout-modal .payment-info-box #co-trxid {
+  margin-top: 10px;
+}
+#checkout-modal .payment-info-box #co-trxid:focus {
+  border-color: #634A8E;
+  box-shadow: 0 0 0 3px rgba(99,74,142,0.08);
+}
+
+/* — Place Order button — */
+#checkout-modal #checkout-submit-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #1A1A2E;
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 16px;
+}
+#checkout-modal #checkout-submit-btn:hover:not(:disabled) {
+  background: #2A2A3E;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+#checkout-modal #checkout-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+#checkout-modal #checkout-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* — Terms text — */
+#checkout-modal .modal-body > p {
+  text-align: center;
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-top: 12px;
+}
+#checkout-modal .modal-body > p a {
+  color: #634A8E;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+/* — Coupon section — */
+#checkout-modal #checkout-coupon-section .form-input {
+  flex: 1;
+}
+#checkout-modal #checkout-coupon-section .btn-outline {
+  padding: 0 16px;
+  white-space: nowrap;
+  border-radius: 10px;
+  border: 1.5px solid #E8E4DC;
+  background: #FFFFFF;
+  color: #1A1A2E;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+#checkout-modal #checkout-coupon-section .btn-outline:hover {
+  border-color: #634A8E;
+  color: #634A8E;
+}
+
+/* — Mobile adjustments — */
+@media (max-width: 768px) {
+  #checkout-modal .modal-box {
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  #checkout-modal .modal-header {
+    padding: 16px 20px 14px !important;
+  }
+  #checkout-modal .modal-header h3 {
+    font-size: 16px !important;
+  }
+  #checkout-modal .modal-body {
+    padding: 16px 20px 20px !important;
+  }
+  #checkout-modal #checkout-submit-btn {
+    padding: 14px 20px;
+    font-size: 13px;
+  }
+}
+
