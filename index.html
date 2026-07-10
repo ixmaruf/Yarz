@@ -1113,21 +1113,31 @@
       </div>
       <div style="margin-bottom:20px;">
         <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Category</h4>
-        <div class="filter-select-wrap">
-          <select id="filter-category-select" class="filter-select" onchange="YARZ._onFilterCategoryChange()">
-            <option value="">All Categories</option>
-          </select>
-          <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        <div class="yarz-custom-dropdown" id="filter-category-dropdown">
+          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-category-dropdown')">
+            <span class="yarz-custom-dropdown__label">All Categories</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="yarz-custom-dropdown__list" id="filter-category-list"></div>
         </div>
+        <!-- Hidden native select for backwards compatibility -->
+        <select id="filter-category-select" style="display:none" onchange="YARZ._onFilterCategoryChange()">
+          <option value="">All Categories</option>
+        </select>
       </div>
       <div>
         <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Size</h4>
-        <div class="filter-select-wrap">
-          <select id="filter-size-select" class="filter-select" onchange="YARZ._onFilterSizeChange()">
-            <option value="">All Sizes</option>
-          </select>
-          <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        <div class="yarz-custom-dropdown" id="filter-size-dropdown">
+          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-size-dropdown')">
+            <span class="yarz-custom-dropdown__label">All Sizes</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="yarz-custom-dropdown__list" id="filter-size-list"></div>
         </div>
+        <!-- Hidden native select for backwards compatibility -->
+        <select id="filter-size-select" style="display:none" onchange="YARZ._onFilterSizeChange()">
+          <option value="">All Sizes</option>
+        </select>
       </div>
     </div>
     <div class="cart-footer">

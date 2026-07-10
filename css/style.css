@@ -8987,6 +8987,97 @@ body {
   pointer-events: none;
 }
 
+/* Custom dropdown — replaces native <select> */
+.yarz-custom-dropdown {
+  position: relative;
+  width: 100%;
+}
+.yarz-custom-dropdown__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid #E8E4DC;
+  border-radius: 6px;
+  background: #FFFFFF;
+  font-size: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: #1A1A2E;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  outline: none;
+  text-align: left;
+}
+.yarz-custom-dropdown__btn:hover {
+  border-color: #4A4A5A;
+}
+.yarz-custom-dropdown__btn.is-open {
+  border-color: #634A8E;
+}
+.yarz-custom-dropdown__btn svg {
+  width: 14px;
+  height: 14px;
+  color: #4A4A5A;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.yarz-custom-dropdown__btn.is-open svg {
+  transform: rotate(180deg);
+}
+.yarz-custom-dropdown__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #FFFFFF;
+  border: 1px solid #E8E4DC;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+}
+.yarz-custom-dropdown__list.is-open {
+  display: block;
+}
+.yarz-custom-dropdown__item {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: #1A1A2E;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border-bottom: 1px solid #F5F0E6;
+}
+.yarz-custom-dropdown__item:last-child {
+  border-bottom: none;
+}
+.yarz-custom-dropdown__item:hover {
+  background: #F5F0E6;
+}
+.yarz-custom-dropdown__item.is-selected {
+  background: #1A1A2E;
+  color: #FFFFFF;
+}
+.yarz-custom-dropdown__item.is-selected:hover {
+  background: #2A2A3E;
+}
+.yarz-custom-dropdown__optgroup-label {
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #4A4A5A;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #FBF8F1;
+  border-bottom: 1px solid #F0ECE4;
+}
+
 /* Filter section headings */
 #filter-drawer .cart-body h4 {
   color: #1A1A2E !important;
