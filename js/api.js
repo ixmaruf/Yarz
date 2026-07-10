@@ -1406,7 +1406,7 @@ var YARZ_API = (function() {
         igGridLink:       String(get('ig_grid_link') || ''),
         // ✅ v16.3: Men's Accessories showcase (separate world)
         accessoriesActive:   parseBool(get('accessories_active')),
-        accessoriesTitle:    String(get('accessories_title') || "Men's Accessories"),
+        accessoriesTitle:    String(get('accessories_title') ?? ''),
         accessoriesSubtitle: String(get('accessories_subtitle') || ''),
         accessoriesBanner:   String(get('accessories_banner') || ''),
         // Best sellers / new arrivals / recently viewed / wishlist

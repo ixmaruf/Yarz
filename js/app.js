@@ -3264,7 +3264,7 @@ const YARZ = (() => {
     }
 
     var titleEl = document.getElementById('collection-title');
-    var accTitle = (state.controls && state.controls.accessoriesTitle) || "Men's Accessories";
+    var accTitle = (state.controls && state.controls.accessoriesTitle) || 'Accessories';
     if (titleEl) titleEl.textContent = accTitle;
 
     // Feed the collection engine ONLY accessory products.
