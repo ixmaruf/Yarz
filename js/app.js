@@ -118,22 +118,21 @@ const YARZ = (() => {
     // Focus the first input (or close button) on open. 50ms delay
     // lets the modal's CSS transition start so the focus indicator
     // is visible.
-    // ✅ v18.37: On mobile, focus close button instead of input to prevent keyboard popup
+    // ✅ v18.37: On mobile, skip all focus to prevent keyboard popup
     setTimeout(function() {
       try {
         var isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+          // Temporarily set inputmode=none on all inputs to prevent keyboard
+          var inputs = modalEl.querySelectorAll('input, textarea, select');
+          inputs.forEach(function(inp) {
+            inp.setAttribute('inputmode', 'none');
+            setTimeout(function() { inp.removeAttribute('inputmode'); }, 500);
+          });
+          return;
+        }
         var focusable = getFocusable();
         if (focusable.length) {
-          if (isMobile) {
-            // Focus the close button instead of input on mobile
-            var closeBtn = modalEl.querySelector('.modal-close');
-            if (closeBtn) { 
-              closeBtn.focus(); 
-              // Blur after a short delay to prevent keyboard popup
-              setTimeout(function() { closeBtn.blur(); }, 100);
-              return; 
-            }
-          }
           var firstInput = focusable.find(function(el) {
             return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
           });
