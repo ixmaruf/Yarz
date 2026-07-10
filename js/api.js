@@ -232,6 +232,7 @@ var YARZ_API = (function() {
             // ✅ Map snake_case → camelCase for one-size / accessory (turbo path)
             if (!p.hiddenSizes && p.hidden_sizes) p.hiddenSizes = p.hidden_sizes;
             if (!p.sizeType && p.size_type) p.sizeType = p.size_type;
+            if (!p.sizeChart && p.size_chart) p.sizeChart = p.size_chart;
             if (!p.stockS && p.stk_s) p.stockS = p.stk_s;
             if (!p.stockM && p.stk_m) p.stockM = p.stk_m;
             if (!p.stockL && p.stk_l) p.stockL = p.stk_l;
@@ -668,6 +669,7 @@ var YARZ_API = (function() {
           // ✅ Map Worker snake_case → app.js camelCase for one-size / accessory
           if (!p.hiddenSizes && p.hidden_sizes) p.hiddenSizes = p.hidden_sizes;
           if (!p.sizeType && p.size_type) p.sizeType = p.size_type;
+          if (!p.sizeChart && p.size_chart) p.sizeChart = p.size_chart;
 
           // ✅ Map Worker stk_* → stockS/stockM/… so sizes object builds correctly
           if (!p.stockS && p.stk_s) p.stockS = p.stk_s;
