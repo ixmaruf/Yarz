@@ -4058,12 +4058,33 @@ const YARZ = (() => {
       html += '</div>';
     }
 
+    // Stock Urgency Bar — compact, above size selector
+    var _stockBarHtml = '';
+    if (state.stockBar && product.inStock) {
+      var isOneSz = isOneSize(product);
+      var totalStock = isOneSz ? oneSizeStock(product) : (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
+      if (totalStock > 0) {
+        var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#F59E0B' : '#22C55E';
+        var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
+        var stockLabel = isOneSz ? totalStock + ' pieces in stock' : 'Select size to check stock';
+        _stockBarHtml = '<div id="stock-urgency-bar" style="margin-bottom:10px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+            '<span id="stock-urgency-text" style="font-size:11px;font-weight:600;color:' + urgencyColor + ';letter-spacing:0.02em;">⚡ ' + stockLabel + '</span>' +
+          '</div>' +
+          '<div style="height:3px;background:var(--border-light,#E5E7EB);border-radius:2px;overflow:hidden;">' +
+            '<div id="stock-urgency-fill" style="height:100%;width:' + urgencyPct + '%;background:' + urgencyColor + ';border-radius:2px;transition:width 0.4s ease;"></div>' +
+          '</div>' +
+        '</div>';
+      }
+    }
+
     // Sizes
     // ✅ v16.1 ONE-SIZE: skip the entire size picker for sizeless products.
     // getVisibleSizes() returns [] for them; we render no Size block at all so
     // the customer just picks quantity. selectedSize is auto-set to "ONE" in
     // openProduct() so add-to-cart / buy-now work without a manual pick.
     if (!isOneSize(product)) {
+    html += _stockBarHtml; // Show stock bar above size selector
     html += '<div class="pd-sizes"><div class="label">Size</div><div class="size-options" id="size-options">';
     var isPant = _effectiveIsPant(product.category, product);
     // ✅ v11.8: Hide-OOS-per-size — when admin toggle ON, completely skip
@@ -4090,6 +4111,7 @@ const YARZ = (() => {
     }
 
     // Quantity
+    if (isOneSize(product)) html += _stockBarHtml; // Show stock bar above quantity for one-size
     html += '<div class="pd-qty"><div class="label">Quantity</div><div class="qty-controls">';
     html += '<button class="qty-btn" onclick="YARZ.changeQty(-1)">' + ICONS.minus + '</button>';
     html += '<div class="qty-value" id="qty-value">1</div>';
@@ -4116,21 +4138,6 @@ const YARZ = (() => {
                 '</div>';
       });
       html += '</div>';
-    }
-
-    // Stock Urgency Bar
-    if (state.stockBar && product.inStock) {
-      var isOneSz = isOneSize(product);
-      var totalStock = isOneSz ? oneSizeStock(product) : (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
-      if (totalStock > 0) {
-        var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#F59E0B' : '#22C55E';
-        var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
-        var stockLabel = isOneSz ? 'Only ' + totalStock + ' left in stock' : 'Select a size to check stock';
-        html += '<div id="stock-urgency-bar" style="margin-top:12px;padding:10px 14px;background:rgba(239,68,68,0.06);border-radius:10px;border:1px solid rgba(239,68,68,0.12);">';
-        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span id="stock-urgency-text" style="font-size:12px;font-weight:600;color:' + urgencyColor + ';">⚡ ' + stockLabel + '</span></span></div>';
-        html += '<div style="height:4px;background:#E5E7EB;border-radius:4px;overflow:hidden;"><div id="stock-urgency-fill" style="height:100%;width:' + urgencyPct + '%;background:' + urgencyColor + ';border-radius:4px;transition:width 0.5s;"></div></div>';
-        html += '</div>';
-      }
     }
 
     // Max Qty hint
