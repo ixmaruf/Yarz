@@ -6063,11 +6063,15 @@ body::before {
   .qty-btn {
     width: 28px;
     height: 26px;
+    min-width: 28px !important;
+    min-height: 26px !important;
   }
 
   .size-btn {
     width: 34px;
     height: 28px;
+    min-width: 34px !important;
+    min-height: 28px !important;
     font-size: 10px;
     border-radius: 6px;
   }
