@@ -6524,10 +6524,32 @@ body[data-sticky-buy="1"] .sticky-buy-bar { display: flex; }
 @media (max-width: 768px) {
   #filter-drawer.cart-drawer,
   #filter-drawer {
-    height: 100dvh !important;
-    height: 100vh !important;
+    height: 65vh !important;
+    max-height: 65vh !important;
     display: flex !important;
     flex-direction: column !important;
+    border-radius: 16px 16px 0 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    transform: translateY(100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.3s !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12) !important;
+  }
+  #filter-drawer.cart-drawer.open,
+  #filter-drawer.open {
+    transform: translateY(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s !important;
+  }
+  /* Semi-transparent backdrop */
+  #filter-overlay.active {
+    background: rgba(0,0,0,0.3) !important;
+    backdrop-filter: blur(2px) !important;
+    -webkit-backdrop-filter: blur(2px) !important;
   }
   #filter-drawer .cart-header {
     flex-shrink: 0 !important;
