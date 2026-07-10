@@ -1114,13 +1114,12 @@
       <div style="margin-bottom:20px;">
         <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Category</h4>
         <div class="yarz-custom-dropdown" id="filter-category-dropdown">
-          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-category-dropdown')">
+          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-category-dropdown')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid #E8E4DC;border-radius:6px;background:#FFFFFF;font-size:12px;font-weight:500;color:#1A1A2E;cursor:pointer;text-align:left;">
             <span class="yarz-custom-dropdown__label">All Categories</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A4A5A" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div class="yarz-custom-dropdown__list" id="filter-category-list"></div>
+          <div class="yarz-custom-dropdown__list" id="filter-category-list" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#FFFFFF;border:1px solid #E8E4DC;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
         </div>
-        <!-- Hidden native select for backwards compatibility -->
         <select id="filter-category-select" style="display:none" onchange="YARZ._onFilterCategoryChange()">
           <option value="">All Categories</option>
         </select>
@@ -1128,13 +1127,12 @@
       <div>
         <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Size</h4>
         <div class="yarz-custom-dropdown" id="filter-size-dropdown">
-          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-size-dropdown')">
+          <button type="button" class="yarz-custom-dropdown__btn" onclick="YARZ._toggleDropdown('filter-size-dropdown')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid #E8E4DC;border-radius:6px;background:#FFFFFF;font-size:12px;font-weight:500;color:#1A1A2E;cursor:pointer;text-align:left;">
             <span class="yarz-custom-dropdown__label">All Sizes</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A4A5A" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div class="yarz-custom-dropdown__list" id="filter-size-list"></div>
+          <div class="yarz-custom-dropdown__list" id="filter-size-list" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#FFFFFF;border:1px solid #E8E4DC;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:100;max-height:200px;overflow-y:auto;display:none;"></div>
         </div>
-        <!-- Hidden native select for backwards compatibility -->
         <select id="filter-size-select" style="display:none" onchange="YARZ._onFilterSizeChange()">
           <option value="">All Sizes</option>
         </select>

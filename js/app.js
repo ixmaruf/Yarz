@@ -3432,40 +3432,40 @@ const YARZ = (() => {
     if (!dropdown) return;
     var btn = dropdown.querySelector('.yarz-custom-dropdown__btn');
     var list = dropdown.querySelector('.yarz-custom-dropdown__list');
-    var isOpen = list.classList.contains('is-open');
+    var isOpen = list.style.display === 'block';
     
     // Close all other dropdowns
-    document.querySelectorAll('.yarz-custom-dropdown__list.is-open').forEach(function(l) {
-      l.classList.remove('is-open');
-    });
-    document.querySelectorAll('.yarz-custom-dropdown__btn.is-open').forEach(function(b) {
-      b.classList.remove('is-open');
+    document.querySelectorAll('.yarz-custom-dropdown__list').forEach(function(l) {
+      l.style.display = 'none';
     });
     
     if (!isOpen) {
-      list.classList.add('is-open');
-      btn.classList.add('is-open');
+      list.style.display = 'block';
     }
   }
 
   function _selectDropdownItem(dropdownId, value, label) {
     var dropdown = document.getElementById(dropdownId);
     if (!dropdown) return;
-    var btn = dropdown.querySelector('.yarz-custom-dropdown__btn');
+    var labelEl = dropdown.querySelector('.yarz-custom-dropdown__label');
     var list = dropdown.querySelector('.yarz-custom-dropdown__list');
-    var labelEl = btn.querySelector('.yarz-custom-dropdown__label');
     
     // Update button label
     labelEl.textContent = label;
     
     // Update selected state
     list.querySelectorAll('.yarz-custom-dropdown__item').forEach(function(item) {
-      item.classList.toggle('is-selected', item.getAttribute('data-value') === value);
+      if (item.getAttribute('data-value') === value) {
+        item.style.background = '#1A1A2E';
+        item.style.color = '#FFFFFF';
+      } else {
+        item.style.background = '';
+        item.style.color = '';
+      }
     });
     
     // Close dropdown
-    list.classList.remove('is-open');
-    btn.classList.remove('is-open');
+    list.style.display = 'none';
     
     // Update hidden native select and trigger change
     if (dropdownId === 'filter-category-dropdown') {
@@ -3480,11 +3480,8 @@ const YARZ = (() => {
   // Close dropdowns when clicking outside
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.yarz-custom-dropdown')) {
-      document.querySelectorAll('.yarz-custom-dropdown__list.is-open').forEach(function(l) {
-        l.classList.remove('is-open');
-      });
-      document.querySelectorAll('.yarz-custom-dropdown__btn.is-open').forEach(function(b) {
-        b.classList.remove('is-open');
+      document.querySelectorAll('.yarz-custom-dropdown__list').forEach(function(l) {
+        l.style.display = 'none';
       });
     }
   });
@@ -3537,7 +3534,9 @@ const YARZ = (() => {
       }
     }
     var html = '<option value="">All Sizes</option>';
-    var customHtml = '<div class="yarz-custom-dropdown__item is-selected" data-value="" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'\', \'All Sizes\')">All Sizes</div>';
+    var itemStyle = 'padding:8px 10px;font-size:12px;font-weight:500;color:#1A1A2E;cursor:pointer;border-bottom:1px solid #F5F0E6;';
+    var selectedStyle = itemStyle + 'background:#1A1A2E;color:#FFFFFF;';
+    var customHtml = '<div style="' + selectedStyle + '" data-value="" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'\', \'All Sizes\')">All Sizes</div>';
     if (isPant) {
       // Lower body: waist sizes
       var sizes = [
@@ -3551,7 +3550,7 @@ const YARZ = (() => {
       sizes.forEach(function(s) {
         if (!isSizeVisible(s.code, true)) return;
         html += '<option value="' + s.code + '">' + s.label + '</option>';
-        customHtml += '<div class="yarz-custom-dropdown__item" data-value="' + s.code + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'' + s.code + '\', \'' + s.label + '\')">' + s.label + '</div>';
+        customHtml += '<div style="' + itemStyle + '" data-value="' + s.code + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'' + s.code + '\', \'' + s.label + '\')">' + s.label + '</div>';
       });
     } else if (cat) {
       // Upper body: letter sizes
@@ -3559,7 +3558,7 @@ const YARZ = (() => {
       sizes.forEach(function(s) {
         if (!isSizeVisible(s, false)) return;
         html += '<option value="' + s + '">' + s + '</option>';
-        customHtml += '<div class="yarz-custom-dropdown__item" data-value="' + s + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'' + s + '\', \'' + s + '\')">' + s + '</div>';
+        customHtml += '<div style="' + itemStyle + '" data-value="' + s + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'' + s + '\', \'' + s + '\')">' + s + '</div>';
       });
     } else {
       // No category selected — show all sizes grouped with labels
@@ -3568,7 +3567,7 @@ const YARZ = (() => {
       ['S','M','L','XL','XXL','3XL'].forEach(function(s) {
         if (!isSizeVisible(s, false)) return;
         html += '<option value="shirt_' + s + '">' + s + '</option>';
-        customHtml += '<div class="yarz-custom-dropdown__item" data-value="shirt_' + s + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'shirt_' + s + '\', \'' + s + '\')">' + s + '</div>';
+        customHtml += '<div style="' + itemStyle + '" data-value="shirt_' + s + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'shirt_' + s + '\', \'' + s + '\')">' + s + '</div>';
       });
       html += '</optgroup>';
       html += '<optgroup label="Lower Body">';
@@ -3584,7 +3583,7 @@ const YARZ = (() => {
       waist.forEach(function(s) {
         if (!isSizeVisible(s.code, true)) return;
         html += '<option value="pant_' + s.code + '">' + s.label + '</option>';
-        customHtml += '<div class="yarz-custom-dropdown__item" data-value="pant_' + s.code + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'pant_' + s.code + '\', \'' + s.label + '\')">' + s.label + '</div>';
+        customHtml += '<div style="' + itemStyle + '" data-value="pant_' + s.code + '" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'pant_' + s.code + '\', \'' + s.label + '\')">' + s.label + '</div>';
       });
       html += '</optgroup>';
     }
@@ -3612,12 +3611,12 @@ const YARZ = (() => {
       var cats = Object.keys(counts).sort();
       var currentCat = state.currentCategory || '';
       var html = '<option value="">All Categories</option>';
-      var customHtml = '<div class="yarz-custom-dropdown__item is-selected" data-value="" onclick="YARZ._selectDropdownItem(\'filter-category-dropdown\', \'\', \'All Categories\')">All Categories</div>';
+      var customHtml = '<div style="' + selectedStyle + '" data-value="" onclick="YARZ._selectDropdownItem(\'filter-category-dropdown\', \'\', \'All Categories\')">All Categories</div>';
       cats.forEach(function(c) {
         var sel = c === currentCat ? ' selected' : '';
         html += '<option value="' + c.replace(/"/g, '&quot;') + '"' + sel + '>' + c + ' (' + counts[c] + ')</option>';
-        var selectedClass = c === currentCat ? ' is-selected' : '';
-        customHtml += '<div class="yarz-custom-dropdown__item' + selectedClass + '" data-value="' + c.replace(/"/g, '&quot;') + '" onclick="YARZ._selectDropdownItem(\'filter-category-dropdown\', \'' + c.replace(/'/g, "\\'") + '\', \'' + c.replace(/'/g, "\\'") + ' (' + counts[c] + ')\')">' + escHtml(c) + ' (' + counts[c] + ')</div>';
+        var selectedClass = c === currentCat ? selectedStyle : itemStyle;
+        customHtml += '<div style="' + selectedClass + '" data-value="' + c.replace(/"/g, '&quot;') + '" onclick="YARZ._selectDropdownItem(\'filter-category-dropdown\', \'' + c.replace(/'/g, "\\'") + '\', \'' + c.replace(/'/g, "\\'") + ' (' + counts[c] + ')\')">' + escHtml(c) + ' (' + counts[c] + ')</div>';
       });
       catSel.innerHTML = html;
       if (catList) catList.innerHTML = customHtml;
@@ -3783,7 +3782,13 @@ const YARZ = (() => {
       var catLabel = catDropdown.querySelector('.yarz-custom-dropdown__label');
       if (catLabel) catLabel.textContent = 'All Categories';
       catDropdown.querySelectorAll('.yarz-custom-dropdown__item').forEach(function(item) {
-        item.classList.toggle('is-selected', item.getAttribute('data-value') === '');
+        if (item.getAttribute('data-value') === '') {
+          item.style.background = '#1A1A2E';
+          item.style.color = '#FFFFFF';
+        } else {
+          item.style.background = '';
+          item.style.color = '';
+        }
       });
     }
     
@@ -3800,7 +3805,7 @@ const YARZ = (() => {
       if (sizeLabel) sizeLabel.textContent = 'All Sizes';
       var sizeList = sizeDropdown.querySelector('.yarz-custom-dropdown__list');
       if (sizeList) {
-        sizeList.innerHTML = '<div class="yarz-custom-dropdown__item is-selected" data-value="" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'\', \'All Sizes\')">All Sizes</div>';
+        sizeList.innerHTML = '<div style="padding:8px 10px;font-size:12px;font-weight:500;color:#FFFFFF;cursor:pointer;background:#1A1A2E;border-bottom:1px solid #F5F0E6;" data-value="" onclick="YARZ._selectDropdownItem(\'filter-size-dropdown\', \'\', \'All Sizes\')">All Sizes</div>';
       }
     }
     
