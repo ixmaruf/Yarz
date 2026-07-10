@@ -228,6 +228,23 @@ var YARZ_API = (function() {
             if (!p.image5 && p.img5) p.image5 = p.img5;
             if (!p.image6 && p.img6) p.image6 = p.img6;
             if (!p.description && p.desc) p.description = p.desc;
+
+            // ✅ Map snake_case → camelCase for one-size / accessory (turbo path)
+            if (!p.hiddenSizes && p.hidden_sizes) p.hiddenSizes = p.hidden_sizes;
+            if (!p.sizeType && p.size_type) p.sizeType = p.size_type;
+            if (!p.stockS && p.stk_s) p.stockS = p.stk_s;
+            if (!p.stockM && p.stk_m) p.stockM = p.stk_m;
+            if (!p.stockL && p.stk_l) p.stockL = p.stk_l;
+            if (!p.stockXL && p.stk_xl) p.stockXL = p.stk_xl;
+            if (!p.stockXXL && p.stk_xxl) p.stockXXL = p.stk_xxl;
+            if (!p.stock3XL && p.stk_3xl) p.stock3XL = p.stk_3xl;
+            if (!p.image1 && p.image_1) p.image1 = p.image_1;
+            if (!p.image2 && p.image_2) p.image2 = p.image_2;
+            if (!p.image3 && p.image_3) p.image3 = p.image_3;
+            if (!p.image4 && p.image_4) p.image4 = p.image_4;
+            if (!p.image5 && p.image_5) p.image5 = p.image_5;
+            if (!p.image6 && p.image_6) p.image6 = p.image_6;
+
             return p;
           });
 
