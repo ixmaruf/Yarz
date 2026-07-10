@@ -4120,13 +4120,15 @@ const YARZ = (() => {
 
     // Stock Urgency Bar
     if (state.stockBar && product.inStock) {
-      var totalStock = (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
-      if (totalStock > 0 && totalStock <= 20) {
-        var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
+      var isOneSz = isOneSize(product);
+      var totalStock = isOneSz ? oneSizeStock(product) : (product.sizes ? Object.values(product.sizes).reduce(function(s, v) { return s + (parseInt(v, 10) || 0); }, 0) : 0);
+      if (totalStock > 0) {
         var urgencyColor = totalStock <= 5 ? '#EF4444' : totalStock <= 10 ? '#F59E0B' : '#22C55E';
-        html += '<div style="margin-top:12px;padding:10px 14px;background:rgba(239,68,68,0.06);border-radius:10px;border:1px solid rgba(239,68,68,0.12);">';
-        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;color:' + urgencyColor + ';">⚡ Only ' + totalStock + ' items left!</span></div>';
-        html += '<div style="height:4px;background:#E5E7EB;border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + urgencyPct + '%;background:' + urgencyColor + ';border-radius:4px;transition:width 0.5s;"></div></div>';
+        var urgencyPct = Math.min(100, Math.max(10, (totalStock / 20) * 100));
+        var stockLabel = isOneSz ? 'Only ' + totalStock + ' left in stock' : 'Select a size to check stock';
+        html += '<div id="stock-urgency-bar" style="margin-top:12px;padding:10px 14px;background:rgba(239,68,68,0.06);border-radius:10px;border:1px solid rgba(239,68,68,0.12);">';
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span id="stock-urgency-text" style="font-size:12px;font-weight:600;color:' + urgencyColor + ';">⚡ ' + stockLabel + '</span></span></div>';
+        html += '<div style="height:4px;background:#E5E7EB;border-radius:4px;overflow:hidden;"><div id="stock-urgency-fill" style="height:100%;width:' + urgencyPct + '%;background:' + urgencyColor + ';border-radius:4px;transition:width 0.5s;"></div></div>';
         html += '</div>';
       }
     }
@@ -4253,6 +4255,24 @@ const YARZ = (() => {
     return (String(size).toUpperCase() === ONE_SIZE_CODE) ? 'One Size' : size;
   }
 
+  // Update the stock urgency bar when a size is selected
+  function _updateStockBar(product, size) {
+    var bar = $('#stock-urgency-bar');
+    var textEl = $('#stock-urgency-text');
+    var fillEl = $('#stock-urgency-fill');
+    if (!bar || !textEl || !fillEl || !product) return;
+
+    var stock = _getEffectiveStock(product, size);
+    var color = stock <= 5 ? '#EF4444' : stock <= 10 ? '#F59E0B' : '#22C55E';
+    var pct = Math.min(100, Math.max(10, (stock / 20) * 100));
+    var label = 'Only ' + stock + ' left in ' + _sizeLabel(size);
+
+    textEl.textContent = '⚡ ' + label;
+    textEl.style.color = color;
+    fillEl.style.width = pct + '%';
+    fillEl.style.background = color;
+  }
+
   function selectSize(s) {
     selectedSize = s;
     $$('#size-options .size-btn').forEach(function (btn) {
@@ -4262,8 +4282,12 @@ const YARZ = (() => {
     if (window.YARZ_PIXEL && state.currentProduct) {
       YARZ_PIXEL.sizeSelected(state.currentProduct, s);
     }
-    // ✅ v4.2: Use effective (live or cached) stock + trigger silent refresh
+    // ✅ Update stock urgency bar with per-size stock
     var p = state.currentProduct;
+    if (p && state.stockBar) {
+      _updateStockBar(p, s);
+    }
+    // ✅ v4.2: Use effective (live or cached) stock + trigger silent refresh
     if (p) {
       _refreshLiveStock(p); // silent background refresh
       var maxStock = _getEffectiveStock(p, s);
