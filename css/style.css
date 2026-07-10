@@ -6042,9 +6042,9 @@ body::before {
 
   .pd-actions .btn {
     width: 100%;
-    padding: 14px;
-    font-size: 14px;
-    border-radius: 10px;
+    padding: 10px;
+    font-size: 12px;
+    border-radius: 8px;
   }
 
   /* Mobile form improvements */
@@ -6061,15 +6061,15 @@ body::before {
 
   /* Better touch targets */
   .qty-btn {
-    width: 44px;
-    height: 42px;
+    width: 28px;
+    height: 26px;
   }
 
   .size-btn {
-    width: 52px;
-    height: 44px;
-    font-size: 13px;
-    border-radius: 8px;
+    width: 34px;
+    height: 28px;
+    font-size: 10px;
+    border-radius: 6px;
   }
 
   /* Mobile toast position */
