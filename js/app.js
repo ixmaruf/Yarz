@@ -3601,6 +3601,8 @@ const YARZ = (() => {
     // Populate category dropdown from actual products
     var catSel = document.getElementById('filter-category-select');
     var catList = document.getElementById('filter-category-list');
+    var itemStyle = 'padding:8px 10px;font-size:12px;font-weight:500;color:#1A1A2E;cursor:pointer;border-bottom:1px solid #F5F0E6;';
+    var selectedStyle = itemStyle + 'background:#1A1A2E;color:#FFFFFF;';
     if (catSel) {
       var shopProds = getShopProducts();
       var counts = {};
