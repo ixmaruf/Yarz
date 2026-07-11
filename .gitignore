@@ -20,6 +20,7 @@ npm-debug.log*
 scratch/
 
 # Notes/Docs you don't want live
+dev-notes/
 Competitor-Analysis-YARZ.txt
 Facebook-Pixel-Setup-Guide-Bangla.txt
 DEPLOYMENT-GUIDE.md

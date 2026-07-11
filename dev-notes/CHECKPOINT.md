@@ -18,8 +18,7 @@ See MIGRATION_REPORT.md for the full migration history and current state.
 
 ## Login
 
-- Admin username: maruf_ix
-- Admin password: Hassan__00
+- Admin credentials stored securely (not in repo)
 
 ## Notes
 
