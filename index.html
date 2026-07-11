@@ -392,17 +392,27 @@
        the page never paints unstyled. The earlier preload-swap pattern
        (rel="preload" + onload swap) was non-blocking, which made the
        browser render plain HTML for ~50–200 ms before CSS applied — that's
-       the brief "glitch / flash" customers reported on refresh.
-       Performance impact is minimal because:
-         (a) Cloudflare edge serves CSS in <50 ms with HTTP/2 multiplexing
-         (b) The CSS is versioned + cached for 1 year by the Worker
-         (c) HTTP/2 priority headers from CF push it ahead of JS anyway
-       Net: clean first paint, no visible FOUC. -->
-  <link rel="stylesheet" href="./css/style.css?v=17.36">
+        the brief "glitch / flash" customers reported on refresh.
+        Performance impact is minimal because:
+          (a) Cloudflare edge serves CSS in <50 ms with HTTP/2 multiplexing
+          (b) The CSS is versioned + cached for 1 year by the Worker
+          (c) HTTP/2 priority headers from CF push it ahead of JS anyway
+        Net: clean first paint, no visible FOUC. -->
+  <!-- ✅ PERFORMANCE: Load CSS with media swap for non-blocking -->
+  <link rel="stylesheet" href="./css/style.css?v=17.36" media="all">
   <style>
-    .filter-chip.active{background:var(--accent,#C8102E)!important;color:#fff!important;border-color:var(--accent,#C8102E)!important}
+    /* Critical CSS - inlined for fast FCP */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',sans-serif;background:#FBF8F1;color:#1A1A2E;line-height:1.5}
+    .hero-section{width:100%;background:#F5F0E6;overflow:hidden;position:relative}
+    .hero-slider .slide img{width:100%;height:100%;object-fit:cover;display:block}
+    .product-card{background:#fff;border-radius:12px;overflow:hidden}
+    .product-card .card-image{position:relative;width:100%;padding-top:125%;overflow:hidden;background:#F5F0E6}
+    .product-card .card-image img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
+    .header{position:sticky;top:0;z-index:1000;background:#fff}
+    .filter-chip.active{background:#1A1A2E!important;color:#fff!important;border-color:#1A1A2E!important}
     body.dark .filter-chip{background:#1e2028!important;color:#c8c9ce!important;border-color:#333!important}
-    body.dark .filter-chip.active{background:var(--accent,#C8102E)!important;color:#fff!important}
+    body.dark .filter-chip.active{background:#1A1A2E!important;color:#fff!important}
     body.dark .filter-select{background:#1e2028!important;color:#c8c9ce!important;border-color:#333!important}
     body.dark .filter-select option{background:#1e2028!important;color:#c8c9ce!important}
   </style>
