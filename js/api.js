@@ -176,7 +176,7 @@ var YARZ_API = (function() {
             // the request normalizes to the SAME warm, prewarmed slot →
             // ~50ms edge HIT. `_t` is still stripped by buildCacheKey so it
             // only busts intermediate HTTP caches, never forks the edge slot.
-            var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&_t=' + Date.now();
+            var url = CLOUDFLARE_WORKER_URL + '?action=products&_t=' + Date.now();
             return fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
           })();
         });
@@ -184,7 +184,7 @@ var YARZ_API = (function() {
         // Fallback: fire fetch now
         // ✅ v15.97 CACHE-SLOT UNIFY: dropped `cb=1` (see note above) so this
         // hits the prewarmed edge slot instead of a perpetually-cold one.
-        var url = CLOUDFLARE_WORKER_URL + '?key=' + GOOGLE_API_KEY + '&action=products&_t=' + Date.now();
+        var url = CLOUDFLARE_WORKER_URL + '?action=products&_t=' + Date.now();
         fetchPromise = fetch(url, { cache: 'no-store' }).then(function(r) { return r.json(); });
       }
       return fetchPromise
@@ -285,7 +285,6 @@ var YARZ_API = (function() {
             SHEET_ID + '/values:batchGet?ranges=' +
             encodeURIComponent('INVENTORY!A1:AZ') + '&ranges=' +
             encodeURIComponent('SETTINGS!A:B') +
-            '&key=' + GOOGLE_API_KEY +
             '&valueRenderOption=UNFORMATTED_VALUE';
           return fetch(sheetUrl, { cache: 'no-store' })
             .then(function(r) { return r.json(); })
@@ -922,7 +921,7 @@ var YARZ_API = (function() {
           };
           result = _normalizeResponse('products', result);
           // Populate memory cache so subsequent calls are instant
-          var ck = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=products';
+          var ck = getReadUrl() + '?action=products';
           setCache(ck, result);
           return result;
         }
@@ -1542,7 +1541,7 @@ var YARZ_API = (function() {
         // Cross-populate store_info cache from the products response (in-memory only)
         if (res.storeInfo) {
           var storeInfoData = { success: true, ok: true, data: res.storeInfo, store: res.storeInfo };
-          var siKey = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=store_info';
+          var siKey = getReadUrl() + '?action=store_info';
           setCache(siKey, storeInfoData);
         }
         // Cross-populate categories cache from the products response (in-memory only)
@@ -1554,7 +1553,7 @@ var YARZ_API = (function() {
             cats = Object.keys(counts).map(function(n) { return { name: n, count: counts[n] }; });
           }
           if (cats) {
-            var catKey = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=categories';
+            var catKey = getReadUrl() + '?action=categories';
             setCache(catKey, { success: true, ok: true, categories: cats });
           }
         }
@@ -1574,7 +1573,7 @@ var YARZ_API = (function() {
       if (typeof window === 'undefined' || !window.__yarzErrBuf || !window.__yarzErrBuf.length) return;
       var entries = window.__yarzErrBuf.splice(0);
       var payload = JSON.stringify({ errors: entries, ts: Date.now(), url: location.href, ua: navigator.userAgent });
-      var flushUrl = getReadUrl() + '?key=' + CONFIG.API_KEY + '&action=health';
+      var flushUrl = getReadUrl() + '?action=health';
       if (navigator.sendBeacon) {
         navigator.sendBeacon(flushUrl, payload);
       } else {
