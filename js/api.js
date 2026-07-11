@@ -484,7 +484,7 @@ var YARZ_API = (function() {
     return _lsGet('yarz_worker_url') || CLOUDFLARE_WORKER_URL;
   }
   // v18.10: Always return the yarz-api Worker URL (for fortress & admin API calls)
-  var _API_WORKER_URL = 'https://yarz-api.marufhasan80009.workers.dev/';
+  var _API_WORKER_URL = 'https://yarzclothing.xyz/';
   function getApiUrl() {
     return _lsGet('yarz_api_override') || _API_WORKER_URL;
   }

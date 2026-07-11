@@ -133,9 +133,10 @@
         // back to direct workers.dev otherwise. Match the construction in
         // api.js _detectWorkerUrl() so the fetch is dedup'd.
         var base = (location.hostname && location.hostname !== 'localhost' &&
-                    !location.hostname.endsWith('github.io'))
+                    !location.hostname.endsWith('github.io') &&
+                    !location.hostname.endsWith('pages.dev'))
           ? '/'
-          : 'https://yarz-api.marufhasan80009.workers.dev/';
+          : 'https://yarzclothing.xyz/';
         // cb removed (v15.97): `cb=1` forked the edge cache into a slot the
         // Worker never prewarms/purges → every visit was a cold GAS fetch
         // (2-3s). Without cb, this normalizes to the SAME warm `?action=
