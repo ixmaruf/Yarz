@@ -291,7 +291,7 @@ function safeUrl(u) {
 }
 
 function corsHeaders(origin) {
-  const allowed = ["https://yarzclothing.xyz", "https://www.yarzclothing.xyz", "https://yarz-admin-panel.pages.dev", "https://yarz-admin.marufhasan80009.workers.dev"];
+  const allowed = ["https://yarzclothing.xyz", "https://www.yarzclothing.xyz", "https://yarz-website.pages.dev", "https://yarz-admin-panel.pages.dev", "https://yarz-admin.marufhasan80009.workers.dev"];
   const h = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token, X-Purge-Key, x-purge-secret",
@@ -562,6 +562,26 @@ async function placeOrderSupabase(env, body) {
     const orderId = items.length === 1
       ? (orderData.orderId || ("WEB-" + ts + "-" + Math.floor(Math.random()*10000)))
       : (orderData.orderId + "-" + (i+1));
+    // ✅ SECURITY: Validate price from database — prevent client-side manipulation
+    let validatedPrice = Number(it.price) || 0;
+    let validatedTotal = Number(orderData.total) || 0;
+    try {
+      const productRow = await supabaseRequest(env,
+        "inventory?product=eq." + encodeURIComponent(it.product || it.name || '') + "&select=sale,cost", 
+        { method: "GET" });
+      if (Array.isArray(productRow) && productRow.length > 0) {
+        const dbPrice = Number(productRow[0].sale) || 0;
+        if (dbPrice > 0 && validatedPrice !== dbPrice) {
+          console.warn("[place_order] Price mismatch! Client:", validatedPrice, "DB:", dbPrice, "Using DB price.");
+          validatedPrice = dbPrice;
+          // Recalculate total with validated price
+          validatedTotal = (validatedPrice * (it.qty || 1)) + Number(orderData.deliveryCharge || 0);
+        }
+      }
+    } catch (e) {
+      console.warn("[place_order] Price validation failed:", e.message);
+    }
+
     const args = {
       p_order_id: orderId,
       p_cust_name: orderData.customerName || orderData.name || "",
@@ -571,9 +591,9 @@ async function placeOrderSupabase(env, body) {
       p_product: it.product || it.name || "",
       p_size: it.size || "",
       p_qty: it.qty || 1,
-      p_price: (it.price || 0),
+      p_price: validatedPrice,
       p_delivery_charge: (orderData.deliveryCharge || 0),
-      p_total: (orderData.total || 0),
+      p_total: validatedTotal,
       p_payment: orderData.payment || "Cash on Delivery",
       p_status: "Pending",
       p_notes: orderData.notes || "",
