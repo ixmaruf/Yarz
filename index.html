@@ -398,8 +398,9 @@
           (b) The CSS is versioned + cached for 1 year by the Worker
           (c) HTTP/2 priority headers from CF push it ahead of JS anyway
         Net: clean first paint, no visible FOUC. -->
-  <!-- ✅ PERFORMANCE: Load CSS with media swap for non-blocking -->
-  <link rel="stylesheet" href="./css/style.css?v=17.36" media="all">
+  <!-- ✅ PERFORMANCE: Load CSS async to eliminate render-blocking -->
+  <link rel="preload" href="./css/style.css?v=17.36" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="./css/style.css?v=17.36"></noscript>
   <style>
     /* Critical CSS - inlined for fast FCP */
     *{margin:0;padding:0;box-sizing:border-box}
