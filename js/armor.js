@@ -93,9 +93,7 @@
 
     if (widthDiff > threshold || heightDiff > threshold) {
       _warningShown = true;
-      // Just log — NO popup, NO overlay, NO customer interruption
-      // The console is already neutralized, so this is just internal
-      if (window.__yc) window.__yc.warn('DevTools detected');
+      // ✅ SECURITY: DevTools detected — silent (no console output)
     }
   }
 

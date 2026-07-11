@@ -236,9 +236,15 @@ const YARZ_FORTRESS = (() => {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return 'n/a';
       var ctx = new AC();
+      // ✅ Check if AudioContext is allowed (requires user gesture on some browsers)
+      if (ctx.state === 'suspended') {
+        try { ctx.close(); } catch(e){}
+        return 'pending';
+      }
       var osc = ctx.createOscillator();
       var analyser = ctx.createAnalyser();
       var gain = ctx.createGain();
+      // ✅ Use ScriptProcessorNode (deprecated but still works, AudioWorkletNode requires async)
       var proc = ctx.createScriptProcessor(4096, 1, 1);
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(10000, ctx.currentTime);
