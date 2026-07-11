@@ -922,6 +922,14 @@ async function fetchFromGitHubPages(request, env) {
       respHeaders.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     }
     
+    // ✅ SECURITY: Add security headers to all HTML responses
+    if (isHTML) {
+      respHeaders.set("X-Frame-Options", "SAMEORIGIN");
+      respHeaders.set("X-Content-Type-Options", "nosniff");
+      respHeaders.set("Referrer-Policy", "strict-origin-when-cross-origin");
+      respHeaders.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(self)");
+    }
+    
     return new Response(ghResp.body, { status: ghResp.status, headers: respHeaders });
   } catch (e) {
     return new Response("Static proxy error: " + e.message, { status: 502 });
@@ -1014,6 +1022,24 @@ async function handle(request, env, ctx) {
   // Supabase enabled? Default true so production always uses Supabase unless explicitly disabled.
   const supabaseEnabled = env.SUPABASE_ENABLED !== "false";
 
+  // ✅ SECURITY: Global rate limiting — 30 requests per IP per minute (DDoS protection)
+  const clientIp = request.headers.get("cf-connecting-ip") || "unknown";
+  const now = Date.now();
+  if (!_globalRateLimits) var _globalRateLimits = {};
+  if (!_globalRateLimits[clientIp]) _globalRateLimits[clientIp] = [];
+  _globalRateLimits[clientIp] = _globalRateLimits[clientIp].filter(t => now - t < 60000);
+  if (_globalRateLimits[clientIp].length >= 30) {
+    return jsonResponse({ success: false, error: "Rate limit exceeded. Please wait." }, 429);
+  }
+  _globalRateLimits[clientIp].push(now);
+
+  // ✅ SECURITY: Block known bad user agents
+  const ua = request.headers.get("user-agent") || "";
+  const badBots = ["sqlmap", "nikto", "nmap", "masscan", "zgrab", "gobuster", "dirbuster", "wpscan"];
+  if (badBots.some(b => ua.toLowerCase().includes(b))) {
+    return jsonResponse({ error: "Blocked" }, 403);
+  }
+
   // __analytics (public GET) — visitor analytics: visits (all hits) + unique (by IP per day)
   // Only tracks visits from the main website (yarzclothing.xyz), NOT from admin panel
   // Supports both /__analytics path AND ?action=__analytics query param
@@ -1077,6 +1103,18 @@ async function handle(request, env, ctx) {
 
   // place_order (public POST) -> Supabase create_manual_order RPC
   if (supabaseEnabled && action === "place_order" && request.method === "POST") {
+    // ✅ SECURITY: Rate limiting — max 5 orders per IP per minute
+    const orderIp = request.headers.get("cf-connecting-ip") || "unknown";
+    const now = Date.now();
+    if (!_orderRateLimits) var _orderRateLimits = {};
+    if (!_orderRateLimits[orderIp]) _orderRateLimits[orderIp] = [];
+    // Clean old entries
+    _orderRateLimits[orderIp] = _orderRateLimits[orderIp].filter(t => now - t < 60000);
+    if (_orderRateLimits[orderIp].length >= 5) {
+      return jsonResponse({ success: false, error: "Too many orders. Please wait a few minutes." }, 429);
+    }
+    _orderRateLimits[orderIp].push(now);
+    
     // v18.10: Inject IP & ASN from Cloudflare request headers for fortress tracking
     if (!body.ip) body.ip = request.headers.get("cf-connecting-ip") || "";
     if (!body.country) body.country = request.headers.get("cf-ipcountry") || "";
