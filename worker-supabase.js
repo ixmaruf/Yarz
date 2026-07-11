@@ -903,10 +903,25 @@ async function fetchFromGitHubPages(request, env) {
       }
     }
 
-    // Pass through content, with permissive cache
+    // ✅ PERFORMANCE: Smart cache headers based on file type
     const respHeaders = new Headers(ghResp.headers);
     respHeaders.set("Access-Control-Allow-Origin", "*");
-    respHeaders.set("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+    
+    const pathname = url.pathname;
+    const isStaticAsset = /\.(css|js|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp|ico|avif)(\?|$)/i.test(pathname);
+    const isHTML = /\.html(\?|$)/i.test(pathname) || pathname === '/' || !pathHasExtension(pathname);
+    
+    if (isStaticAsset) {
+      // Static assets: cache 1 year (immutable for versioned files)
+      respHeaders.set("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (isHTML) {
+      // HTML: cache 5 min, stale-while-revalidate 1 hour
+      respHeaders.set("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+    } else {
+      // Other: cache 1 hour
+      respHeaders.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    }
+    
     return new Response(ghResp.body, { status: ghResp.status, headers: respHeaders });
   } catch (e) {
     return new Response("Static proxy error: " + e.message, { status: 502 });
